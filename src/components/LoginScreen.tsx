@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
-import { ShoppingBag, Sparkles } from 'lucide-react'
+import { AppLogo } from '@/components/ui/AppLogo'
 
 export const LoginScreen: React.FC = () => {
   const { signInWithGoogle } = useAuth()
@@ -31,9 +31,8 @@ export const LoginScreen: React.FC = () => {
 
       {/* Header Section */}
       <div className="pt-16 flex flex-col items-center text-center z-10">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 shadow-xl relative group">
-          <ShoppingBag className="w-8 h-8 text-emerald-400" />
-          <Sparkles className="w-4 h-4 text-emerald-300 absolute -top-1 -right-1 animate-pulse" />
+        <div className="w-20 h-20 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl relative p-2">
+          <AppLogo size={56} />
         </div>
 
         <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
