@@ -1,55 +1,78 @@
-import { ShoppingBag, Sparkles, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext'
+import { LoginScreen } from '@/components/LoginScreen'
+import { Button } from '@/components/ui/button'
+import { LogOut, Home, ShoppingCart, BookOpen, History } from 'lucide-react'
 
 export default function App() {
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 font-sans">
-      <div className="max-w-md w-full space-y-8 bg-zinc-950 p-8 rounded-2xl border border-zinc-800/80 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center justify-center gap-3">
-          <div className="p-3 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl shadow-lg shadow-emerald-500/20 text-black">
-            <ShoppingBag className="w-8 h-8 stroke-[2.5]" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-            Smart Shopping
-          </h1>
-        </div>
+  const { user, household, loading, signOut } = useAuth()
 
-        <div className="space-y-4 text-center">
-          <p className="text-zinc-400 text-sm leading-relaxed">
-            Środowisko frontendowe zostało pomyślnie zainicjalizowane.
-          </p>
-
-          <div className="pt-2 space-y-2.5 text-left text-xs text-zinc-300">
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Vite + React + TypeScript</span>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Tailwind CSS ("True Black" #000000)</span>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Alias ścieżek <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-emerald-300">@/*</code></span>
-            </div>
-            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/50">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Komponenty <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-emerald-300">shadcn/ui</code></span>
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-2 flex justify-center">
-          <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-semibold shadow-lg shadow-emerald-500/20">
-            Gotowe do Fazy 2
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-center gap-2 text-xs text-zinc-500 pt-2 border-t border-zinc-800/60">
-          <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Faza 1: Punkt 3 ukończony</span>
+  if (loading) {
+    return (
+      <div className="max-w-md mx-auto min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-zinc-500 text-xs tracking-wide">Ładowanie SmartShopping...</p>
         </div>
       </div>
+    )
+  }
+
+  if (!user) {
+    return <LoginScreen />
+  }
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen bg-black text-white flex flex-col justify-between relative border-x border-zinc-900 shadow-2xl">
+      {/* Top Header */}
+      <header className="p-4 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 sticky top-0 z-20 flex items-center justify-between">
+        <div>
+          <h2 className="font-bold text-sm tracking-tight text-zinc-100">
+            {household?.name || 'Moje Gospodarstwo'}
+          </h2>
+          <p className="text-xs text-zinc-500">{user.email}</p>
+        </div>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => signOut()}
+          className="text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-lg"
+          title="Wyloguj się"
+        >
+          <LogOut className="w-4 h-4" />
+        </Button>
+      </header>
+
+      {/* Main Area Placeholder */}
+      <main className="p-6 flex-1 flex flex-col items-center justify-center text-center">
+        <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
+          <Home className="w-6 h-6 text-emerald-400" />
+        </div>
+        <h3 className="text-lg font-bold text-zinc-200">Zalogowano pomyślnie!</h3>
+        <p className="text-xs text-zinc-400 mt-2 max-w-xs leading-relaxed">
+          Strona autoryzacji oraz powiązanie z gospodarstwem domowym (<span className="text-emerald-400 font-mono">{household?.id?.slice(0, 8)}...</span>) działają prawidłowo.
+        </p>
+      </main>
+
+      {/* Bottom Navigation Bar Placeholder */}
+      <nav className="bg-zinc-950 border-t border-zinc-900 p-2 flex items-center justify-around sticky bottom-0 z-20">
+        <button className="flex flex-col items-center gap-1 text-emerald-400 p-2">
+          <BookOpen className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Przepisy</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 p-2">
+          <ShoppingCart className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Koszyk</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 p-2">
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Aktywna</span>
+        </button>
+        <button className="flex flex-col items-center gap-1 text-zinc-500 hover:text-zinc-300 p-2">
+          <History className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Historia</span>
+        </button>
+      </nav>
     </div>
-  );
+  )
 }
