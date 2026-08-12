@@ -1,13 +1,28 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>temp-vite</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<html lang="pl" class="bg-black">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+
+  <!-- PWA & Apple iOS Meta Tags -->
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Smart Shopping" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+
+  <!-- SEO Meta Tags -->
+  <title>Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe</title>
+  <meta name="description"
+    content="Inteligentna aplikacja do przeliczania makroskładników, skalowania posiłków i błyskawicznego odhaczania wspólnych zakupów w czasie rzeczywistym." />
+</head>
+
+<body class="bg-black text-white antialiased selection:bg-emerald-500 selection:text-black">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

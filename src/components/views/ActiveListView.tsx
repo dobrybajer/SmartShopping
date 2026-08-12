@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle2, Calendar, Radio, Archive, ShoppingCart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
+
 export const ActiveListView: React.FC = () => {
   const { household } = useAuth()
   const { setDraftItems, draftItems } = useShoppingStore()
@@ -28,17 +30,33 @@ export const ActiveListView: React.FC = () => {
     loadActiveList()
   }, [household])
 
+  // Subskrypcja zmian Realtime w czasie rzeczywistym z Supabase
+  useActiveListRealtime(activeList?.id || null, () => {
+    // Ciche pobranie zaktualizowanego stanu bazy
+    if (household && activeList?.id) {
+      shoppingListService.getActiveList(household.id).then((freshList) => {
+        if (freshList) setActiveList(freshList)
+      })
+    }
+  })
+
   const handleToggleCheck = async (itemId: string, currentStatus: boolean) => {
     if (!activeList) return
 
-    // Optimistic UI update
+    // 1. Optimistic UI update
+    const previousItems = activeList.items
     const updatedItems = activeList.items.map((item) =>
       item.id === itemId ? { ...item, is_checked: !currentStatus } : item
     )
     setActiveList({ ...activeList, items: updatedItems })
 
-    // Supabase update in background
-    await shoppingListService.toggleItemChecked(itemId, !currentStatus)
+    // 2. Supabase async update w tle
+    const success = await shoppingListService.toggleItemChecked(itemId, !currentStatus)
+
+    // 3. Rollback w przypadku niepowodzenia połączenia
+    if (!success) {
+      setActiveList({ ...activeList, items: previousItems })
+    }
   }
 
   const handleArchiveList = async () => {
