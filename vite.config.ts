@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "icon-192.png", "icon-512.png"],
       manifest: {
         name: "Smart Shopping",
         short_name: "Smart Shopping",
@@ -21,9 +21,15 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/favicon.svg",
-            sizes: "192x192 512x512",
-            type: "image/svg+xml",
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any maskable"
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
             purpose: "any maskable"
           }
         ]
