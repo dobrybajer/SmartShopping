@@ -1,1 +1,1 @@
-# SimpleDiet
+# SmartShopping
