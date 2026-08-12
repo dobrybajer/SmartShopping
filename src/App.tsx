@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useShoppingStore } from '@/store/useShoppingStore'
 import { LoginScreen } from '@/components/LoginScreen'
 import { MobileLayout } from '@/components/layout/MobileLayout'
 import type { TabType } from '@/components/layout/BottomNavigation'
@@ -10,6 +11,7 @@ import { HistoryView } from '@/components/views/HistoryView'
 
 export default function App() {
   const { user, loading } = useAuth()
+  const { draftItems } = useShoppingStore()
   const [activeTab, setActiveTab] = useState<TabType>('cookbook')
 
   if (loading) {
@@ -47,11 +49,12 @@ export default function App() {
       activeTab={activeTab}
       onTabChange={setActiveTab}
       headerTitle={getHeaderTitle(activeTab)}
-      draftCount={3}
-      activeCount={4}
+      draftCount={draftItems.length}
     >
       {activeTab === 'cookbook' && <CookbookView />}
-      {activeTab === 'draft' && <DraftView />}
+      {activeTab === 'draft' && (
+        <DraftView onActiveListCreated={() => setActiveTab('active')} />
+      )}
       {activeTab === 'active' && <ActiveListView />}
       {activeTab === 'history' && <HistoryView />}
     </MobileLayout>
