@@ -86,6 +86,7 @@ export interface Database {
           carbs_per_100: number | null
           fat_per_100: number | null
           is_ad_hoc: boolean | null
+          type: 'Global' | 'Household'
         }
         Insert: {
           id?: string
@@ -98,6 +99,7 @@ export interface Database {
           carbs_per_100?: number | null
           fat_per_100?: number | null
           is_ad_hoc?: boolean | null
+          type?: 'Global' | 'Household'
         }
         Update: {
           id?: string
@@ -110,6 +112,7 @@ export interface Database {
           carbs_per_100?: number | null
           fat_per_100?: number | null
           is_ad_hoc?: boolean | null
+          type?: 'Global' | 'Household'
         }
         Relationships: [
           {

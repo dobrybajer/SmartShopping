@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { mealService } from '@/services/mealService'
 import { productService } from '@/services/productService'
-import type { Product } from '@/services/productService'
+import type { Product, ProductCategory } from '@/services/productService'
 import {
   Sheet,
   SheetContent,
@@ -11,6 +11,7 @@ import {
   SheetDescription,
   SheetFooter
 } from '@/components/ui/sheet'
+import { ProductAutocomplete } from '@/components/ui/ProductAutocomplete'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -44,10 +45,13 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [availableProducts, setAvailableProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<ProductCategory[]>([])
   const [ingredients, setIngredients] = useState<IngredientInput[]>([])
 
   // State dodawania nowego składnika do listy
   const [selectedProductId, setSelectedProductId] = useState('')
+  const [selectedProductName, setSelectedProductName] = useState('')
+  const [selectedProductUnit, setSelectedProductUnit] = useState<'g' | 'ml' | 'szt'>('g')
   const [quantityInput, setQuantityInput] = useState<number | ''>(100)
   const [isPantryInput, setIsPantryInput] = useState(false)
 
@@ -62,6 +66,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   useEffect(() => {
     if (open && household) {
       productService.getProducts(household.id).then(setAvailableProducts)
+      productService.getCategories().then(setCategories)
     }
   }, [open, household])
 
@@ -93,6 +98,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     ])
 
     setSelectedProductId('')
+    setSelectedProductName('')
     setQuantityInput(100)
     setIsPantryInput(false)
   }
@@ -270,29 +276,43 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                   </button>
                 </div>
 
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="">-- Wybierz produkt --</option>
-                  {availableProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.unit_type}) {p.kcal_per_100 ? `- ${p.kcal_per_100} kcal/100` : ''}
-                    </option>
-                  ))}
-                </select>
+                <ProductAutocomplete
+                  value={selectedProductName}
+                  onChange={(val) => {
+                    setSelectedProductName(val)
+                    const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
+                    if (match) {
+                      setSelectedProductId(match.id)
+                      setSelectedProductUnit(match.unit_type)
+                    } else {
+                      setSelectedProductId('')
+                    }
+                  }}
+                  products={availableProducts}
+                  categories={categories}
+                  onSelectProduct={(p) => {
+                    setSelectedProductId(p.id)
+                    setSelectedProductName(p.name)
+                    setSelectedProductUnit(p.unit_type)
+                  }}
+                  placeholder="Szukaj składnika z bazy..."
+                />
 
                 <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Ilość (np. 150)"
-                    value={quantityInput}
-                    onChange={(e) =>
-                      setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                    className="h-10 font-mono"
-                  />
+                  <div className="relative flex-1">
+                    <Input
+                      type="number"
+                      placeholder={`Ilość (${selectedProductUnit})`}
+                      value={quantityInput}
+                      onChange={(e) =>
+                        setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
+                      }
+                      className="h-10 font-mono pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500 font-mono pointer-events-none">
+                      {selectedProductUnit}
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-1.5 px-2 bg-zinc-950 rounded-xl border border-zinc-800 h-10 shrink-0">
                     <Checkbox

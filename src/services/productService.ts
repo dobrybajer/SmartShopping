@@ -23,7 +23,7 @@ export const productService = {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .or(`household_id.eq.${householdId},household_id.is.null`)
+      .or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
       .order('name', { ascending: true })
 
     if (error) {
@@ -34,9 +34,14 @@ export const productService = {
   },
 
   async createProduct(product: ProductInsert): Promise<Product | null> {
+    const payload: ProductInsert = {
+      ...product,
+      type: product.type || (product.household_id ? 'Household' : 'Global')
+    }
+
     const { data, error } = await supabase
       .from('products')
-      .insert(product)
+      .insert(payload)
       .select('*')
       .single()
 
