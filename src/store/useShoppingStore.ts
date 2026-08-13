@@ -41,6 +41,18 @@ export interface DraftItem {
   meal_source?: string
 }
 
+export interface AddToDraftPayload {
+  product_id?: string
+  name: string
+  unit_type: UnitEnum
+  category_id?: number
+  category_name?: string
+  sort_order?: number
+  quantity: number
+  is_ad_hoc?: boolean
+  meal_source?: string
+}
+
 interface ShoppingStoreState {
   draftItems: DraftItem[]
   
@@ -54,6 +66,8 @@ interface ShoppingStoreState {
     sort_order?: number
     quantity: number
   }) => void
+  addItemToDraft: (item: AddToDraftPayload) => void
+  addMultipleToDraft: (items: AddToDraftPayload[]) => void
   removeFromDraft: (id: string) => void
   updateDraftQuantity: (id: string, quantity: number) => void
   clearDraft: () => void
@@ -138,6 +152,123 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         set({ draftItems: [...currentDraft, newItem] })
       },
 
+      addItemToDraft: (item) => {
+        const currentDraft = [...get().draftItems]
+        const isAdHoc = !!item.is_ad_hoc || !item.product_id
+
+        if (!isAdHoc && item.product_id) {
+          const existingIndex = currentDraft.findIndex(
+            (d) => d.product_id === item.product_id && !d.is_ad_hoc
+          )
+
+          if (existingIndex >= 0) {
+            currentDraft[existingIndex] = {
+              ...currentDraft[existingIndex],
+              quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+            }
+          } else {
+            currentDraft.push({
+              id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              product_id: item.product_id,
+              name: item.name,
+              unit_type: item.unit_type,
+              category_id: item.category_id,
+              category_name: item.category_name || 'Inne',
+              sort_order: item.sort_order ?? 99,
+              quantity: item.quantity,
+              is_ad_hoc: false,
+              meal_source: item.meal_source
+            })
+          }
+        } else {
+          const existingIndex = currentDraft.findIndex(
+            (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type
+          )
+
+          if (existingIndex >= 0) {
+            currentDraft[existingIndex] = {
+              ...currentDraft[existingIndex],
+              quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+            }
+          } else {
+            currentDraft.push({
+              id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              product_id: item.product_id,
+              name: item.name,
+              unit_type: item.unit_type,
+              category_id: item.category_id,
+              category_name: item.category_name || 'Inne',
+              sort_order: item.sort_order ?? 99,
+              quantity: item.quantity,
+              is_ad_hoc: true,
+              meal_source: item.meal_source
+            })
+          }
+        }
+
+        set({ draftItems: currentDraft })
+      },
+
+      addMultipleToDraft: (items) => {
+        const currentDraft = [...get().draftItems]
+
+        for (const item of items) {
+          const isAdHoc = !!item.is_ad_hoc || !item.product_id
+
+          if (!isAdHoc && item.product_id) {
+            const existingIndex = currentDraft.findIndex(
+              (d) => d.product_id === item.product_id && !d.is_ad_hoc
+            )
+
+            if (existingIndex >= 0) {
+              currentDraft[existingIndex] = {
+                ...currentDraft[existingIndex],
+                quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+              }
+            } else {
+              currentDraft.push({
+                id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                product_id: item.product_id,
+                name: item.name,
+                unit_type: item.unit_type,
+                category_id: item.category_id,
+                category_name: item.category_name || 'Inne',
+                sort_order: item.sort_order ?? 99,
+                quantity: item.quantity,
+                is_ad_hoc: false,
+                meal_source: item.meal_source
+              })
+            }
+          } else {
+            const existingIndex = currentDraft.findIndex(
+              (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type
+            )
+
+            if (existingIndex >= 0) {
+              currentDraft[existingIndex] = {
+                ...currentDraft[existingIndex],
+                quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+              }
+            } else {
+              currentDraft.push({
+                id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                product_id: item.product_id,
+                name: item.name,
+                unit_type: item.unit_type,
+                category_id: item.category_id,
+                category_name: item.category_name || 'Inne',
+                sort_order: item.sort_order ?? 99,
+                quantity: item.quantity,
+                is_ad_hoc: true,
+                meal_source: item.meal_source
+              })
+            }
+          }
+        }
+
+        set({ draftItems: currentDraft })
+      },
+
       removeFromDraft: (id) => {
         set({
           draftItems: get().draftItems.filter((i) => i.id !== id)
@@ -166,3 +297,4 @@ export const useShoppingStore = create<ShoppingStoreState>()(
     }
   )
 )
+

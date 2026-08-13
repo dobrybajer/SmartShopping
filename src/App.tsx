@@ -34,7 +34,7 @@ export default function App() {
       case 'cookbook':
         return 'Książka Kucharska'
       case 'draft':
-        return 'Koszyk (Draft)'
+        return 'Koszyk'
       case 'active':
         return 'Aktywna Lista Zakupów'
       case 'history':

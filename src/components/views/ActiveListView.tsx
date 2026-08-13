@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { CheckCircle2, Calendar, Radio, Archive, ShoppingCart } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
 
@@ -95,7 +95,7 @@ export const ActiveListView: React.FC = () => {
         </div>
         <p className="text-sm font-bold text-zinc-300">Brak aktywnej listy zakupów</p>
         <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
-          Skomponuj koszyk w zakładce <strong className="text-emerald-400">Koszyk</strong> i naciśnij <strong className="text-emerald-400">Generuj Aktywną Listę</strong>.
+          Skomponuj koszyk w zakładce <strong className="text-emerald-400">Koszyk</strong> i naciśnij <strong className="text-emerald-400">Utwórz Aktywną Listę Zakupów</strong>.
         </p>
       </div>
     )
@@ -137,11 +137,12 @@ export const ActiveListView: React.FC = () => {
 
         <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
           <Calendar className="w-3.5 h-3.5" />
-          <span>{activeList.target_date || 'Dziś'}</span>
+          <span>{formatDate(activeList.target_date || activeList.created_at) || 'Dziś'}</span>
           <Badge variant="default" className="text-[10px] ml-1">
             {checkedCount} / {totalCount}
           </Badge>
         </div>
+
       </div>
 
       {/* Sorted Category Groups */}

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { Trash2, Play, Plus, ShoppingBag } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 interface DraftViewProps {
   onActiveListCreated?: () => void
@@ -24,7 +25,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
 
     const newList = await shoppingListService.createActiveListFromDraft(
       household.id,
-      `Zakupy ${new Date().toLocaleDateString('pl-PL')}`,
+      `Zakupy ${formatDate(new Date())}`,
       draftItems
     )
 
@@ -136,7 +137,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           ) : (
             <>
               <Play className="w-4 h-4 fill-black" />
-              <span>Generuj Aktywną Listę Zakupów</span>
+              <span>Utwórz Aktywną Listę Zakupów</span>
             </>
           )}
         </Button>

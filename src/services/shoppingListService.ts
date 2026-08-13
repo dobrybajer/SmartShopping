@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
 import type { DraftItem } from '@/store/useShoppingStore'
+import { formatDate, getLocalDateISOString } from '@/lib/utils'
 
 export type ShoppingList = Database['public']['Tables']['shopping_lists']['Row']
 export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
@@ -68,6 +69,45 @@ export const shoppingListService = {
     }
   },
 
+  async getListWithDetails(listId: string): Promise<ActiveListWithDetails | null> {
+    const { data: listData, error: listErr } = await supabase
+      .from('shopping_lists')
+      .select('*')
+      .eq('id', listId)
+      .maybeSingle()
+
+    if (listErr || !listData) {
+      console.error('Błąd pobierania szczegółów listy:', listErr)
+      return null
+    }
+
+    const { data: itemsData, error: itemsErr } = await supabase
+      .from('shopping_list_items')
+      .select(`
+        *,
+        product:products(
+          id,
+          name,
+          unit_type,
+          category_id,
+          category:product_categories(*)
+        )
+      `)
+      .eq('shopping_list_id', listData.id)
+
+    if (itemsErr) {
+      console.error('Błąd pobierania pozycji listy:', itemsErr)
+    }
+
+    return {
+      ...listData,
+      items: (itemsData || []).map((item: any) => ({
+        ...item,
+        product: item.product
+      }))
+    }
+  },
+
   async createActiveListFromDraft(
     householdId: string,
     listName: string,
@@ -86,9 +126,9 @@ export const shoppingListService = {
       .from('shopping_lists')
       .insert({
         household_id: householdId,
-        name: listName || `Zakupy ${new Date().toLocaleDateString('pl-PL')}`,
+        name: listName || `Zakupy ${formatDate(new Date())}`,
         status: 'active',
-        target_date: new Date().toISOString().split('T')[0]
+        target_date: getLocalDateISOString()
       })
       .select('*')
       .single()
@@ -163,6 +203,43 @@ export const shoppingListService = {
     }
 
     return this.getActiveList(householdId)
+  },
+
+  async updateListName(listId: string, name: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('shopping_lists')
+      .update({ name: name.trim() })
+      .eq('id', listId)
+
+    if (error) {
+      console.error('Błąd zmiany nazwy listy:', error)
+      return false
+    }
+    return true
+  },
+
+  async deleteShoppingList(listId: string): Promise<boolean> {
+    // 1. Usuń pozycje powiązane z listą
+    const { error: itemsErr } = await supabase
+      .from('shopping_list_items')
+      .delete()
+      .eq('shopping_list_id', listId)
+
+    if (itemsErr) {
+      console.error('Błąd usuwania pozycji listy:', itemsErr)
+    }
+
+    // 2. Usuń samą listę
+    const { error: listErr } = await supabase
+      .from('shopping_lists')
+      .delete()
+      .eq('id', listId)
+
+    if (listErr) {
+      console.error('Błąd usuwania listy:', listErr)
+      return false
+    }
+    return true
   },
 
   async toggleItemChecked(itemId: string, isChecked: boolean): Promise<boolean> {
@@ -243,3 +320,4 @@ export const shoppingListService = {
     return data || []
   }
 }
+

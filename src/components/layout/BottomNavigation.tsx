@@ -27,7 +27,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   const items: NavItem[] = [
     {
       id: 'cookbook',
-      label: 'Książka',
+      label: 'Przepisy',
       icon: BookOpen
     },
     {
@@ -38,7 +38,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     },
     {
       id: 'active',
-      label: 'Aktywna',
+      label: 'Lista',
       icon: CheckSquare,
       badge: activeCount
     },
