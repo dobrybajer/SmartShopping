@@ -151,7 +151,10 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg bg-zinc-950 border-zinc-800 text-zinc-100 p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin">
+      <DialogContent
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        className="max-w-lg bg-zinc-950 border-zinc-800 text-zinc-100 p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin"
+      >
         <DialogHeader>
           <div className="flex items-center gap-2.5 mb-1">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
