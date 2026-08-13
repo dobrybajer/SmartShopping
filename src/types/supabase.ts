@@ -35,20 +35,91 @@ export interface Database {
           id: string
           household_id: string | null
           email: string
+          name: string | null
+          created_at: string | null
         }
         Insert: {
           id: string
           household_id?: string | null
           email: string
+          name?: string | null
+          created_at?: string | null
         }
         Update: {
           id?: string
           household_id?: string | null
           email?: string
+          name?: string | null
+          created_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "users_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      household_members: {
+        Row: {
+          id: string
+          household_id: string
+          user_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          user_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          user_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      household_invites: {
+        Row: {
+          id: string
+          household_id: string
+          email: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          email: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          email?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_invites_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
