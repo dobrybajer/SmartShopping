@@ -227,6 +227,7 @@ export interface Database {
           comments: string | null
           category_id: number | null
           tags: string[] | null
+          type: 'Global' | 'Household'
         }
         Insert: {
           id?: string
@@ -237,6 +238,7 @@ export interface Database {
           comments?: string | null
           category_id?: number | null
           tags?: string[] | null
+          type?: 'Global' | 'Household'
         }
         Update: {
           id?: string
@@ -247,6 +249,7 @@ export interface Database {
           comments?: string | null
           category_id?: number | null
           tags?: string[] | null
+          type?: 'Global' | 'Household'
         }
         Relationships: [
           {

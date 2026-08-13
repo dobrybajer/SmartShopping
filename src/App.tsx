@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { LoginScreen } from '@/components/LoginScreen'
@@ -10,9 +10,14 @@ import { ActiveListView } from '@/components/views/ActiveListView'
 import { HistoryView } from '@/components/views/HistoryView'
 
 export default function App() {
-  const { user, loading } = useAuth()
-  const { draftItems } = useShoppingStore()
+  const { user, loading, household } = useAuth()
+  const { draftItems, setActiveHousehold } = useShoppingStore()
   const [activeTab, setActiveTab] = useState<TabType>('cookbook')
+
+  useEffect(() => {
+    setActiveHousehold(household?.id ?? null)
+  }, [household?.id, setActiveHousehold])
+
 
   if (loading) {
     return (

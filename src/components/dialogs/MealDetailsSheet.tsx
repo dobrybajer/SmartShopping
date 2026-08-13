@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Flame, Plus, Check, Scale } from 'lucide-react'
+import { Flame, Plus, Check, Scale, Globe, Home } from 'lucide-react'
 
 interface MealDetailsSheetProps {
   meal: MealWithIngredients | null
@@ -30,6 +30,9 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   const [isAdded, setIsAdded] = useState(false)
 
   if (!meal) return null
+
+  const isGlobal = meal.type === 'Global' || !meal.household_id
+
 
   // Obliczenia makroskładników bazowych
   let baseKcal = 0
@@ -83,8 +86,28 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
       <SheetContent side="bottom" className="max-h-[90vh] overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl">{meal.name}</SheetTitle>
-            <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-emerald-400 font-extrabold text-xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <SheetTitle className="text-xl">{meal.name}</SheetTitle>
+              {isGlobal ? (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
+                >
+                  <Globe className="w-3 h-3" />
+                  <span>Globalny</span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
+                >
+                  <Home className="w-3 h-3" />
+                  <span>Gospodarstwo</span>
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-emerald-400 font-extrabold text-xs shrink-0">
               <Flame className="w-3.5 h-3.5" />
               <span>{Math.round(activeKcal)} kcal</span>
             </div>
@@ -93,6 +116,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
             <SheetDescription>{meal.description}</SheetDescription>
           )}
         </SheetHeader>
+
 
         <div className="py-4 flex flex-col gap-5">
           {/* Tags */}

@@ -6,7 +6,8 @@ export type MealCategory = Database['public']['Tables']['meal_categories']['Row'
 export type MealInsert = Database['public']['Tables']['meals']['Insert']
 
 export interface CreateMealInput {
-  household_id: string
+  household_id?: string | null
+  type?: 'Global' | 'Household'
   name: string
   description?: string
   preparation_steps?: string
@@ -48,7 +49,7 @@ export const mealService = {
           product:products(*)
         )
       `)
-      .or(`household_id.eq.${householdId},household_id.is.null`)
+      .or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
       .order('name', { ascending: true })
 
     if (error) {
@@ -60,6 +61,7 @@ export const mealService = {
     return (data || []).map((m: any) => ({
       id: m.id,
       household_id: m.household_id,
+      type: m.type || (m.household_id ? 'Household' : 'Global'),
       name: m.name,
       description: m.description,
       preparation_steps: m.preparation_steps,
@@ -78,11 +80,15 @@ export const mealService = {
   },
 
   async createMeal(input: CreateMealInput): Promise<MealWithIngredients | null> {
+    const mealType = input.type || (input.household_id ? 'Household' : 'Global')
+    const targetHouseholdId = mealType === 'Global' ? null : input.household_id
+
     // 1. Dodaj potrawę do tabeli `meals`
     const { data: newMeal, error: mealErr } = await supabase
       .from('meals')
       .insert({
-        household_id: input.household_id,
+        household_id: targetHouseholdId,
+        type: mealType,
         name: input.name,
         description: input.description || null,
         preparation_steps: input.preparation_steps || null,
@@ -117,7 +123,7 @@ export const mealService = {
     }
 
     // Pobierz pełny obiekt potrawy z podpiętymi składnikami
-    const meals = await this.getMeals(input.household_id)
+    const meals = await this.getMeals(input.household_id || '')
     return meals.find((m) => m.id === newMeal.id) || null
   },
 
@@ -130,3 +136,4 @@ export const mealService = {
     return true
   }
 }
+

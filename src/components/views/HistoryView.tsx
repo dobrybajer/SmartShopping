@@ -63,10 +63,6 @@ export const HistoryView: React.FC = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold px-1">
-            Kliknij listę, aby zobaczyć szczegóły lub dodać produkty do koszyka
-          </p>
-
           {historyLists.map((list) => {
             const displayDate = formatDate(list.target_date || list.created_at)
             const listTitle = list.name || `Zakupy ${displayDate}`

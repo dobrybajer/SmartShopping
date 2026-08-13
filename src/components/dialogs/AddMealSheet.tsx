@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Trash2, Save, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Save, Sparkles, Home, Globe } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface AddMealSheetProps {
   open: boolean
@@ -38,6 +39,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   onMealCreated
 }) => {
   const { household } = useAuth()
+  const [mealType, setMealType] = useState<'Household' | 'Global'>('Household')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [preparationSteps, setPreparationSteps] = useState('')
@@ -132,6 +134,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
 
     const result = await mealService.createMeal({
       household_id: household.id,
+      type: mealType,
       name: name.trim(),
       description: description.trim() || undefined,
       preparation_steps: preparationSteps.trim() || undefined,
@@ -150,6 +153,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
       if (onMealCreated) onMealCreated()
       onOpenChange(false)
       // Reset form
+      setMealType('Household')
       setName('')
       setDescription('')
       setPreparationSteps('')
@@ -170,6 +174,54 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
         </SheetHeader>
 
         <div className="py-4 flex flex-col gap-4 text-xs">
+          {/* Wybór typu / widoczności przepisu */}
+          <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
+            <label className="font-bold text-zinc-200 text-xs flex items-center justify-between">
+              <span>Dostępność przepisu</span>
+              <span className="text-[10px] text-zinc-500 font-normal">Gdzie ma być widoczny?</span>
+            </label>
+
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => setMealType('Household')}
+                className={cn(
+                  "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+                  mealType === 'Household'
+                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/30 shadow-xs"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
+                )}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <Home className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Gospodarstwo</span>
+                </div>
+                <span className="text-[10px] text-zinc-500 leading-tight">
+                  Tylko dla domowników ({household?.name || 'Gospodarstwo'})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMealType('Global')}
+                className={cn(
+                  "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+                  mealType === 'Global'
+                    ? "bg-sky-500/10 border-sky-500/50 text-sky-300 ring-1 ring-sky-500/30 shadow-xs"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
+                )}
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs">
+                  <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                  <span>Globalny</span>
+                </div>
+                <span className="text-[10px] text-zinc-500 leading-tight">
+                  Dostępny we wszystkich gospodarstwach
+                </span>
+              </button>
+            </div>
+          </div>
+
           {/* Nazwa */}
           <div>
             <label className="font-semibold text-zinc-300 block mb-1">Nazwa Przepisu *</label>
@@ -183,6 +235,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
           {/* Opis */}
           <div>
             <label className="font-semibold text-zinc-300 block mb-1">Krótki opis</label>
+
             <Input
               placeholder="np. Pożywne śniadanie białkowo-tłuszczowe"
               value={description}

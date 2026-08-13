@@ -24,6 +24,7 @@ export interface MealWithIngredients {
   comments: string | null
   category_id: number | null
   tags: string[] | null
+  type?: 'Global' | 'Household'
   ingredients: MealIngredientWithProduct[]
 }
 
@@ -54,9 +55,12 @@ export interface AddToDraftPayload {
 }
 
 interface ShoppingStoreState {
+  activeHouseholdId: string | null
+  draftsByHousehold: Record<string, DraftItem[]>
   draftItems: DraftItem[]
   
   // Actions
+  setActiveHousehold: (householdId: string | null) => void
   addMealToDraft: (meal: MealWithIngredients, targetKcal?: number) => void
   addAdHocToDraft: (item: {
     name: string
@@ -77,9 +81,25 @@ interface ShoppingStoreState {
 export const useShoppingStore = create<ShoppingStoreState>()(
   persist(
     (set, get) => ({
+      activeHouseholdId: null,
+      draftsByHousehold: {},
       draftItems: [],
 
+      setActiveHousehold: (householdId) => {
+        const drafts = get().draftsByHousehold || {}
+        const key = householdId || 'default'
+        const currentHouseholdItems = drafts[key] || []
+        set({
+          activeHouseholdId: householdId,
+          draftItems: currentHouseholdItems
+        })
+      },
+
       addMealToDraft: (meal, targetKcal) => {
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
+
         // 1. Oblicz całkowitą kaloryczność bazową potrawy
         let baseKcalTotal = 0
         meal.ingredients.forEach((ing) => {
@@ -95,36 +115,32 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           multiplier = targetKcal / baseKcalTotal
         }
 
-        // 3. Przekształć składniki na elementy draftu (pomijając is_pantry_item, chyba że użytkownik wymusi)
-        const currentDraft = get().draftItems
+        // 3. Przekształć składniki na elementy draftu
         const updatedDraft = [...currentDraft]
 
         meal.ingredients.forEach((ing) => {
-          if (ing.is_pantry_item) return // pomijamy przyprawy z spiżarni (sól, pieprz itd.)
+          if (ing.is_pantry_item) return
           if (!ing.product) return
 
           const scaledQuantity = Math.round((ing.base_quantity * multiplier) * 10) / 10
 
-          // Sprawdź czy ten produkt już jest w drafcie
           const existingIndex = updatedDraft.findIndex(
             (d) => d.product_id === ing.product_id && !d.is_ad_hoc
           )
 
           if (existingIndex >= 0) {
-            // Zsumuj ilość
             updatedDraft[existingIndex] = {
               ...updatedDraft[existingIndex],
               quantity: Math.round((updatedDraft[existingIndex].quantity + scaledQuantity) * 10) / 10
             }
           } else {
-            // Dodaj nową pozycję
             updatedDraft.push({
               id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
               product_id: ing.product.id,
               name: ing.product.name,
               unit_type: ing.product.unit_type,
               category_id: ing.product.category_id || undefined,
-              category_name: 'Inne', // Zostanie uzupełnione po podpięciu słownika
+              category_name: 'Inne',
               sort_order: 99,
               quantity: scaledQuantity,
               is_ad_hoc: false,
@@ -133,11 +149,20 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           }
         })
 
-        set({ draftItems: updatedDraft })
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: updatedDraft
+          },
+          draftItems: updatedDraft
+        })
       },
 
       addAdHocToDraft: (item) => {
-        const currentDraft = get().draftItems
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
+
         const newItem: DraftItem = {
           id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
           name: item.name,
@@ -149,11 +174,20 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           is_ad_hoc: true
         }
 
-        set({ draftItems: [...currentDraft, newItem] })
+        const updatedDraft = [...currentDraft, newItem]
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: updatedDraft
+          },
+          draftItems: updatedDraft
+        })
       },
 
       addItemToDraft: (item) => {
-        const currentDraft = [...get().draftItems]
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
         const isAdHoc = !!item.is_ad_hoc || !item.product_id
 
         if (!isAdHoc && item.product_id) {
@@ -206,11 +240,19 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           }
         }
 
-        set({ draftItems: currentDraft })
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: currentDraft
+          },
+          draftItems: currentDraft
+        })
       },
 
       addMultipleToDraft: (items) => {
-        const currentDraft = [...get().draftItems]
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
 
         for (const item of items) {
           const isAdHoc = !!item.is_ad_hoc || !item.product_id
@@ -266,29 +308,71 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           }
         }
 
-        set({ draftItems: currentDraft })
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: currentDraft
+          },
+          draftItems: currentDraft
+        })
       },
 
       removeFromDraft: (id) => {
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const updatedDraft = currentDraft.filter((i) => i.id !== id)
+
         set({
-          draftItems: get().draftItems.filter((i) => i.id !== id)
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: updatedDraft
+          },
+          draftItems: updatedDraft
         })
       },
 
       updateDraftQuantity: (id, quantity) => {
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const updatedDraft = currentDraft.map((i) =>
+          i.id === id ? { ...i, quantity } : i
+        )
+
         set({
-          draftItems: get().draftItems.map((i) =>
-            i.id === id ? { ...i, quantity } : i
-          )
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: updatedDraft
+          },
+          draftItems: updatedDraft
         })
       },
 
       clearDraft: () => {
-        set({ draftItems: [] })
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: []
+          },
+          draftItems: []
+        })
       },
 
       setDraftItems: (items) => {
-        set({ draftItems: items })
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: items
+          },
+          draftItems: items
+        })
       }
     }),
     {
@@ -297,4 +381,5 @@ export const useShoppingStore = create<ShoppingStoreState>()(
     }
   )
 )
+
 
