@@ -1,13 +1,14 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { useShoppingStore } from '@/store/useShoppingStore'
+import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
 import { shoppingListService } from '@/services/shoppingListService'
 import { SwipeToDismiss } from '@/components/ui/SwipeToDismiss'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
-import { Trash2, Play, Plus, ShoppingBag } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { Trash2, Play, Plus, Minus, ShoppingBag } from 'lucide-react'
+import { formatDate, getNextQuantity } from '@/lib/utils'
 
 interface DraftViewProps {
   onActiveListCreated?: () => void
@@ -15,9 +16,57 @@ interface DraftViewProps {
 
 export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
-  const { draftItems, removeFromDraft, clearDraft } = useShoppingStore()
+  const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<string>('')
+
+  const handleIncrease = (item: DraftItem) => {
+    const newQty = getNextQuantity(item.quantity, item.unit_type, 'increase')
+    updateDraftQuantity(item.id, newQty)
+  }
+
+  const handleDecrease = (item: DraftItem) => {
+    const newQty = getNextQuantity(item.quantity, item.unit_type, 'decrease')
+    if (newQty <= 0) {
+      setItemToDelete(item)
+      setIsDeleteModalOpen(true)
+    } else {
+      updateDraftQuantity(item.id, newQty)
+    }
+  }
+
+  const startEditing = (itemId: string, currentQuantity: number) => {
+    setEditingId(itemId)
+    setEditValue(String(currentQuantity))
+  }
+
+  const handleInputChange = (val: string) => {
+    // Pozwalaj wyłącznie na dodatnie liczby całkowite (cyfry 0-9 bez wiodącego 0)
+    const cleaned = val.replace(/[^0-9]/g, '')
+    const normalized = cleaned.replace(/^0+/, '')
+    setEditValue(normalized)
+  }
+
+  const handleCommitEdit = (itemId: string) => {
+    const parsed = parseInt(editValue, 10)
+    if (!isNaN(parsed) && parsed > 0) {
+      updateDraftQuantity(itemId, parsed)
+    }
+    setEditingId(null)
+    setEditValue('')
+  }
+
+  const handleConfirmDelete = () => {
+    if (itemToDelete) {
+      removeFromDraft(itemToDelete.id)
+      setItemToDelete(null)
+      setIsDeleteModalOpen(false)
+    }
+  }
 
   const handleGenerateActiveList = async () => {
     if (!household || draftItems.length === 0) return
@@ -99,9 +148,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
 
           {draftItems.map((item) => (
             <SwipeToDismiss key={item.id} onDismiss={() => removeFromDraft(item.id)}>
-              <div className="p-3.5 flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
+              <div className="p-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm text-zinc-100">{item.name}</span>
                     {item.is_ad_hoc ? (
                       <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
@@ -116,9 +165,75 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                   <p className="text-xs text-zinc-500 mt-0.5">{item.category_name}</p>
                 </div>
 
-                <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-bold">
-                  {item.quantity} {item.unit_type}
-                </span>
+                <div
+                  className="flex items-center bg-zinc-900/90 border border-zinc-800 rounded-lg p-0.5 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDecrease(item)
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all"
+                    title="Zmniejsz ilość"
+                    aria-label="Zmniejsz ilość"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+
+                  {editingId === item.id ? (
+                    <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => handleInputChange(e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleCommitEdit(item.id)
+                          } else if (e.key === 'Escape') {
+                            setEditingId(null)
+                            setEditValue('')
+                          }
+                        }}
+                        onBlur={() => handleCommitEdit(item.id)}
+                        className="w-14 h-7 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
+                      />
+                      <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
+                        {item.unit_type}
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startEditing(item.id, item.quantity)
+                      }}
+                      className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded transition-colors cursor-text select-none"
+                      title="Kliknij, aby wpisać ilość"
+                    >
+                      {item.quantity} {item.unit_type}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleIncrease(item)
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all"
+                    title="Zwiększ ilość"
+                    aria-label="Zwiększ ilość"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </SwipeToDismiss>
           ))}
@@ -145,6 +260,17 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
 
       {/* Add Ad-hoc Sheet */}
       <AddAdHocSheet open={isAdHocOpen} onOpenChange={setIsAdHocOpen} />
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDeleteDialog
+        open={isDeleteModalOpen}
+        onOpenChange={setIsDeleteModalOpen}
+        itemName={itemToDelete?.name}
+        targetName="z koszyka"
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }
+
+

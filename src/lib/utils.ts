@@ -32,6 +32,33 @@ export function formatDate(dateInput: string | Date | null | undefined): string 
 }
 
 /**
+ * Returns the step for incrementing/decrementing a quantity based on the unit type.
+ * For 'szt' or unknown: step is 1.
+ * For 'g' and 'ml': step is 100.
+ */
+export function getUnitStep(unit?: string | null): number {
+  if (!unit) return 1
+  const u = unit.toLowerCase().trim()
+  if (u === 'g' || u === 'ml') {
+    return 100
+  }
+  return 1
+}
+
+/**
+ * Calculates the next quantity value given the current quantity, unit, and direction.
+ */
+export function getNextQuantity(
+  current: number,
+  unit: string | null | undefined,
+  direction: 'increase' | 'decrease'
+): number {
+  const step = getUnitStep(unit)
+  const delta = direction === 'increase' ? step : -step
+  return Math.round((current + delta) * 100) / 100
+}
+
+/**
  * Returns the local date in YYYY-MM-DD format (avoids UTC timezone shift of toISOString)
  */
 export function getLocalDateISOString(dateInput?: Date): string {

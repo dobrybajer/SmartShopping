@@ -5,6 +5,7 @@ import { LoginScreen } from '@/components/LoginScreen'
 import { MobileLayout } from '@/components/layout/MobileLayout'
 import type { TabType } from '@/components/layout/BottomNavigation'
 import { CookbookView } from '@/components/views/CookbookView'
+import { ProductsView } from '@/components/views/ProductsView'
 import { DraftView } from '@/components/views/DraftView'
 import { ActiveListView } from '@/components/views/ActiveListView'
 import { HistoryView } from '@/components/views/HistoryView'
@@ -38,6 +39,8 @@ export default function App() {
     switch (tab) {
       case 'cookbook':
         return 'Książka Kucharska'
+      case 'products':
+        return 'Baza Produktów'
       case 'draft':
         return 'Koszyk'
       case 'active':
@@ -57,6 +60,7 @@ export default function App() {
       draftCount={draftItems.length}
     >
       {activeTab === 'cookbook' && <CookbookView />}
+      {activeTab === 'products' && <ProductsView />}
       {activeTab === 'draft' && (
         <DraftView onActiveListCreated={() => setActiveTab('active')} />
       )}

@@ -1,8 +1,8 @@
 import React from 'react'
-import { BookOpen, ShoppingCart, CheckSquare, History } from 'lucide-react'
+import { BookOpen, Package, ShoppingCart, CheckSquare, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type TabType = 'cookbook' | 'draft' | 'active' | 'history'
+export type TabType = 'cookbook' | 'products' | 'draft' | 'active' | 'history'
 
 interface BottomNavigationProps {
   activeTab: TabType
@@ -29,6 +29,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       id: 'cookbook',
       label: 'Przepisy',
       icon: BookOpen
+    },
+    {
+      id: 'products',
+      label: 'Produkty',
+      icon: Package
     },
     {
       id: 'draft',

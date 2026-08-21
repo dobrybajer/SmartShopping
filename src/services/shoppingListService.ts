@@ -255,6 +255,32 @@ export const shoppingListService = {
     return true
   },
 
+  async updateItemQuantity(itemId: string, totalQuantity: number): Promise<boolean> {
+    const { error } = await supabase
+      .from('shopping_list_items')
+      .update({ total_quantity: totalQuantity })
+      .eq('id', itemId)
+
+    if (error) {
+      console.error('Błąd aktualizacji ilości pozycji:', error)
+      return false
+    }
+    return true
+  },
+
+  async deleteListItem(itemId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('shopping_list_items')
+      .delete()
+      .eq('id', itemId)
+
+    if (error) {
+      console.error('Błąd usuwania pozycji listy:', error)
+      return false
+    }
+    return true
+  },
+
   async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
     // 1. Zmień status na 'archived'
     const { error } = await supabase

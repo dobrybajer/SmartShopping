@@ -19,18 +19,47 @@ export const productService = {
     return data || []
   },
 
-  async getProducts(householdId: string): Promise<Product[]> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
-      .order('name', { ascending: true })
+  async getProducts(householdId?: string | null): Promise<Product[]> {
+    try {
+      let query = supabase.from('products').select('*')
 
-    if (error) {
-      console.error('Błąd pobierania produktów:', error)
+      if (householdId) {
+        query = query.or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
+      } else {
+        query = query.or('type.eq.Global,household_id.is.null')
+      }
+
+      const { data, error } = await query.order('name', { ascending: true })
+
+      if (!error && data && data.length > 0) {
+        return data
+      }
+
+      if (error) {
+        console.warn('[productService.getProducts] Błąd zapytania z filtrem OR:', error)
+      }
+
+      // Fallback: pobierz wszystkie produkty dostępne dla sesji i przefiltruj po stronie klienta
+      const fallbackResult = await supabase
+        .from('products')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (fallbackResult.error) {
+        console.error('[productService.getProducts] Błąd pobierania produktów (fallback):', fallbackResult.error)
+        return []
+      }
+
+      const allProds = fallbackResult.data || []
+      return allProds.filter((p) => {
+        const isGlobal = p.type === 'Global' || !p.household_id
+        if (isGlobal) return true
+        return householdId ? p.household_id === householdId : false
+      })
+    } catch (err) {
+      console.error('[productService.getProducts] Nieoczekiwany błąd:', err)
       return []
     }
-    return data || []
   },
 
   async createProduct(product: ProductInsert): Promise<Product | null> {
@@ -50,5 +79,33 @@ export const productService = {
       return null
     }
     return data
+  },
+
+  async updateProduct(id: string, updates: Partial<ProductInsert>): Promise<Product | null> {
+    const { data, error } = await supabase
+      .from('products')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error) {
+      console.error('Błąd aktualizacji produktu:', error)
+      return null
+    }
+    return data
+  },
+
+  async deleteProduct(productId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId)
+
+    if (error) {
+      console.error('Błąd usuwania produktu:', error)
+      return false
+    }
+    return true
   }
 }
