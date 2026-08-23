@@ -11,42 +11,83 @@ This skill guides the agent and user through creating comprehensive, battle-test
 
 ---
 
-## 1. The Interactive Probing Protocol (8-Dimension Drill-Down)
+## 1. The Interactive Probing Protocol (Sequential Decision-Tree Walkthrough)
 
-When requested to create or design an ADR, the agent **MUST NOT** jump straight to a brief summary. Instead, execute the following multi-step discovery process:
+When requested to create or design an ADR, the agent **MUST NOT** dump a wall of multiple questions or rush into drafting a document. Instead, the agent must conduct a **sequential, point-by-point interview**, walking down the architectural decision tree one node at a time.
 
-### Step 1: Interactive Problem Exploration & Edge Case Probing
-Ask targeted questions across the **8 Critical Dimensions**:
+### Core Guidelines for the Interview:
+1. **One Decision Point at a Time:** Ask questions sequentially. Resolve each decision node before branching into dependent decisions.
+2. **Explore Codebase First:** If an answer can be derived from existing code or migrations (e.g. table schemas, RLS functions, store structure), inspect the repository first instead of asking redundant questions.
+3. **Always Provide a Recommendation:** For every question, present the agent's recommended choice (prefixed with `(Recommended)`) backed by technical reasoning, SmartShopping conventions, or market benchmarks.
+4. **Use Interactive Modals:** Use the `ask_question` tool to present structured, actionable choices to the user.
 
-1. **User Flows & UX Duality:**
-   - How does this feature behave on Mobile PWA (one-handed thumb zone, 44x44px, bottom sheets, swipe gestures, haptics) vs Desktop (sidebar, header, centered dialogs, keyboard shortcuts, multi-column tables)?
-2. **Edge Cases & Corner Scenarios:**
-   - What happens on slow 3G or total offline disconnects (e.g. in a basement supermarket aisle)?
-   - What happens when two household members edit the same entity simultaneously?
-   - What are the boundary limits (e.g., 0 items, 1000 items, empty strings, rapid spam clicking)?
-3. **Data Model & Supabase RLS:**
-   - Which tables are affected? How is multi-tenant isolation guaranteed via `public.get_user_household_ids(auth.uid())`?
-   - Are cascading deletes or foreign keys properly defined?
-4. **State Management & Optimistic UI:**
-   - How does Zustand manage local optimistic state?
-   - What is the rollback mechanism if the async network request to Supabase fails?
-5. **Performance & Latency:**
-   - What is the impact on bundle size, initial load time, and database query complexity?
-   - Are indexes needed on foreign keys or search fields?
-6. **Industry & Market Standards:**
-   - How do market-leading meal planning / grocery shopping apps (e.g., AnyList, Paprika, Whisk, Todoist, Cronometer) handle this problem?
-   - What modern React 19 / TypeScript best practices apply?
-7. **Failure Modes & Telemetry:**
-   - How is the user informed of errors (Toast notifications, inline alerts)?
-   - Can the system recover automatically without a full page reload?
-8. **Business Intent:**
-   - Make sure user intent is fully understood and make sense compared to whole application.
+---
+
+### Step-by-Step Decision Tree Traversal
+
+The agent must navigate through the **8 Architectural Decision Branches** in sequence:
+
+```
+  [Branch 1: Business Intent & Scope]
+                 │
+                 ▼
+  [Branch 2: UX Duality & User Flows (Mobile PWA vs Desktop)]
+                 │
+                 ▼
+  [Branch 3: Data Model, PostgreSQL Schema & Supabase RLS]
+                 │
+                 ▼
+  [Branch 4: State Management, Services & Optimistic UI]
+                 │
+                 ▼
+  [Branch 5: Performance, Latency & Indexing]
+                 │
+                 ▼
+  [Branch 6: Edge Cases, Offline & Network Drop Recovery]
+                 │
+                 ▼
+  [Branch 7: Market Standards & Considered Alternatives Matrix]
+                 │
+                 ▼
+  [Branch 8: Testing Strategy, Migration & Verification Plan]
+                 │
+                 ▼
+      ==> Generate Final Exhaustive ADR Document <==
+```
+
+#### Detailed Branch Checklist:
+1. **Branch 1: Business Intent & Core Problem Statement**
+   - What core user problem or architectural limitation is being solved?
+   - How does this decision fit into the overall vision of SmartShopping?
+2. **Branch 2: UX Duality & User Flows**
+   - Mobile PWA flow: One-handed thumb zone, 44x44px targets, bottom sheets, swipe gestures, haptic feedback (`navigator.vibrate`).
+   - Desktop flow: Sidebar, header, centered `Dialog` modals, multi-column data grids, keyboard shortcuts.
+3. **Branch 3: Data Model & Supabase RLS Security**
+   - What tables and foreign keys are needed?
+   - Strict multi-tenant RLS isolation via `public.get_user_household_ids(auth.uid())` for SELECT, INSERT, UPDATE, DELETE.
+4. **Branch 4: State Management & Optimistic UI**
+   - Zustand store actions and state slices.
+   - Optimistic state updates with immediate UI feedback and automatic rollback on network failure.
+5. **Branch 5: Performance, Latency & Data Indexing**
+   - Database indexes on foreign keys and search query columns.
+   - Bundle size impact and query optimization.
+6. **Branch 6: Edge Cases & Failure Mitigation Matrix**
+   - Offline / spotty 3G handling in grocery store aisles.
+   - Simultaneous edits by multiple family members (conflict resolution via Realtime WebSockets).
+   - Boundary limits (empty lists, 1000+ items, rapid double-clicks).
+7. **Branch 7: Market Standards & Alternatives Matrix**
+   - Benchmark against market leaders (AnyList, Paprika 3, Whisk, Todoist, Cronometer).
+   - Decision matrix comparing Options A, B, and C with pros/cons.
+8. **Branch 8: Testing & Rollout Strategy**
+   - Pure function unit tests in `src/lib/calculations/__tests__/`.
+   - Comprehensive UI user flow integration tests in Vitest with `@testing-library/react`.
+   - Migration, deployment, and rollback plan.
 
 ---
 
 ## 2. Exhaustive ADR Template
 
-Every finalized ADR must be written in English and saved to `docs/adr/ADR-XXX-<name>.md` following this structure:
+Once all decision branches are resolved with the user, synthesize the conclusions into a production-grade ADR in English saved to `docs/adr/ADR-XXX-<name>.md`:
 
 ```markdown
 # ADR-XXX: [Descriptive Title]
