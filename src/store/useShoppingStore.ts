@@ -100,7 +100,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const key = state.activeHouseholdId || 'default'
         const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
 
-        // 1. Oblicz całkowitą kaloryczność bazową potrawy
+        // 1. Calculate total base calories of the meal
         let baseKcalTotal = 0
         meal.ingredients.forEach((ing) => {
           if (ing.product) {
@@ -109,13 +109,13 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           }
         })
 
-        // 2. Wylicz mnożnik (multiplier)
+        // 2. Compute portion scaling multiplier
         let multiplier = 1
         if (targetKcal && targetKcal > 0 && baseKcalTotal > 0) {
           multiplier = targetKcal / baseKcalTotal
         }
 
-        // 3. Przekształć składniki na elementy draftu
+        // 3. Transform scaled ingredients into draft list items
         const updatedDraft = [...currentDraft]
 
         meal.ingredients.forEach((ing) => {
@@ -140,7 +140,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               name: ing.product.name,
               unit_type: ing.product.unit_type,
               category_id: ing.product.category_id || undefined,
-              category_name: 'Inne',
+              category_name: 'other',
               sort_order: 99,
               quantity: scaledQuantity,
               is_ad_hoc: false,
@@ -168,7 +168,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           name: item.name,
           unit_type: item.unit_type,
           category_id: item.category_id,
-          category_name: item.category_name || 'Inne',
+          category_name: item.category_name || 'other',
           sort_order: item.sort_order ?? 99,
           quantity: item.quantity,
           is_ad_hoc: true
@@ -207,7 +207,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               name: item.name,
               unit_type: item.unit_type,
               category_id: item.category_id,
-              category_name: item.category_name || 'Inne',
+              category_name: item.category_name || 'other',
               sort_order: item.sort_order ?? 99,
               quantity: item.quantity,
               is_ad_hoc: false,
@@ -231,7 +231,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               name: item.name,
               unit_type: item.unit_type,
               category_id: item.category_id,
-              category_name: item.category_name || 'Inne',
+              category_name: item.category_name || 'other',
               sort_order: item.sort_order ?? 99,
               quantity: item.quantity,
               is_ad_hoc: true,
@@ -274,7 +274,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 name: item.name,
                 unit_type: item.unit_type,
                 category_id: item.category_id,
-                category_name: item.category_name || 'Inne',
+                category_name: item.category_name || 'other',
                 sort_order: item.sort_order ?? 99,
                 quantity: item.quantity,
                 is_ad_hoc: false,
@@ -298,7 +298,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 name: item.name,
                 unit_type: item.unit_type,
                 category_id: item.category_id,
-                category_name: item.category_name || 'Inne',
+                category_name: item.category_name || 'other',
                 sort_order: item.sort_order ?? 99,
                 quantity: item.quantity,
                 is_ad_hoc: true,
@@ -381,5 +381,3 @@ export const useShoppingStore = create<ShoppingStoreState>()(
     }
   )
 )
-
-

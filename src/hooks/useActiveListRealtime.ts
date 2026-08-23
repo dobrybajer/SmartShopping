@@ -8,7 +8,7 @@ export function useActiveListRealtime(
   useEffect(() => {
     if (!activeListId) return
 
-    // Utwórz dedykowany kanał Realtime dla aktywnej listy
+    // Create dedicated Realtime channel for active list
     const channel = supabase
       .channel(`active_list_${activeListId}`)
       .on(
@@ -20,22 +20,22 @@ export function useActiveListRealtime(
           filter: `shopping_list_id=eq.${activeListId}`
         },
         (_payload) => {
-          // Powiadomienie wibracją o zmianie w czasie rzeczywistym od domownika
+          // Haptic feedback notification for real-time changes by household members
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
             try {
               navigator.vibrate([25, 40, 25])
             } catch {
-              // Ignoruj
+              // Ignore if not supported
             }
           }
 
-          // Wywołaj callback odświeżenia danych
+          // Trigger data refresh callback
           onRealtimeUpdate()
         }
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[Realtime] Subskrypcja aktywna dla listy: ${activeListId}`)
+          console.log(`[Realtime] Subscription active for list: ${activeListId}`)
         }
       })
 

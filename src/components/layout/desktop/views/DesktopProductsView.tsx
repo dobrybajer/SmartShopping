@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
@@ -22,6 +23,7 @@ import { cn } from '@/lib/utils'
 
 export const DesktopProductsView: React.FC = () => {
   const { household } = useAuth()
+  const { t, formatUnit } = useTranslation()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,7 +49,7 @@ export const DesktopProductsView: React.FC = () => {
       setProducts(prodsData)
       setCategories(catsData)
     } catch (err) {
-      console.error('Błąd podczas ładowania produktów:', err)
+      console.error('Error loading products:', err)
     } finally {
       setLoading(false)
     }
@@ -64,6 +66,12 @@ export const DesktopProductsView: React.FC = () => {
     window.addEventListener('smartshopping_refresh_products', handleRefresh)
     return () => window.removeEventListener('smartshopping_refresh_products', handleRefresh)
   }, [loadData])
+
+  const getCategoryLabel = useCallback((catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }, [t])
 
   // Category Map: ID -> Name
   const categoryMap = useMemo(() => {
@@ -90,15 +98,16 @@ export const DesktopProductsView: React.FC = () => {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
-        const catName = prod.category_id ? categoryMap.get(prod.category_id) || '' : ''
+        const rawCatName = prod.category_id ? categoryMap.get(prod.category_id) || '' : ''
+        const translatedCatName = getCategoryLabel(rawCatName).toLowerCase()
         const matchesName = prod.name.toLowerCase().includes(query)
-        const matchesCat = catName.toLowerCase().includes(query)
+        const matchesCat = rawCatName.toLowerCase().includes(query) || translatedCatName.includes(query)
         if (!matchesName && !matchesCat) return false
       }
 
       return true
     })
-  }, [products, scopeFilter, selectedCategoryId, searchQuery, categoryMap])
+  }, [products, scopeFilter, selectedCategoryId, searchQuery, categoryMap, getCategoryLabel])
 
   // Counters
   const totalCount = products.length
@@ -149,7 +158,7 @@ export const DesktopProductsView: React.FC = () => {
         <div className="relative flex-1 max-w-xl">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <Input
-            placeholder="Szukaj produktu lub kategorii..."
+            placeholder={t('products.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 h-11 bg-zinc-900/90 border-zinc-800 focus-visible:ring-emerald-500 rounded-xl text-sm"
@@ -162,7 +171,7 @@ export const DesktopProductsView: React.FC = () => {
             className="h-11 px-5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl shadow-lg shadow-emerald-950/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Nowy Produkt</span>
+            <span>{t('products.addProduct')}</span>
           </Button>
         </div>
       </div>
@@ -180,7 +189,7 @@ export const DesktopProductsView: React.FC = () => {
                 : "text-zinc-400 border-zinc-800 hover:border-zinc-700"
             )}
           >
-            Wszystkie ({totalCount})
+            {t('common.all')} ({totalCount})
           </Badge>
         </button>
 
@@ -199,7 +208,7 @@ export const DesktopProductsView: React.FC = () => {
             )}
           >
             <Home className="w-3.5 h-3.5" />
-            <span>Gospodarstwo ({householdCount})</span>
+            <span>{t('navigation.households')} ({householdCount})</span>
           </Badge>
         </button>
 
@@ -218,7 +227,7 @@ export const DesktopProductsView: React.FC = () => {
             )}
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>Globalne ({globalCount})</span>
+            <span>{t('common.global')} ({globalCount})</span>
           </Badge>
         </button>
 
@@ -243,7 +252,7 @@ export const DesktopProductsView: React.FC = () => {
                     : "text-zinc-400 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
                 )}
               >
-                {cat.name}
+                {getCategoryLabel(cat.name)}
               </Badge>
             </button>
           )
@@ -254,18 +263,18 @@ export const DesktopProductsView: React.FC = () => {
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-center">
           <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm text-zinc-500">Pobieranie bazy produktów...</p>
+          <p className="text-sm text-zinc-500">{t('common.loading')}</p>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="py-24 flex flex-col items-center justify-center text-center bg-zinc-950/40 border border-zinc-900 border-dashed rounded-3xl p-8">
           <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-4">
             <Package className="w-8 h-8" />
           </div>
-          <p className="text-base font-bold text-zinc-200">Brak produktów</p>
+          <p className="text-base font-bold text-zinc-200">{t('products.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-sm">
             {searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null
-              ? 'Brak produktów pasujących do aktualnych filtrów.'
-              : 'Kliknij przycisk Nowy Produkt, aby dodać pierwszy własny produkt do bazy.'}
+              ? t('products.emptySubtitle')
+              : t('products.emptySubtitle')}
           </p>
           {(searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null) && (
             <Button
@@ -276,9 +285,9 @@ export const DesktopProductsView: React.FC = () => {
                 setScopeFilter('all')
                 setSelectedCategoryId(null)
               }}
-              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-xl"
+              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-xl cursor-pointer"
             >
-              Wyczyść filtry
+              {t('common.clear')}
             </Button>
           )}
         </div>
@@ -287,7 +296,8 @@ export const DesktopProductsView: React.FC = () => {
           {filteredProducts.map((product) => {
             const isGlobal = product.type === 'Global' || !product.household_id
             const isHousehold = !isGlobal
-            const categoryName = product.category_id ? categoryMap.get(product.category_id) : null
+            const rawCatName = product.category_id ? categoryMap.get(product.category_id) : null
+            const categoryName = rawCatName ? getCategoryLabel(rawCatName) : null
 
             const kcal = product.kcal_per_100 ?? 0
             const protein = product.protein_per_100 ?? 0
@@ -295,7 +305,7 @@ export const DesktopProductsView: React.FC = () => {
             const fat = product.fat_per_100 ?? 0
             const hasMacros = kcal > 0 || protein > 0 || carbs > 0 || fat > 0
 
-            const unitLabel = product.unit_type === 'szt' ? '1 szt.' : `100 ${product.unit_type}`
+            const unitLabel = product.unit_type === 'pcs' ? formatUnit('pcs', 1) : `100 ${product.unit_type}`
 
             return (
               <div
@@ -325,7 +335,7 @@ export const DesktopProductsView: React.FC = () => {
                               className="text-[9px] px-1.5 py-0 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                             >
                               <Globe className="w-2.5 h-2.5" />
-                              <span>Globalny</span>
+                              <span>{t('common.global')}</span>
                             </Badge>
                           ) : (
                             <Badge
@@ -333,7 +343,7 @@ export const DesktopProductsView: React.FC = () => {
                               className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
                             >
                               <Home className="w-2.5 h-2.5" />
-                              <span>Gospodarstwo</span>
+                              <span>{t('navigation.households')}</span>
                             </Badge>
                           )}
                         </div>
@@ -347,7 +357,7 @@ export const DesktopProductsView: React.FC = () => {
                           type="button"
                           onClick={() => handleOpenEdit(product)}
                           className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Edytuj produkt"
+                          title={t('common.edit')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -355,7 +365,7 @@ export const DesktopProductsView: React.FC = () => {
                           type="button"
                           onClick={() => setProductToDelete(product)}
                           className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Usuń produkt"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -370,12 +380,12 @@ export const DesktopProductsView: React.FC = () => {
                         {categoryName}
                       </span>
                     ) : (
-                      <span className="text-zinc-600">Inne</span>
+                      <span className="text-zinc-600">{t('categories.other')}</span>
                     )}
 
                     <span className="flex items-center gap-1 text-zinc-400 font-mono bg-zinc-900/60 px-1.5 py-0.5 rounded">
                       <Scale className="w-3 h-3 text-zinc-500" />
-                      <span>{product.unit_type}</span>
+                      <span>{formatUnit(product.unit_type)}</span>
                     </span>
                   </div>
                 </div>
@@ -386,26 +396,26 @@ export const DesktopProductsView: React.FC = () => {
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-amber-400 font-bold text-[11px]">
                         <Flame className="w-3 h-3" />
-                        <span>{Math.round(kcal)} kcal</span>
+                        <span>{Math.round(kcal)} {t('common.kcal')}</span>
                         <span className="text-[9px] font-normal text-amber-400/70">/{unitLabel}</span>
                       </div>
 
                       <div className="flex items-center gap-1 text-[10px] font-mono">
                         <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          B:<strong className="text-blue-400 ml-0.5">{protein}g</strong>
+                          {t('common.proteinShort')}:<strong className="text-blue-400 ml-0.5">{protein}g</strong>
                         </span>
                         <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          W:<strong className="text-amber-400 ml-0.5">{carbs}g</strong>
+                          {t('common.carbsShort')}:<strong className="text-amber-400 ml-0.5">{carbs}g</strong>
                         </span>
                         <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          T:<strong className="text-rose-400 ml-0.5">{fat}g</strong>
+                          {t('common.fatShort')}:<strong className="text-rose-400 ml-0.5">{fat}g</strong>
                         </span>
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="pt-2 border-t border-zinc-900 text-[11px] text-zinc-600 italic">
-                    Brak danych o makroskładnikach
+                    {t('products.macrosPer100')} -
                   </div>
                 )}
               </div>
@@ -428,9 +438,8 @@ export const DesktopProductsView: React.FC = () => {
         onOpenChange={(open) => {
           if (!open) setProductToDelete(null)
         }}
-        title="Usuń produkt z gospodarstwa"
+        title={t('dialogs.confirmDelete.title')}
         itemName={productToDelete?.name}
-        targetName="z bazy produktów Twojego gospodarstwa"
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />

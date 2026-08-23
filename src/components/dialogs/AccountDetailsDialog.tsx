@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { User, Mail, Calendar, Check, Save, Lock } from 'lucide-react'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
+import { User, Mail, Calendar, Check, Save, Lock, Globe } from 'lucide-react'
 
 interface AccountDetailsDialogProps {
   open: boolean
@@ -22,6 +24,7 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
   onOpenChange
 }) => {
   const { user, userProfile, updateUserProfileName } = useAuth()
+  const { t, formatDate } = useTranslation()
   const [name, setName] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -44,29 +47,12 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
     setIsSaving(false)
 
     if (success) {
-      setStatusMessage({ type: 'success', text: 'Dane konta zostały pomyślnie zaktualizowane.' })
+      setStatusMessage({ type: 'success', text: t('dialogs.account.updateNameSuccess') })
       setTimeout(() => {
         setStatusMessage(null)
       }, 3000)
     } else {
-      setStatusMessage({ type: 'error', text: 'Wystąpił błąd podczas zapisywania zmian.' })
-    }
-  }
-
-  // Formatowanie daty pierwszego logowania
-  const formatDate = (isoString?: string | null) => {
-    if (!isoString) return 'Brak danych'
-    try {
-      const d = new Date(isoString)
-      return d.toLocaleDateString('pl-PL', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    } catch {
-      return isoString
+      setStatusMessage({ type: 'error', text: t('toasts.errorOccurred') })
     }
   }
 
@@ -84,43 +70,49 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
               <User className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-bold text-zinc-100">Dane Konta</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-zinc-100">{t('dialogs.account.title')}</DialogTitle>
               <DialogDescription className="text-xs text-zinc-400">
-                Informacje o Twoim profilu w SmartShopping
+                {t('dialogs.account.languageDescription')}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <form onSubmit={handleSave} className="flex flex-col gap-4 mt-2">
-          {/* Nazwa */}
+          {/* Display Name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-zinc-400" />
-              <span>Nazwa wyświetlana</span>
+              <span>{t('dialogs.account.name')}</span>
             </label>
             <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="np. Kamil"
+              placeholder={t('dialogs.account.namePlaceholder')}
               className="bg-zinc-900 border-zinc-800 text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500"
               required
             />
-            <p className="text-[11px] text-zinc-500">
-              Nazwa widoczna dla innych członków Twoich gospodarstw domowych.
-            </p>
           </div>
 
-          {/* Email (read-only, wyszarzony) */}
+          {/* Interface Language */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-zinc-400" />
+              <span>{t('dialogs.account.languageTitle')}</span>
+            </label>
+            <LanguageSwitcher variant="segmented" />
+          </div>
+
+          {/* Email (read-only) */}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-zinc-400 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Adres e-mail</span>
+                <span>{t('dialogs.account.email')}</span>
               </span>
               <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
-                <Lock className="w-3 h-3" /> tylko do odczytu
+                <Lock className="w-3 h-3" /> {t('dialogs.account.readOnly')}
               </span>
             </label>
             <div className="relative">
@@ -133,18 +125,20 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
             </div>
           </div>
 
-          {/* Utworzono (data pierwszego logowania) */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-zinc-400 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Utworzono (data pierwszego logowania)</span>
-            </label>
-            <div className="p-2.5 rounded-lg bg-zinc-900/30 border border-zinc-800/60 text-xs text-zinc-400 font-mono">
-              {formatDate(createdAtDate)}
+          {/* Created date */}
+          {createdAtDate && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-zinc-400 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                <span>{t('dialogs.account.createdDate')}</span>
+              </label>
+              <div className="p-2.5 rounded-lg bg-zinc-900/30 border border-zinc-800/60 text-xs text-zinc-400 font-mono">
+                {formatDate(createdAtDate)}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Powiadomienie o statusie */}
+          {/* Status Message */}
           {statusMessage && (
             <div
               className={`p-3 rounded-xl text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200 ${
@@ -165,7 +159,7 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
               onClick={() => onOpenChange(false)}
               className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 text-xs"
             >
-              Zamknij
+              {t('common.close')}
             </Button>
 
             <Button
@@ -178,7 +172,7 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
               ) : (
                 <>
                   <Save className="w-3.5 h-3.5" />
-                  <span>Zapisz zmiany</span>
+                  <span>{t('common.save')}</span>
                 </>
               )}
             </Button>

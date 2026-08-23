@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 
 interface DesktopHeaderProps {
   title: string
@@ -17,6 +19,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   subtitle
 }) => {
   const { household } = useAuth()
+  const { t } = useTranslation()
 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
@@ -42,9 +45,9 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
         {/* Left: Breadcrumbs & Dynamic Title */}
         <div className="flex flex-col">
           <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
-            <span>SmartShopping</span>
+            <span>Smart Shopping</span>
             <span>/</span>
-            <span className="text-emerald-400 font-semibold">{household?.name || 'Gospodarstwo'}</span>
+            <span className="text-emerald-400 font-semibold">{household?.name || t('navigation.households')}</span>
           </div>
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-extrabold text-zinc-100 tracking-tight">
@@ -58,8 +61,11 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Quick Action & Live Status */}
+        {/* Right: Language Switcher, Quick Action & Live Status */}
         <div className="flex items-center gap-4">
+          {/* Language Switcher */}
+          <LanguageSwitcher variant="pill" />
+
           {/* Realtime Live Indicator */}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-xs font-medium text-zinc-400">
             <span className="relative flex h-2 w-2">
@@ -68,7 +74,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </span>
             <span className="flex items-center gap-1">
               <Radio className="w-3 h-3 text-emerald-400" />
-              <span>Realtime Sync</span>
+              <span>{t('common.realtime')}</span>
             </span>
           </div>
 
@@ -79,7 +85,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
               className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/30 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Dodaj</span>
+              <span>{t('common.add')}</span>
               <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isQuickAddOpen && "rotate-180")} />
             </button>
 
@@ -96,8 +102,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">Nowy Przepis</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">Książka kucharska</span>
+                    <span className="block">{t('cookbook.addRecipe')}</span>
+                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.cookbook')}</span>
                   </div>
                 </button>
 
@@ -112,8 +118,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <Package className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">Nowy Produkt</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">Baza gospodarstwa</span>
+                    <span className="block">{t('products.addProduct')}</span>
+                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.products')}</span>
                   </div>
                 </button>
 
@@ -128,8 +134,8 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">Pozycja Ad-hoc</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">Szybko do koszyka</span>
+                    <span className="block">{t('dialogs.adHoc.title')}</span>
+                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.draft')}</span>
                   </div>
                 </button>
               </div>

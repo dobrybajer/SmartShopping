@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type UnitEnum = 'g' | 'ml' | 'szt'
+export type UnitEnum = 'g' | 'ml' | 'pcs'
 export type ListStatusEnum = 'draft' | 'active' | 'archived'
 
 export interface Database {
@@ -36,6 +36,7 @@ export interface Database {
           household_id: string | null
           email: string
           name: string | null
+          language: string
           created_at: string | null
         }
         Insert: {
@@ -43,6 +44,7 @@ export interface Database {
           household_id?: string | null
           email: string
           name?: string | null
+          language?: string
           created_at?: string | null
         }
         Update: {
@@ -50,6 +52,7 @@ export interface Database {
           household_id?: string | null
           email?: string
           name?: string | null
+          language?: string
           created_at?: string | null
         }
         Relationships: [

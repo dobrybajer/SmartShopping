@@ -1,31 +1,32 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ShoppingList } from '@/services/shoppingListService'
 import { HistoryListDetailsSheet } from '@/components/dialogs/HistoryListDetailsSheet'
 import { Badge } from '@/components/ui/badge'
-import { formatDate } from '@/lib/utils'
 import { Calendar, CheckCircle2, History, ChevronRight } from 'lucide-react'
 
 export const HistoryView: React.FC = () => {
   const { household } = useAuth()
+  const { t, formatDate } = useTranslation()
   const [historyLists, setHistoryLists] = useState<ShoppingList[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedList, setSelectedList] = useState<ShoppingList | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  const loadHistory = async () => {
+  const loadHistory = React.useCallback(async () => {
     if (!household) return
     setLoading(true)
     const lists = await shoppingListService.getHistoryLists(household.id)
     setHistoryLists(lists)
     setLoading(false)
-  }
+  }, [household])
 
   useEffect(() => {
     loadHistory()
-  }, [household])
+  }, [loadHistory])
 
   const handleOpenDetails = (list: ShoppingList) => {
     setSelectedList(list)
@@ -49,23 +50,23 @@ export const HistoryView: React.FC = () => {
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center text-center">
           <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-2" />
-          <p className="text-xs text-zinc-500">Pobieranie historii z bazy...</p>
+          <p className="text-xs text-zinc-500">{t('common.loading')}</p>
         </div>
       ) : historyLists.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center">
           <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-3">
             <History className="w-7 h-7" />
           </div>
-          <p className="text-sm font-bold text-zinc-300">Brak zarchiwizowanej historii</p>
+          <p className="text-sm font-bold text-zinc-300">{t('history.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
-            Gdy zakończysz zakupy na aktywnej liście, jej podsumowanie pojawi się w tym miejscu.
+            {t('history.emptySubtitle')}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {historyLists.map((list) => {
-            const displayDate = formatDate(list.target_date || list.created_at)
-            const listTitle = list.name || `Zakupy ${displayDate}`
+            const displayDate = formatDate(list.target_date || list.created_at || new Date())
+            const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
 
             return (
               <div
@@ -89,7 +90,7 @@ export const HistoryView: React.FC = () => {
                     className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                   >
                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Zarchiwizowane
+                    {t('history.completedOn')}
                   </Badge>
 
                   <div className="w-7 h-7 rounded-lg bg-zinc-900 flex items-center justify-center text-zinc-500 group-hover:text-emerald-400 group-hover:bg-zinc-850 transition-colors">
@@ -102,7 +103,7 @@ export const HistoryView: React.FC = () => {
         </div>
       )}
 
-      {/* Sheet ze szczegółami listy */}
+      {/* History Details Sheet */}
       <HistoryListDetailsSheet
         list={selectedList}
         open={isDetailsOpen}
@@ -113,4 +114,3 @@ export const HistoryView: React.FC = () => {
     </div>
   )
 }
-

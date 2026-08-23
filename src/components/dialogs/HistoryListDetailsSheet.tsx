@@ -3,6 +3,7 @@ import { shoppingListService } from '@/services/shoppingListService'
 import type { ShoppingList, ActiveListWithDetails, ActiveListItemWithProduct } from '@/services/shoppingListService'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import type { AddToDraftPayload } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import {
   Sheet,
   SheetContent,
@@ -14,7 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { formatDate } from '@/lib/utils'
 import {
   Calendar,
   CheckCircle2,
@@ -45,6 +45,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   onListDeleted
 }) => {
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
+  const { t, formatUnit, formatDate } = useTranslation()
 
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)
   const [loading, setLoading] = useState(false)
@@ -64,7 +65,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
   useEffect(() => {
     if (open && list) {
-      setEditedName(list.name || `Zakupy ${formatDate(list.target_date || list.created_at)}`)
+      setEditedName(list.name || `${t('history.archivedList')} ${formatDate(list.target_date || list.created_at || new Date())}`)
       setIsEditingName(false)
       setIsConfirmingDelete(false)
       setAllAdded(false)
@@ -79,7 +80,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     } else {
       setListDetails(null)
     }
-  }, [open, list])
+  }, [open, list, t, formatDate])
 
   if (!list) return null
 
@@ -121,10 +122,10 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   const mapItemToDraftPayload = (item: ActiveListItemWithProduct): AddToDraftPayload => {
     return {
       product_id: item.product?.id,
-      name: item.product?.name || 'Produkt',
-      unit_type: (item.product?.unit_type as any) || 'szt',
+      name: item.product?.name || 'Product',
+      unit_type: (item.product?.unit_type as any) || 'pcs',
       category_id: item.product?.category_id || undefined,
-      category_name: item.product?.category?.name || 'Inne',
+      category_name: item.product?.category?.name || 'other',
       sort_order: item.product?.category?.sort_order ?? 99,
       quantity: item.total_quantity,
       is_ad_hoc: !!item.added_ad_hoc
@@ -139,7 +140,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
       try {
         navigator.vibrate(25)
       } catch {
-        // Ignoruj
+        // Ignore
       }
     }
 
@@ -159,7 +160,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
       try {
         navigator.vibrate([40, 60, 40])
       } catch {
-        // Ignoruj
+        // Ignore
       }
     }
 
@@ -174,11 +175,17 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   const checkedCount = items.filter((i) => i.is_checked).length
   const totalCount = items.length
 
-  // Grupowanie według kategorii
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
+
+  // Group by category
   const categoryMap = new Map<string, { name: string; sort_order: number; items: typeof items }>()
 
   items.forEach((item) => {
-    const catName = item.product?.category?.name || 'Inne / Ad-hoc'
+    const catName = item.product?.category?.name || 'other'
     const sortOrder = item.product?.category?.sort_order ?? 99
 
     const existing = categoryMap.get(catName)
@@ -193,7 +200,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     (a, b) => a.sort_order - b.sort_order
   )
 
-  const formattedDate = formatDate(list.target_date || list.created_at)
+  const formattedDate = formatDate(list.target_date || list.created_at || new Date())
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -201,7 +208,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
         {/* Header */}
         <SheetHeader className="p-4 pb-3 border-b border-zinc-900 shrink-0">
           <div className="flex flex-col gap-2">
-            {/* Tytuł i edycja */}
+            {/* Title & Edit */}
             <div className="flex items-center justify-between gap-2 pr-6">
               {isEditingName ? (
                 <div className="flex items-center gap-1.5 flex-1 animate-in fade-in duration-150">
@@ -215,14 +222,14 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                     autoFocus
                     disabled={isSavingName}
                     className="h-9 bg-zinc-900 border-zinc-700 text-sm font-bold text-zinc-100"
-                    placeholder="Wpisz nazwę listy..."
+                    placeholder={t('draft.listNamePlaceholder')}
                   />
                   <Button
                     onClick={handleSaveName}
                     disabled={isSavingName}
                     size="sm"
-                    className="h-9 w-9 p-0 bg-emerald-500 hover:bg-emerald-400 text-black shrink-0"
-                    title="Zapisz nazwę"
+                    className="h-9 w-9 p-0 bg-emerald-500 hover:bg-emerald-400 text-black shrink-0 cursor-pointer"
+                    title={t('common.save')}
                   >
                     <Check className="w-4 h-4" />
                   </Button>
@@ -231,8 +238,8 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                     disabled={isSavingName}
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 text-zinc-400 hover:text-white shrink-0"
-                    title="Anuluj"
+                    className="h-9 w-9 p-0 text-zinc-400 hover:text-white shrink-0 cursor-pointer"
+                    title={t('common.cancel')}
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -240,12 +247,12 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               ) : (
                 <div className="flex items-center gap-2 group flex-1 min-w-0">
                   <SheetTitle className="text-base font-bold text-zinc-100 truncate">
-                    {list.name || `Zakupy ${formattedDate}`}
+                    {list.name || `${t('history.archivedList')} ${formattedDate}`}
                   </SheetTitle>
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="text-zinc-500 hover:text-emerald-400 p-1 transition-colors rounded-md hover:bg-zinc-900 shrink-0"
-                    title="Edytuj nazwę listy"
+                    className="text-zinc-500 hover:text-emerald-400 p-1 transition-colors rounded-md hover:bg-zinc-900 shrink-0 cursor-pointer"
+                    title={t('common.edit')}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -253,7 +260,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               )}
             </div>
 
-            {/* Data i status */}
+            {/* Date & Status */}
             <div className="flex items-center justify-between text-xs text-zinc-400">
               <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-400">
                 <Calendar className="w-3.5 h-3.5 text-zinc-500" />
@@ -263,17 +270,17 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               <div className="flex items-center gap-1.5">
                 <Badge variant="default" className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-0.5">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
-                  Zarchiwizowane
+                  {t('history.completedOn')}
                 </Badge>
                 {totalCount > 0 && (
                   <Badge variant="secondary" className="text-[10px] font-mono py-0.5">
-                    {checkedCount}/{totalCount} kupiono
+                    {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
                   </Badge>
                 )}
               </div>
             </div>
           </div>
-          <SheetDescription className="sr-only">Szczegóły zarchiwizowanej listy zakupów</SheetDescription>
+          <SheetDescription className="sr-only">{t('history.viewDetails')}</SheetDescription>
         </SheetHeader>
 
         {/* Scrollable Content */}
@@ -281,31 +288,31 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-center">
               <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-2" />
-              <p className="text-xs text-zinc-500">Wczytywanie pozycji z bazy...</p>
+              <p className="text-xs text-zinc-500">{t('common.loading')}</p>
             </div>
           ) : items.length === 0 ? (
             <div className="py-10 flex flex-col items-center justify-center text-center">
               <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-2">
                 <PackageCheck className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-zinc-300">Brak pozycji na tej liście</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Ta lista zakupowa nie zawierała żadnych produktów.</p>
+              <p className="text-sm font-semibold text-zinc-300">{t('history.emptyTitle')}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{t('history.emptySubtitle')}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {sortedCategories.map((group) => (
                 <div key={group.name} className="flex flex-col gap-2">
                   <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider px-1 flex items-center justify-between">
-                    <span>{group.sort_order !== 99 ? `${group.sort_order}. ${group.name}` : group.name}</span>
+                    <span>{group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
                     <span className="text-[10px] text-zinc-600 font-mono">
-                      {group.items.length} {group.items.length === 1 ? 'poz.' : 'poz.'}
+                      {group.items.length} {formatUnit('pcs', group.items.length)}
                     </span>
                   </h4>
 
                   <div className="flex flex-col gap-1.5">
                     {group.items.map((item) => {
-                      const name = item.product?.name || 'Produkt'
-                      const unit = item.product?.unit_type || 'szt'
+                      const name = item.product?.name || 'Product'
+                      const unit = item.product?.unit_type || 'pcs'
                       const isItemAdded = addedItemIds[item.id]
 
                       return (
@@ -324,7 +331,6 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
                                   : "bg-zinc-900 text-zinc-600 border border-zinc-800"
                               )}
-                              title={item.is_checked ? "Kupiono podczas tych zakupów" : "Nieodhaczony"}
                             >
                               {item.is_checked ? <Check className="w-2.5 h-2.5" /> : null}
                             </div>
@@ -334,17 +340,16 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                                 {name}
                               </span>
                               {item.added_ad_hoc && (
-                                <span className="text-[9px] text-zinc-500 font-mono">Ad-hoc</span>
+                                <span className="text-[9px] text-zinc-500 font-mono">{t('draft.adHocItem')}</span>
                               )}
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="font-mono text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
-                              {item.total_quantity} {unit}
+                              {item.total_quantity} {formatUnit(unit, item.total_quantity)}
                             </span>
 
-                            {/* Przycisk dodania pojedynczego elementu do koszyka */}
                             <Button
                               onClick={() => handleAddSingleItemToDraft(item)}
                               size="sm"
@@ -355,12 +360,12 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                                   ? "bg-emerald-500 text-black border-emerald-400 font-bold"
                                   : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:border-emerald-500/40 hover:text-emerald-400"
                               )}
-                              title="Dodaj ten produkt do koszyka roboczego"
+                              title={t('draft.addMealsButton')}
                             >
                               {isItemAdded ? (
                                 <span className="flex items-center gap-1">
                                   <Check className="w-3.5 h-3.5" />
-                                  <span className="text-[10px]">Dodano</span>
+                                  <span className="text-[10px]">{t('toasts.saved')}</span>
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1">
@@ -384,28 +389,28 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-150 mt-2">
               <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
                 <CircleAlert className="w-4 h-4 shrink-0" />
-                <span>Czy na pewno chcesz usunąć tę listę z historii?</span>
+                <span>{t('history.deleteHistoryConfirm')}</span>
               </div>
               <p className="text-[11px] text-zinc-400">
-                Operacja jest nieodwracalna i usunie całą historię tej listy.
+                {t('dialogs.confirmDelete.description')}
               </p>
               <div className="flex items-center gap-2 pt-1">
                 <Button
                   onClick={handleDeleteList}
                   disabled={isDeleting}
                   size="sm"
-                  className="flex-1 h-9 bg-red-600 hover:bg-red-500 text-white font-bold text-xs"
+                  className="flex-1 h-9 bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer"
                 >
-                  {isDeleting ? 'Usuwanie...' : 'Tak, usuń bezpowrotnie'}
+                  {isDeleting ? t('common.loading') : t('dialogs.confirmDelete.confirmButton')}
                 </Button>
                 <Button
                   onClick={() => setIsConfirmingDelete(false)}
                   disabled={isDeleting}
                   variant="outline"
                   size="sm"
-                  className="flex-1 h-9 text-xs"
+                  className="flex-1 h-9 text-xs cursor-pointer"
                 >
-                  Anuluj
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -416,7 +421,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                 className="text-[11px] text-zinc-500 hover:text-red-400 flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-zinc-900 transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Usuń tę listę z historii</span>
+                <span>{t('history.deleteHistoryConfirm')}</span>
               </button>
             </div>
           )}
@@ -428,7 +433,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             onClick={handleAddAllToDraft}
             disabled={items.length === 0 || allAdded}
             className={cn(
-              "w-full h-12 font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all text-sm",
+              "w-full h-12 font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all text-sm cursor-pointer",
               allAdded
                 ? "bg-emerald-400 text-black"
                 : "bg-emerald-500 hover:bg-emerald-400 text-black"
@@ -437,12 +442,12 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             {allAdded ? (
               <>
                 <Check className="w-5 h-5" />
-                <span>Wszystkie pozycje dodane do koszyka!</span>
+                <span>{t('history.restoredSuccess')}</span>
               </>
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4 fill-black" />
-                <span>Dodaj całą listę do koszyka ({items.length})</span>
+                <span>{t('history.restoreToDraft')} ({items.length})</span>
               </>
             )}
           </Button>

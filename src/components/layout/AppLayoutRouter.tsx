@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import type { TabType } from '@/components/layout/BottomNavigation'
 
 // Mobile Layout & Views
@@ -22,20 +23,21 @@ import { DesktopHistoryView } from '@/components/layout/desktop/views/DesktopHis
 export const AppLayoutRouter: React.FC = () => {
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
   const { draftItems } = useShoppingStore()
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabType>('cookbook')
 
   const getHeaderTitle = (tab: TabType): string => {
     switch (tab) {
       case 'cookbook':
-        return 'Książka Kucharska'
+        return t('navigation.cookbook')
       case 'products':
-        return 'Baza Produktów'
+        return t('navigation.products')
       case 'draft':
-        return 'Koszyk Roboczy'
+        return t('navigation.draft')
       case 'active':
-        return 'Aktywna Lista Zakupów'
+        return t('navigation.activeList')
       case 'history':
-        return 'Historia List Zakupowych'
+        return t('navigation.history')
       default:
         return 'SmartShopping'
     }

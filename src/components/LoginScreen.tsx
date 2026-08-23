@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { AppLogo } from '@/components/ui/AppLogo'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 
 export const LoginScreen: React.FC = () => {
   const { signInWithGoogle } = useAuth()
+  const { t } = useTranslation()
   const [isSigningIn, setIsSigningIn] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -18,7 +21,7 @@ export const LoginScreen: React.FC = () => {
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : 'Wystąpił błąd podczas próby logowania. Spróbuj ponownie.'
+          : t('toasts.errorOccurred')
       )
       setIsSigningIn(false)
     }
@@ -29,17 +32,22 @@ export const LoginScreen: React.FC = () => {
       {/* Background Subtle Gradient Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
+      {/* Top Bar with Language Switcher */}
+      <div className="w-full flex justify-end pt-2 z-20">
+        <LanguageSwitcher variant="pill" />
+      </div>
+
       {/* Header Section */}
-      <div className="pt-16 flex flex-col items-center text-center z-10">
+      <div className="pt-8 flex flex-col items-center text-center z-10">
         <div className="w-20 h-20 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl relative p-2">
           <AppLogo size={56} />
         </div>
 
         <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
-          SmartShopping
+          Smart Shopping
         </h1>
         <p className="text-zinc-400 text-sm mt-2 max-w-xs leading-relaxed">
-          Inteligentne planowanie posiłków, przeliczanie makroskładników i wspólne listy zakupowe w czasie rzeczywistym.
+          {t('auth.tagline')}
         </p>
       </div>
 
@@ -54,7 +62,7 @@ export const LoginScreen: React.FC = () => {
         <Button
           onClick={handleGoogleLogin}
           disabled={isSigningIn}
-          className="w-full h-13 bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700/80 rounded-xl font-medium flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50"
+          className="w-full h-13 bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700/80 rounded-xl font-medium flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 cursor-pointer"
         >
           {isSigningIn ? (
             <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
@@ -79,13 +87,13 @@ export const LoginScreen: React.FC = () => {
                   d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.3-6.4-5.2L1.9 17C3.7 20.7 7.5 24 12 24z"
                 />
               </svg>
-              <span>Zaloguj przez Google</span>
+              <span>{t('auth.signInWithGoogle')}</span>
             </>
           )}
         </Button>
 
         <p className="text-zinc-600 text-xs text-center">
-          Logując się, akceptujesz regulamin Twojego gospodarstwa domowego.
+          {t('auth.demoNotice')}
         </p>
       </div>
     </div>

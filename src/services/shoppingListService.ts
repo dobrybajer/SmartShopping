@@ -10,7 +10,7 @@ export interface ActiveListItemWithProduct extends ShoppingListItem {
   product?: {
     id: string
     name: string
-    unit_type: 'g' | 'ml' | 'szt'
+    unit_type: 'g' | 'ml' | 'pcs'
     category_id: number | null
     category?: {
       id: number
@@ -36,7 +36,7 @@ export const shoppingListService = {
       .maybeSingle()
 
     if (listErr) {
-      console.error('Błąd pobierania aktywnej listy:', listErr)
+      console.error('Error fetching active shopping list:', listErr)
       return null
     }
 
@@ -57,7 +57,7 @@ export const shoppingListService = {
       .eq('shopping_list_id', listData.id)
 
     if (itemsErr) {
-      console.error('Błąd pobierania pozycji aktywnej listy:', itemsErr)
+      console.error('Error fetching active shopping list items:', itemsErr)
     }
 
     return {
@@ -77,7 +77,7 @@ export const shoppingListService = {
       .maybeSingle()
 
     if (listErr || !listData) {
-      console.error('Błąd pobierania szczegółów listy:', listErr)
+      console.error('Error fetching list details:', listErr)
       return null
     }
 
@@ -96,7 +96,7 @@ export const shoppingListService = {
       .eq('shopping_list_id', listData.id)
 
     if (itemsErr) {
-      console.error('Błąd pobierania pozycji listy:', itemsErr)
+      console.error('Error fetching shopping list items:', itemsErr)
     }
 
     return {
@@ -115,18 +115,18 @@ export const shoppingListService = {
   ): Promise<ActiveListWithDetails | null> {
     if (!draftItems || draftItems.length === 0) return null
 
-    // 1. Sprawdź czy istnieje już aktywna lista - jeśli tak, zarchiwizuj ją
+    // 1. Check if an active list already exists - if so, archive it
     const currentActive = await this.getActiveList(householdId)
     if (currentActive) {
       await this.archiveActiveList(currentActive.id, householdId)
     }
 
-    // 2. Utwórz nowy rekord listy zakupowej status = 'active'
+    // 2. Insert new shopping list record with status = 'active'
     const { data: newList, error: listErr } = await supabase
       .from('shopping_lists')
       .insert({
         household_id: householdId,
-        name: listName || `Zakupy ${formatDate(new Date())}`,
+        name: listName || `Groceries ${formatDate(new Date())}`,
         status: 'active',
         target_date: getLocalDateISOString()
       })
@@ -134,11 +134,11 @@ export const shoppingListService = {
       .single()
 
     if (listErr || !newList) {
-      console.error('Błąd tworzenia aktywnej listy:', listErr)
+      console.error('Error creating active shopping list:', listErr)
       return null
     }
 
-    // 3. Agregacja (sumowanie ilości) dla powtarzających się produktów
+    // 3. Aggregate quantities for repeated items
     const aggregatedMap = new Map<string, { product_id?: string; total_quantity: number; added_ad_hoc: boolean; name: string }>()
 
     for (const item of draftItems) {
@@ -157,20 +157,20 @@ export const shoppingListService = {
       }
     }
 
-    // 4. Dla produktów ad-hoc upewnijmy się, że tworzymy lub przypisujemy ad-hoc produkt w tabeli `products`
+    // 4. For ad-hoc products, ensure record exists in products table
     const itemsToInsert = []
 
     for (const [, value] of aggregatedMap) {
       let productId = value.product_id
 
       if (!productId && value.added_ad_hoc) {
-        // Utwórz wpis ad-hoc w tabeli products
+        // Create ad-hoc entry in products table
         const { data: adHocProduct } = await supabase
           .from('products')
           .insert({
             household_id: householdId,
             name: value.name,
-            unit_type: 'szt',
+            unit_type: 'pcs',
             is_ad_hoc: true
           })
           .select('id')
@@ -198,7 +198,7 @@ export const shoppingListService = {
         .insert(itemsToInsert)
 
       if (insertItemsErr) {
-        console.error('Błąd dodawania pozycji listy:', insertItemsErr)
+        console.error('Error adding shopping list items:', insertItemsErr)
       }
     }
 
@@ -212,31 +212,31 @@ export const shoppingListService = {
       .eq('id', listId)
 
     if (error) {
-      console.error('Błąd zmiany nazwy listy:', error)
+      console.error('Error updating list name:', error)
       return false
     }
     return true
   },
 
   async deleteShoppingList(listId: string): Promise<boolean> {
-    // 1. Usuń pozycje powiązane z listą
+    // 1. Delete associated items
     const { error: itemsErr } = await supabase
       .from('shopping_list_items')
       .delete()
       .eq('shopping_list_id', listId)
 
     if (itemsErr) {
-      console.error('Błąd usuwania pozycji listy:', itemsErr)
+      console.error('Error deleting list items:', itemsErr)
     }
 
-    // 2. Usuń samą listę
+    // 2. Delete the shopping list record
     const { error: listErr } = await supabase
       .from('shopping_lists')
       .delete()
       .eq('id', listId)
 
     if (listErr) {
-      console.error('Błąd usuwania listy:', listErr)
+      console.error('Error deleting shopping list:', listErr)
       return false
     }
     return true
@@ -249,7 +249,7 @@ export const shoppingListService = {
       .eq('id', itemId)
 
     if (error) {
-      console.error('Błąd zmiany stanu odhaczenia produktu:', error)
+      console.error('Error updating item checked status:', error)
       return false
     }
     return true
@@ -262,7 +262,7 @@ export const shoppingListService = {
       .eq('id', itemId)
 
     if (error) {
-      console.error('Błąd aktualizacji ilości pozycji:', error)
+      console.error('Error updating item quantity:', error)
       return false
     }
     return true
@@ -275,25 +275,25 @@ export const shoppingListService = {
       .eq('id', itemId)
 
     if (error) {
-      console.error('Błąd usuwania pozycji listy:', error)
+      console.error('Error deleting list item:', error)
       return false
     }
     return true
   },
 
   async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
-    // 1. Zmień status na 'archived'
+    // 1. Update status to 'archived'
     const { error } = await supabase
       .from('shopping_lists')
       .update({ status: 'archived' })
       .eq('id', listId)
 
     if (error) {
-      console.error('Błąd archiwizacji listy:', error)
+      console.error('Error archiving list:', error)
       return []
     }
 
-    // 2. Pobierz niekupione pozycje (`is_checked` = false)
+    // 2. Fetch unchecked items (is_checked = false)
     const { data: uncheckedItems } = await supabase
       .from('shopping_list_items')
       .select(`
@@ -319,7 +319,7 @@ export const shoppingListService = {
             name: item.product.name,
             unit_type: item.product.unit_type,
             category_id: item.product.category_id,
-            category_name: 'Przeniesione z archiwum',
+            category_name: 'other',
             sort_order: 99,
             quantity: item.total_quantity,
             is_ad_hoc: item.added_ad_hoc
@@ -340,10 +340,9 @@ export const shoppingListService = {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Błąd pobierania historii list:', error)
+      console.error('Error fetching shopping list history:', error)
       return []
     }
     return data || []
   }
 }
-

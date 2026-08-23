@@ -5,14 +5,14 @@ import App from './App.tsx'
 import { AuthProvider } from '@/context/AuthContext'
 import { registerSW } from 'virtual:pwa-register'
 
-// Wywołanie rejestracji Service Workera PWA
+// Register PWA Service Worker
 registerSW({
   immediate: true,
   onNeedRefresh() {
-    console.log('[PWA] Nowa wersja aplikacji Smart Shopping jest dostępna.')
+    console.log('[PWA] New version of Smart Shopping is available.')
   },
   onOfflineReady() {
-    console.log('[PWA] Aplikacja Smart Shopping jest gotowa do pracy offline.')
+    console.log('[PWA] Smart Shopping is ready to work offline.')
   }
 })
 

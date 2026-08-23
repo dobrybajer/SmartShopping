@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { AppLogo } from '@/components/ui/AppLogo'
 import { AccountDetailsDialog } from '@/components/dialogs/AccountDetailsDialog'
 import { HouseholdsDialog } from '@/components/dialogs/HouseholdsDialog'
@@ -12,6 +13,7 @@ interface AppHeaderProps {
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
   const { user, userProfile, household, userHouseholds, signOut } = useAuth()
+  const { t } = useTranslation()
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
@@ -19,7 +21,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
 
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // Zamknij menu po kliknięciu poza obszar dropdowna
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -35,13 +36,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
     }
   }, [isMenuOpen])
 
-  const displayName = userProfile?.name || user?.email?.split('@')[0] || 'Użytkownik'
+  const displayName = userProfile?.name || user?.email?.split('@')[0] || t('navigation.profile')
   const userInitial = displayName.charAt(0).toUpperCase() || 'U'
 
   return (
     <>
-      <header className="px-4 py-3 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-900 sticky top-0 z-30 flex items-center justify-between shadow-md">
-        {/* Lewa strona: Logo i Tytuł */}
+      <header className="px-4 py-3 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-900 sticky top-0 z-30 flex items-center justify-between shadow-md select-none">
+        {/* Left: Logo and Title */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center p-1 shrink-0">
             <AppLogo size={28} />
@@ -53,12 +54,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
             </h1>
             <p className="text-[11px] text-zinc-500 mt-0.5 truncate max-w-[180px] flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
-              <span>{household?.name || 'Gospodarstwo domowe'}</span>
+              <span>{household?.name || t('dialogs.households.currentHousehold')}</span>
             </p>
           </div>
         </div>
 
-        {/* Prawa strona: Ikona użytkownika z rozwijanym menu */}
+        {/* Right: User Profile Menu */}
         <div className="relative" ref={menuRef}>
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -68,7 +69,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                 ? "bg-zinc-800 border-emerald-500/80 shadow-md ring-2 ring-emerald-500/20"
                 : "bg-zinc-900/80 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800"
             )}
-            title="Menu profilu użytkownika"
+            title={t('navigation.profile')}
           >
             <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs shadow-inner">
               {userInitial}
@@ -81,15 +82,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
             />
           </button>
 
-          {/* Rozwijane Menu Dropdown */}
+          {/* Dropdown Menu */}
           {isMenuOpen && (
             <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-zinc-950 border border-zinc-800 p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
-              {/* Nagłówek profilu */}
+              {/* Profile header */}
               <div className="px-3 py-2.5 border-b border-zinc-900 flex flex-col gap-0.5">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-zinc-100 truncate">{displayName}</span>
                   <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium flex items-center gap-1">
-                    <Sparkles className="w-2.5 h-2.5" /> Aktywny
+                    <Sparkles className="w-2.5 h-2.5" /> {t('dialogs.households.activeBadge')}
                   </span>
                 </div>
                 <span className="text-xs text-zinc-500 truncate font-mono">{user?.email}</span>
@@ -99,9 +100,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                 </span>
               </div>
 
-              {/* Opcje menu */}
+              {/* Menu options */}
               <div className="flex flex-col gap-1 py-1.5">
-                {/* 1. Dane Konta */}
                 <button
                   onClick={() => {
                     setIsMenuOpen(false)
@@ -113,11 +113,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                     <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition-colors">
                       <User className="w-4 h-4" />
                     </div>
-                    <span>Dane Konta</span>
+                    <span>{t('navigation.account')}</span>
                   </div>
                 </button>
 
-                {/* 2. Gospodarstwa */}
                 <button
                   onClick={() => {
                     setIsMenuOpen(false)
@@ -129,7 +128,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                     <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition-colors">
                       <Home className="w-4 h-4" />
                     </div>
-                    <span>Gospodarstwa</span>
+                    <span>{t('navigation.households')}</span>
                   </div>
                   {userHouseholds.length > 0 && (
                     <span className="text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800 px-1.5 py-0.5 rounded-md">
@@ -142,7 +141,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
               {/* Separator */}
               <div className="border-t border-zinc-900 my-1" />
 
-              {/* 3. Wyloguj */}
+              {/* Logout */}
               <button
                 onClick={() => {
                   setIsMenuOpen(false)
@@ -153,14 +152,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                 <div className="w-7 h-7 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
                   <LogOut className="w-4 h-4" />
                 </div>
-                <span>Wyloguj się</span>
+                <span>{t('navigation.logout')}</span>
               </button>
             </div>
           )}
         </div>
       </header>
 
-      {/* Modale zarządzania */}
+      {/* Management Dialogs */}
       <AccountDetailsDialog
         open={isAccountDialogOpen}
         onOpenChange={setIsAccountDialogOpen}

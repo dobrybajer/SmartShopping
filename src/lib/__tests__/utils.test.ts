@@ -24,10 +24,10 @@ describe('Utility Functions - Formatting & Step Logic Flows', () => {
     });
 
     it('Flow 04: returns step of 1 for pieces or unknown unit types', () => {
-      expect(getUnitStep('szt')).toBe(1);
+      expect(getUnitStep('pcs')).toBe(1);
       expect(getUnitStep(null)).toBe(1);
       expect(getUnitStep(undefined)).toBe(1);
-      expect(getUnitStep('opakowanie')).toBe(1);
+      expect(getUnitStep('package')).toBe(1);
     });
   });
 
@@ -38,8 +38,8 @@ describe('Utility Functions - Formatting & Step Logic Flows', () => {
     });
 
     it('Flow 06: increases and decreases quantity by unit step for pieces', () => {
-      expect(getNextQuantity(3, 'szt', 'increase')).toBe(4);
-      expect(getNextQuantity(3, 'szt', 'decrease')).toBe(2);
+      expect(getNextQuantity(3, 'pcs', 'increase')).toBe(4);
+      expect(getNextQuantity(3, 'pcs', 'decrease')).toBe(2);
     });
   });
 

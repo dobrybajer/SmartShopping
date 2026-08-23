@@ -16,18 +16,18 @@ export interface IngredientMacroInput {
 /**
  * Calculates the nutritional values for a given ingredient quantity.
  * For grams (g) and milliliters (ml), nutritional values are defined per 100 units.
- * For pieces (szt), nutritional values are defined per 1 unit.
+ * For pieces (pcs), nutritional values are defined per 1 unit.
  */
 export function calculateIngredientMacros(
   quantity: number,
   macrosPerUnitOr100: MacroNutrients,
-  unitType: 'g' | 'ml' | 'szt' = 'g'
+  unitType: 'g' | 'ml' | 'pcs' = 'g'
 ): MacroNutrients {
   if (quantity <= 0) {
     return { kcal: 0, protein: 0, carbs: 0, fat: 0 };
   }
 
-  const factor = unitType === 'szt' ? quantity : quantity / 100;
+  const factor = unitType === 'pcs' ? quantity : quantity / 100;
 
   return {
     kcal: Math.round(macrosPerUnitOr100.kcal * factor * 10) / 10,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import {
   Sheet,
   SheetContent,
@@ -26,6 +27,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   onOpenChange
 }) => {
   const { addMealToDraft } = useShoppingStore()
+  const { t, formatUnit } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
   const [isAdded, setIsAdded] = useState(false)
 
@@ -33,8 +35,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
 
   const isGlobal = meal.type === 'Global' || !meal.household_id
 
-
-  // Obliczenia makroskładników bazowych
+  // Calculate base macronutrients
   let baseKcal = 0
   let baseProtein = 0
   let baseCarbs = 0
@@ -55,7 +56,6 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   baseCarbs = Math.round(baseCarbs * 10) / 10
   baseFat = Math.round(baseFat * 10) / 10
 
-  // Mnożnik skalowania
   const activeKcal = targetKcal !== '' && targetKcal > 0 ? targetKcal : baseKcal
   const multiplier = baseKcal > 0 ? activeKcal / baseKcal : 1
 
@@ -70,7 +70,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
       try {
         navigator.vibrate([30, 50, 30])
       } catch {
-        // Ignoruj
+        // Ignore
       }
     }
 
@@ -94,7 +94,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                   className="text-[10px] px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                 >
                   <Globe className="w-3 h-3" />
-                  <span>Globalny</span>
+                  <span>{t('products.globalProduct')}</span>
                 </Badge>
               ) : (
                 <Badge
@@ -102,21 +102,20 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                   className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
                 >
                   <Home className="w-3 h-3" />
-                  <span>Gospodarstwo</span>
+                  <span>{t('navigation.households')}</span>
                 </Badge>
               )}
             </div>
 
             <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-emerald-400 font-extrabold text-xs shrink-0">
               <Flame className="w-3.5 h-3.5" />
-              <span>{Math.round(activeKcal)} kcal</span>
+              <span>{Math.round(activeKcal)} {t('common.kcal')}</span>
             </div>
           </div>
           {meal.description && (
             <SheetDescription>{meal.description}</SheetDescription>
           )}
         </SheetHeader>
-
 
         <div className="py-4 flex flex-col gap-5">
           {/* Tags */}
@@ -135,17 +134,17 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
                 <Scale className="w-4 h-4 text-emerald-400" />
-                <span>Skaluj porcję (Target Kcal):</span>
+                <span>{t('cookbook.scalePortions')} ({t('cookbook.targetCalories')}):</span>
               </span>
               <span className="text-xs text-zinc-500 font-mono">
-                Mnożnik: <strong>{Math.round(multiplier * 100) / 100}x</strong>
+                {Math.round(multiplier * 100) / 100}x
               </span>
             </div>
 
             <div className="flex items-center gap-3">
               <Input
                 type="number"
-                placeholder={`Domyślnie ${baseKcal} kcal`}
+                placeholder={`${baseKcal} ${t('common.kcal')}`}
                 value={targetKcal}
                 onChange={(e) =>
                   setTargetKcal(e.target.value === '' ? '' : Number(e.target.value))
@@ -155,24 +154,24 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
               <Button
                 variant="outline"
                 onClick={() => setTargetKcal('')}
-                className="h-10 text-xs shrink-0"
+                className="h-10 text-xs shrink-0 cursor-pointer"
               >
-                Reset
+                {t('common.clear')}
               </Button>
             </div>
 
             {/* Scaled Macro Display */}
             <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-800 text-center font-mono">
               <div className="p-2 rounded-lg bg-zinc-950/60">
-                <span className="text-[10px] text-zinc-500 block">Białko</span>
+                <span className="text-[10px] text-zinc-500 block">{t('common.proteinShort')}</span>
                 <span className="text-xs font-bold text-emerald-400">{scaledProtein} g</span>
               </div>
               <div className="p-2 rounded-lg bg-zinc-950/60">
-                <span className="text-[10px] text-zinc-500 block">Węglowodany</span>
+                <span className="text-[10px] text-zinc-500 block">{t('common.carbsShort')}</span>
                 <span className="text-xs font-bold text-emerald-400">{scaledCarbs} g</span>
               </div>
               <div className="p-2 rounded-lg bg-zinc-950/60">
-                <span className="text-[10px] text-zinc-500 block">Tłuszcze</span>
+                <span className="text-[10px] text-zinc-500 block">{t('common.fatShort')}</span>
                 <span className="text-xs font-bold text-emerald-400">{scaledFat} g</span>
               </div>
             </div>
@@ -181,7 +180,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           {/* Ingredients List */}
           <div>
             <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">
-              Składniki ({meal.ingredients.length})
+              {t('cookbook.ingredients')} ({meal.ingredients.length})
             </h4>
             <div className="flex flex-col gap-2">
               {meal.ingredients.map((ing) => {
@@ -193,14 +192,14 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                   >
                     <div>
                       <span className="font-semibold text-zinc-200">
-                        {ing.product?.name || 'Produkt'}
+                        {ing.product?.name || 'Product'}
                       </span>
                       {ing.is_pantry_item && (
-                        <span className="text-[10px] text-zinc-500 ml-2">(Przyprawa/Spiżarnia)</span>
+                        <span className="text-[10px] text-zinc-500 ml-2">({t('cookbook.pantryItem')})</span>
                       )}
                     </div>
                     <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                      {scaledQty} {ing.product?.unit_type || 'g'}
+                      {scaledQty} {formatUnit(ing.product?.unit_type || 'g', scaledQty)}
                     </span>
                   </div>
                 )
@@ -212,7 +211,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           {meal.preparation_steps && (
             <div>
               <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                Kroki Przygotowania
+                {t('cookbook.steps')}
               </h4>
               <p className="text-xs text-zinc-300 whitespace-pre-line leading-relaxed bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                 {meal.preparation_steps}
@@ -224,7 +223,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           {meal.comments && (
             <div>
               <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                Komentarze i Uwagi
+                {t('cookbook.notes')}
               </h4>
               <p className="text-xs text-zinc-400 italic bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                 "{meal.comments}"
@@ -237,17 +236,17 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           <Button
             onClick={handleAddToDraft}
             disabled={isAdded}
-            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2"
+            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
           >
             {isAdded ? (
               <>
                 <Check className="w-5 h-5" />
-                <span>Dodano do Koszyka!</span>
+                <span>{t('toasts.saved')}</span>
               </>
             ) : (
               <>
                 <Plus className="w-5 h-5" />
-                <span>Wrzuć do Koszyka ({Math.round(activeKcal)} kcal)</span>
+                <span>{t('cookbook.addToDraft')} ({Math.round(activeKcal)} {t('common.kcal')})</span>
               </>
             )}
           </Button>

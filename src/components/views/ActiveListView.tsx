@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, ActiveListItemWithProduct } from '@/services/shoppingListService'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -8,13 +9,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { CheckCircle2, Calendar, Radio, Archive, ShoppingCart, Plus, Minus } from 'lucide-react'
-import { cn, formatDate, getNextQuantity } from '@/lib/utils'
-
+import { cn, getNextQuantity } from '@/lib/utils'
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
 
 export const ActiveListView: React.FC = () => {
   const { household } = useAuth()
   const { setDraftItems, draftItems } = useShoppingStore()
+  const { t, formatUnit, formatDate } = useTranslation()
   const [activeList, setActiveList] = useState<ActiveListWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -24,21 +25,20 @@ export const ActiveListView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
 
-  const loadActiveList = async () => {
+  const loadActiveList = React.useCallback(async () => {
     if (!household) return
     setLoading(true)
     const list = await shoppingListService.getActiveList(household.id)
     setActiveList(list)
     setLoading(false)
-  }
+  }, [household])
 
   useEffect(() => {
     loadActiveList()
-  }, [household])
+  }, [loadActiveList])
 
-  // Subskrypcja zmian Realtime w czasie rzeczywistym z Supabase
+  // Realtime subscription
   useActiveListRealtime(activeList?.id || null, () => {
-    // Ciche pobranie zaktualizowanego stanu bazy
     if (household && activeList?.id) {
       shoppingListService.getActiveList(household.id).then((freshList) => {
         if (freshList) setActiveList(freshList)
@@ -56,10 +56,10 @@ export const ActiveListView: React.FC = () => {
     )
     setActiveList({ ...activeList, items: updatedItems })
 
-    // 2. Supabase async update w tle
+    // 2. Async backend update
     const success = await shoppingListService.toggleItemChecked(itemId, !currentStatus)
 
-    // 3. Rollback w przypadku niepowodzenia połączenia
+    // 3. Rollback on failure
     if (!success) {
       setActiveList({ ...activeList, items: previousItems })
     }
@@ -111,7 +111,6 @@ export const ActiveListView: React.FC = () => {
   }
 
   const handleInputChange = (val: string) => {
-    // Pozwalaj wyłącznie na dodatnie liczby całkowite (cyfry 0-9 bez wiodącego 0)
     const cleaned = val.replace(/[^0-9]/g, '')
     const normalized = cleaned.replace(/^0+/, '')
     setEditValue(normalized)
@@ -123,7 +122,6 @@ export const ActiveListView: React.FC = () => {
     setEditValue('')
 
     if (!isNaN(parsed) && parsed > 0 && parsed !== item.total_quantity && activeList) {
-      // Optimistic UI update
       const previousItems = activeList.items
       const updatedItems = activeList.items.map((i) =>
         i.id === item.id ? { ...i, total_quantity: parsed } : i
@@ -168,18 +166,23 @@ export const ActiveListView: React.FC = () => {
     setIsArchiving(false)
 
     if (uncheckedItemsToDraft.length > 0) {
-      // Dołącz niekupione pozycje z powrotem do draftu
       setDraftItems([...draftItems, ...uncheckedItemsToDraft])
     }
 
     setActiveList(null)
   }
 
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
+
   if (loading) {
     return (
       <div className="py-16 flex flex-col items-center justify-center text-center">
         <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-2" />
-        <p className="text-xs text-zinc-500">Pobieranie aktywnej listy zakupów...</p>
+        <p className="text-xs text-zinc-500">{t('common.loading')}</p>
       </div>
     )
   }
@@ -190,9 +193,9 @@ export const ActiveListView: React.FC = () => {
         <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-3">
           <ShoppingCart className="w-7 h-7" />
         </div>
-        <p className="text-sm font-bold text-zinc-300">Brak aktywnej listy zakupów</p>
+        <p className="text-sm font-bold text-zinc-300">{t('activeList.emptyTitle')}</p>
         <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
-          Skomponuj koszyk w zakładce <strong className="text-emerald-400">Koszyk</strong> i naciśnij <strong className="text-emerald-400">Utwórz Aktywną Listę Zakupów</strong>.
+          {t('activeList.emptySubtitle')}
         </p>
       </div>
     )
@@ -201,11 +204,11 @@ export const ActiveListView: React.FC = () => {
   const checkedCount = activeList.items.filter((i) => i.is_checked).length
   const totalCount = activeList.items.length
 
-  // Grupowanie według kategorii (sort_order)
+  // Group by category sort_order
   const categoryMap = new Map<string, { name: string; sort_order: number; items: typeof activeList.items }>()
 
   activeList.items.forEach((item) => {
-    const catName = item.product?.category?.name || 'Inne / Ad-hoc'
+    const catName = item.product?.category?.name || 'other'
     const sortOrder = item.product?.category?.sort_order ?? 99
 
     const existing = categoryMap.get(catName)
@@ -228,18 +231,17 @@ export const ActiveListView: React.FC = () => {
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
           <span className="text-xs text-zinc-300 font-semibold flex items-center gap-1.5">
             <Radio className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Aktywna Lista (Realtime)</span>
+            <span>{t('activeList.title')} ({t('activeList.realtimeSync')})</span>
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
           <Calendar className="w-3.5 h-3.5" />
-          <span>{formatDate(activeList.target_date || activeList.created_at) || 'Dziś'}</span>
+          <span>{formatDate(activeList.target_date || activeList.created_at || new Date())}</span>
           <Badge variant="default" className="text-[10px] ml-1">
             {checkedCount} / {totalCount}
           </Badge>
         </div>
-
       </div>
 
       {/* Sorted Category Groups */}
@@ -247,7 +249,7 @@ export const ActiveListView: React.FC = () => {
         {sortedCategories.map((group) => (
           <div key={group.name} className="flex flex-col gap-2">
             <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider px-1 flex items-center justify-between">
-              <span>{group.sort_order !== 99 ? `${group.sort_order}. ${group.name}` : group.name}</span>
+              <span>{group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
               <span className="text-[10px] text-zinc-600 font-mono">
                 {group.items.filter((i) => i.is_checked).length}/{group.items.length}
               </span>
@@ -256,8 +258,8 @@ export const ActiveListView: React.FC = () => {
             <div className="flex flex-col gap-2">
               {group.items.map((item) => {
                 const isChecked = !!item.is_checked
-                const name = item.product?.name || item.ad_hoc_name || 'Produkt'
-                const unit = item.product?.unit_type || 'szt'
+                const name = item.product?.name || item.ad_hoc_name || 'Product'
+                const unit = item.product?.unit_type || 'pcs'
 
                 return (
                   <div
@@ -285,7 +287,7 @@ export const ActiveListView: React.FC = () => {
                           {name}
                         </span>
                         {item.added_ad_hoc && (
-                          <span className="text-[10px] text-zinc-500 font-mono">Ad-hoc</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">{t('draft.adHocItem')}</span>
                         )}
                       </div>
                     </div>
@@ -302,9 +304,9 @@ export const ActiveListView: React.FC = () => {
                           handleDecrease(item)
                         }}
                         disabled={isChecked}
-                        className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                        title="Zmniejsz ilość"
-                        aria-label="Zmniejsz ilość"
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                        title={t('common.decrease')}
+                        aria-label={t('common.decrease')}
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -331,7 +333,7 @@ export const ActiveListView: React.FC = () => {
                             className="w-14 h-7 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
                           />
                           <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
-                            {unit}
+                            {formatUnit(unit)}
                           </span>
                         </div>
                       ) : (
@@ -350,9 +352,9 @@ export const ActiveListView: React.FC = () => {
                               ? "text-zinc-600 line-through cursor-default"
                               : "text-emerald-400 hover:bg-zinc-800/80 cursor-text"
                           )}
-                          title={isChecked ? undefined : "Kliknij, aby wpisać ilość"}
+                          title={isChecked ? undefined : t('common.edit')}
                         >
-                          {item.total_quantity} {unit}
+                          {item.total_quantity} {formatUnit(unit, item.total_quantity)}
                         </button>
                       )}
 
@@ -363,9 +365,9 @@ export const ActiveListView: React.FC = () => {
                           handleIncrease(item)
                         }}
                         disabled={isChecked}
-                        className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                        title="Zwiększ ilość"
-                        aria-label="Zwiększ ilość"
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                        title={t('common.increase')}
+                        aria-label={t('common.increase')}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -383,21 +385,21 @@ export const ActiveListView: React.FC = () => {
         {checkedCount === totalCount && (
           <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center flex items-center justify-center gap-2 text-emerald-300 text-xs font-bold animate-bounce">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Wszystkie zakupy zrobione! Bravo!</span>
+            <span>{t('activeList.allPurchased')}</span>
           </div>
         )}
 
         <Button
           onClick={handleArchiveList}
           disabled={isArchiving}
-          className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border border-zinc-700/80 font-bold rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50"
+          className="w-full h-12 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border border-zinc-700/80 font-bold rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
         >
           {isArchiving ? (
             <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
               <Archive className="w-4 h-4 text-emerald-400" />
-              <span>Zakończ i Zarchiwizuj Zakupy</span>
+              <span>{t('activeList.archiveButton')}</span>
             </>
           )}
         </Button>
@@ -408,11 +410,9 @@ export const ActiveListView: React.FC = () => {
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
         itemName={itemToDelete?.product?.name || itemToDelete?.ad_hoc_name}
-        targetName="z listy zakupów"
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />
     </div>
   )
 }
-

@@ -47,4 +47,4 @@ Before finalizing any ADR, the agent and contributor must rigorously probe:
 | :--- | :--- | :--- |
 | [ADR-001](../../docs/adr/ADR-001-dual-layout-architecture.md) | Dual Layout Architecture (Desktop Split & Mobile PWA) | Accepted |
 | [ADR-002](../../docs/adr/ADR-002-state-and-realtime-architecture.md) | State Management, Services & Realtime Optimistic UI | Accepted |
-| [ADR-003](../../docs/adr/ADR-003-internationalization-i18n.md) | Internationalization (i18n) Strategy (PL & EN) | Proposed |
+| [ADR-003](../../docs/adr/ADR-003-internationalization-i18n.md) | Internationalization (i18n) Strategy, Codebase English Purity & Multi-Tier Persistence | Accepted |

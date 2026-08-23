@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { AppLogo } from '@/components/ui/AppLogo'
 import { AccountDetailsDialog } from '@/components/dialogs/AccountDetailsDialog'
 import { HouseholdsDialog } from '@/components/dialogs/HouseholdsDialog'
@@ -48,6 +49,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onLayoutModeChange
 }) => {
   const { user, userProfile, household, userHouseholds, signOut } = useAuth()
+  const { t } = useTranslation()
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
@@ -71,40 +73,40 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const displayName = userProfile?.name || user?.email?.split('@')[0] || 'Użytkownik'
+  const displayName = userProfile?.name || user?.email?.split('@')[0] || t('navigation.profile')
   const userInitial = displayName.charAt(0).toUpperCase() || 'U'
 
   const navItems: NavItem[] = [
     {
       id: 'cookbook',
-      label: 'Książka Kucharska',
-      description: 'Przepisy i makroskładniki',
+      label: t('navigation.cookbook'),
+      description: t('cookbook.subtitle'),
       icon: BookOpen
     },
     {
       id: 'products',
-      label: 'Baza Produktów',
-      description: 'Składniki i kalorie',
+      label: t('navigation.products'),
+      description: t('products.subtitle'),
       icon: Package
     },
     {
       id: 'draft',
-      label: 'Koszyk Roboczy',
-      description: 'Skomponuj listę',
+      label: t('navigation.draft'),
+      description: t('draft.subtitle'),
       icon: ShoppingCart,
       badge: draftCount
     },
     {
       id: 'active',
-      label: 'Aktywna Lista',
-      description: 'Zakupy w czasie rzeczywistym',
+      label: t('navigation.activeList'),
+      description: t('activeList.subtitle'),
       icon: CheckSquare,
       badge: activeCount
     },
     {
       id: 'history',
-      label: 'Historia List',
-      description: 'Zrealizowane zakupy',
+      label: t('navigation.history'),
+      description: t('history.subtitle'),
       icon: History
     }
   ]
@@ -121,12 +123,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-white">SmartShopping</span>
+                <span className="font-extrabold text-base tracking-tight text-white">Smart Shopping</span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   Pro
                 </span>
               </div>
-              <span className="text-[11px] text-zinc-500">Planowanie & Zakupy</span>
+              <span className="text-[11px] text-zinc-500">{t('common.brandTagline')}</span>
             </div>
           </div>
 
@@ -134,7 +136,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
           <div
             onClick={() => setIsHouseholdsDialogOpen(true)}
             className="p-3 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 hover:border-emerald-500/40 hover:bg-zinc-900 transition-all cursor-pointer group flex items-center justify-between shadow-xs"
-            title="Kliknij, aby zmienić lub zarządzać gospodarstwami"
+            title={t('navigation.households')}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 group-hover:scale-105 transition-transform">
@@ -142,10 +144,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">
-                  Gospodarstwo
+                  {t('navigation.households')}
                 </span>
                 <span className="text-xs font-bold text-zinc-200 truncate group-hover:text-emerald-300 transition-colors">
-                  {household?.name || 'Wybierz gospodarstwo'}
+                  {household?.name || t('dialogs.households.currentHousehold')}
                 </span>
               </div>
             </div>
@@ -158,7 +160,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
         {/* Center: Main Navigation List */}
         <nav className="flex-1 px-3 py-2 flex flex-col gap-1.5 overflow-y-auto">
           <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-            Menu Główne
+            {t('navigation.profile')}
           </div>
 
           {navItems.map((item) => {
@@ -227,11 +229,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <button
                 onClick={() => setIsLayoutMenuOpen((prev) => !prev)}
                 className="w-full px-3 py-2 rounded-xl bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs flex items-center justify-between transition-colors cursor-pointer"
-                title="Zmień widok układu graficznego"
+                title="Layout view"
               >
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Układ: <strong className="text-zinc-200 font-semibold">{layoutMode === 'auto' ? 'Automatyczny' : layoutMode === 'desktop' ? 'Desktop' : 'Mobilny'}</strong></span>
+                  <span>{t('dialogs.layout.mode')} <strong className="text-zinc-200 font-semibold">{layoutMode === 'auto' ? t('dialogs.layout.auto') : layoutMode === 'desktop' ? t('dialogs.layout.desktop') : t('dialogs.layout.mobile')}</strong></span>
                 </div>
                 <ChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", isLayoutMenuOpen && "rotate-180")} />
               </button>
@@ -249,7 +251,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     )}
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5" />
-                    <span>Auto (wg wielkości ekranu)</span>
+                    <span>{t('dialogs.layout.auto')}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -262,7 +264,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     )}
                   >
                     <Laptop className="w-3.5 h-3.5" />
-                    <span>Zawsze Desktop (13"+)</span>
+                    <span>{t('dialogs.layout.desktop')}</span>
                   </button>
                   <button
                     onClick={() => {
@@ -275,11 +277,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     )}
                   >
                     <Smartphone className="w-3.5 h-3.5" />
-                    <span>Zawsze Mobilny</span>
+                    <span>{t('dialogs.layout.mobile')}</span>
                   </button>
 
                   <div className="pt-1.5 mt-1 border-t border-zinc-900 px-2.5 pb-1 flex items-center justify-between text-[10px] text-zinc-500">
-                    <span>Skrót klawiszowy:</span>
+                    <span>{t('dialogs.layout.shortcut')}</span>
                     <kbd className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-[9px] font-semibold">
                       Ctrl + Alt + L
                     </kbd>
@@ -299,7 +301,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   ? "bg-zinc-900 border-emerald-500/60 shadow-md ring-2 ring-emerald-500/20"
                   : "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
               )}
-              title="Menu profilu użytkownika"
+              title={t('navigation.profile')}
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-xs shadow-inner shrink-0">
@@ -329,7 +331,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-zinc-100 truncate">{displayName}</span>
                     <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.2 rounded font-medium flex items-center gap-1">
-                      <Sparkles className="w-2.5 h-2.5" /> Aktywny
+                      <Sparkles className="w-2.5 h-2.5" /> {t('dialogs.households.activeBadge')}
                     </span>
                   </div>
                   <span className="text-[10px] text-zinc-500 font-mono truncate">{user?.email}</span>
@@ -344,7 +346,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors flex items-center gap-2.5 cursor-pointer"
                   >
                     <User className="w-4 h-4 text-emerald-400" />
-                    <span>Dane Konta</span>
+                    <span>{t('navigation.account')}</span>
                   </button>
 
                   <button
@@ -356,7 +358,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   >
                     <div className="flex items-center gap-2.5">
                       <Home className="w-4 h-4 text-emerald-400" />
-                      <span>Gospodarstwa</span>
+                      <span>{t('navigation.households')}</span>
                     </div>
                     {userHouseholds.length > 0 && (
                       <span className="text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800 px-1.5 py-0.5 rounded-md">
@@ -376,7 +378,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                   className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2.5 cursor-pointer"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span>Wyloguj się</span>
+                  <span>{t('navigation.logout')}</span>
                 </button>
               </div>
             )}

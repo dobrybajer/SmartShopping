@@ -1,6 +1,7 @@
 import React from 'react'
 import { BookOpen, Package, ShoppingCart, CheckSquare, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n'
 
 export type TabType = 'cookbook' | 'products' | 'draft' | 'active' | 'history'
 
@@ -24,32 +25,34 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   draftCount = 0,
   activeCount = 0
 }) => {
+  const { t } = useTranslation()
+
   const items: NavItem[] = [
     {
       id: 'cookbook',
-      label: 'Przepisy',
+      label: t('navigation.cookbook'),
       icon: BookOpen
     },
     {
       id: 'products',
-      label: 'Produkty',
+      label: t('navigation.products'),
       icon: Package
     },
     {
       id: 'draft',
-      label: 'Koszyk',
+      label: t('navigation.draft'),
       icon: ShoppingCart,
       badge: draftCount
     },
     {
       id: 'active',
-      label: 'Lista',
+      label: t('navigation.activeList'),
       icon: CheckSquare,
       badge: activeCount
     },
     {
       id: 'history',
-      label: 'Historia',
+      label: t('navigation.history'),
       icon: History
     }
   ]
@@ -59,7 +62,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       try {
         navigator.vibrate(20)
       } catch {
-        // Ignoruj jeśli nieobsługiwane
+        // Ignore if unsupported
       }
     }
     onTabChange(tab)
@@ -76,7 +79,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             key={item.id}
             onClick={() => handleSelect(item.id)}
             className={cn(
-              "flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all relative group",
+              "flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all relative group cursor-pointer",
               isActive
                 ? "text-emerald-400 font-semibold"
                 : "text-zinc-500 hover:text-zinc-300"

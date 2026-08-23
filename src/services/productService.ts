@@ -13,7 +13,7 @@ export const productService = {
       .order('sort_order', { ascending: true })
 
     if (error) {
-      console.error('Błąd pobierania kategorii produktów:', error)
+      console.error('Error fetching product categories:', error)
       return []
     }
     return data || []
@@ -36,17 +36,17 @@ export const productService = {
       }
 
       if (error) {
-        console.warn('[productService.getProducts] Błąd zapytania z filtrem OR:', error)
+        console.warn('[productService.getProducts] OR query error:', error)
       }
 
-      // Fallback: pobierz wszystkie produkty dostępne dla sesji i przefiltruj po stronie klienta
+      // Fallback: fetch all session-accessible products and filter client-side
       const fallbackResult = await supabase
         .from('products')
         .select('*')
         .order('name', { ascending: true })
 
       if (fallbackResult.error) {
-        console.error('[productService.getProducts] Błąd pobierania produktów (fallback):', fallbackResult.error)
+        console.error('[productService.getProducts] Fallback error fetching products:', fallbackResult.error)
         return []
       }
 
@@ -57,7 +57,7 @@ export const productService = {
         return householdId ? p.household_id === householdId : false
       })
     } catch (err) {
-      console.error('[productService.getProducts] Nieoczekiwany błąd:', err)
+      console.error('[productService.getProducts] Unexpected error:', err)
       return []
     }
   },
@@ -75,7 +75,7 @@ export const productService = {
       .single()
 
     if (error) {
-      console.error('Błąd tworzenia produktu:', error)
+      console.error('Error creating product:', error)
       return null
     }
     return data
@@ -90,7 +90,7 @@ export const productService = {
       .single()
 
     if (error) {
-      console.error('Błąd aktualizacji produktu:', error)
+      console.error('Error updating product:', error)
       return null
     }
     return data
@@ -103,7 +103,7 @@ export const productService = {
       .eq('id', productId)
 
     if (error) {
-      console.error('Błąd usuwania produktu:', error)
+      console.error('Error deleting product:', error)
       return false
     }
     return true

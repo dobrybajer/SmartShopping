@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Search, Globe, Home, Check } from 'lucide-react'
+import { useTranslation } from '@/i18n'
 
 interface ProductAutocompleteProps {
   value: string
@@ -23,22 +24,22 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   products,
   categories = [],
   onSelectProduct,
-  placeholder = 'Wpisz lub wybierz nazwę produktu...',
+  placeholder,
   autoFocus = false,
   className,
   id
 }) => {
+  const { t, formatUnit } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Normalizacja do porównywania (uwzględniająca polskie znaki diakrytyczne i małe litery)
+  // Normalization for comparison
   const normalize = (str: string) =>
     str.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
-  // Filtrowanie produktów zaczynających się od wpisanych liter (startsWith)
   const filteredProducts = React.useMemo(() => {
     if (!value.trim()) {
       return products
@@ -50,7 +51,6 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     })
   }, [products, value])
 
-  // Zamknięcie listy po kliknięciu poza komponentem
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -61,7 +61,6 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Przewijanie podświetlonego elementu do widoku
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
       const item = listRef.current.children[highlightedIndex] as HTMLElement
@@ -110,7 +109,10 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId) return null
     const cat = categories.find((c) => c.id === categoryId)
-    return cat ? cat.name : null
+    if (!cat) return null
+    return t(`categories.${cat.name}` as any) !== `categories.${cat.name}`
+      ? t(`categories.${cat.name}` as any)
+      : cat.name
   }
 
   return (
@@ -128,13 +130,12 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           onFocus={(e) => {
             setIsOpen(true)
             setHighlightedIndex(0)
-            // Automatyczne podwinięcie do góry na urządzeniach mobilnych przy otwarciu klawiatury
             setTimeout(() => {
               e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
             }, 300)
           }}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={placeholder || t('products.searchPlaceholder')}
           autoFocus={autoFocus}
           autoComplete="off"
           className="pr-9 h-11 text-xs bg-zinc-950 border-zinc-800 focus:border-emerald-500 rounded-xl"
@@ -144,7 +145,6 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
         </div>
       </div>
 
-      {/* Lista podpowiedzi autouzupełniania */}
       {isOpen && (
         <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl backdrop-blur-lg animate-in fade-in-50 zoom-in-95">
           {filteredProducts.length > 0 ? (
@@ -193,7 +193,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                         </Badge>
                       )}
                       <span className="font-mono text-[10px] text-zinc-500 font-semibold">
-                        ({p.unit_type})
+                        ({formatUnit(p.unit_type)})
                       </span>
                     </div>
                   </li>
@@ -202,9 +202,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             </ul>
           ) : (
             <div className="p-3 text-center text-xs text-zinc-400 flex flex-col gap-1">
-              <span className="font-medium text-zinc-300">Brak produktu &quot;{value}&quot; na liście</span>
+              <span className="font-medium text-zinc-300">{t('products.emptyTitle')}</span>
               <span className="text-[11px] text-zinc-500">
-                Po zatwierdzeniu będziesz mógł dodać go do bazy produktów.
+                {t('products.emptySubtitle')}
               </span>
             </div>
           )}

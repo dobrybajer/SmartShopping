@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
 import { MealDetailsSheet } from '@/components/dialogs/MealDetailsSheet'
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils'
 
 export const CookbookView: React.FC = () => {
   const { household } = useAuth()
+  const { t } = useTranslation()
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,17 +24,17 @@ export const CookbookView: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
 
-  const loadMeals = async () => {
+  const loadMeals = React.useCallback(async () => {
     if (!household) return
     setLoading(true)
     const data = await mealService.getMeals(household.id)
     setMeals(data)
     setLoading(false)
-  }
+  }, [household])
 
   useEffect(() => {
     loadMeals()
-  }, [household])
+  }, [loadMeals])
 
   // Collect all unique tags
   const allTags = Array.from(
@@ -59,8 +61,8 @@ export const CookbookView: React.FC = () => {
     e.stopPropagation()
     const isGlobal = meal.type === 'Global' || !meal.household_id
     const confirmMsg = isGlobal
-      ? 'Czy na pewno chcesz usunąć ten przepis globalny? Zniknie on ze wszystkich gospodarstw.'
-      : 'Czy na pewno chcesz usunąć ten przepis ze swojego gospodarstwa?'
+      ? t('cookbook.deleteConfirm')
+      : t('cookbook.deleteConfirm')
 
     if (confirm(confirmMsg)) {
       const success = await mealService.deleteMeal(meal.id)
@@ -77,7 +79,7 @@ export const CookbookView: React.FC = () => {
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
           <Input
-            placeholder="Szukaj przepisu lub składnika..."
+            placeholder={t('cookbook.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-zinc-950 border-zinc-800"
@@ -88,7 +90,7 @@ export const CookbookView: React.FC = () => {
           onClick={() => setIsAddMealOpen(true)}
           size="icon"
           className="h-11 w-11 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shrink-0 shadow-lg cursor-pointer"
-          title="Dodaj przepis"
+          title={t('cookbook.addRecipe')}
         >
           <Plus className="w-5 h-5" />
         </Button>
@@ -97,16 +99,16 @@ export const CookbookView: React.FC = () => {
       {/* Scope and Filter Tags */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
         {/* Type / Scope Filters */}
-        <button onClick={() => setTypeFilter('all')} className="shrink-0">
+        <button onClick={() => setTypeFilter('all')} className="shrink-0 cursor-pointer">
           <Badge
             variant={typeFilter === 'all' ? 'default' : 'outline'}
             className="cursor-pointer px-3 py-1 text-xs"
           >
-            Wszystkie
+            {t('common.all')}
           </Badge>
         </button>
 
-        <button onClick={() => setTypeFilter(typeFilter === 'Household' ? 'all' : 'Household')} className="shrink-0">
+        <button onClick={() => setTypeFilter(typeFilter === 'Household' ? 'all' : 'Household')} className="shrink-0 cursor-pointer">
           <Badge
             variant={typeFilter === 'Household' ? 'default' : 'outline'}
             className={cn(
@@ -117,11 +119,11 @@ export const CookbookView: React.FC = () => {
             )}
           >
             <Home className="w-3 h-3" />
-            <span>Gospodarstwo</span>
+            <span>{t('navigation.households')}</span>
           </Badge>
         </button>
 
-        <button onClick={() => setTypeFilter(typeFilter === 'Global' ? 'all' : 'Global')} className="shrink-0">
+        <button onClick={() => setTypeFilter(typeFilter === 'Global' ? 'all' : 'Global')} className="shrink-0 cursor-pointer">
           <Badge
             variant={typeFilter === 'Global' ? 'default' : 'outline'}
             className={cn(
@@ -132,7 +134,7 @@ export const CookbookView: React.FC = () => {
             )}
           >
             <Globe className="w-3 h-3" />
-            <span>Globalne</span>
+            <span>{t('common.global')}</span>
           </Badge>
         </button>
 
@@ -144,7 +146,7 @@ export const CookbookView: React.FC = () => {
           <button
             key={tag}
             onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-            className="shrink-0"
+            className="shrink-0 cursor-pointer"
           >
             <Badge
               variant={selectedTag === tag ? 'default' : 'outline'}
@@ -160,18 +162,16 @@ export const CookbookView: React.FC = () => {
       {loading ? (
         <div className="py-12 flex flex-col items-center justify-center text-center">
           <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-2" />
-          <p className="text-xs text-zinc-500">Pobieranie przepisów z bazy...</p>
+          <p className="text-xs text-zinc-500">{t('common.loading')}</p>
         </div>
       ) : filteredMeals.length === 0 ? (
         <div className="py-12 flex flex-col items-center justify-center text-center">
           <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-3">
             <BookOpen className="w-6 h-6" />
           </div>
-          <p className="text-sm font-semibold text-zinc-300">Brak przepisów w wybranym filtrze</p>
+          <p className="text-sm font-semibold text-zinc-300">{t('cookbook.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-xs">
-            {searchQuery || typeFilter !== 'all' || selectedTag
-              ? 'Brak wyników pasujących do wybranych kryteriów.'
-              : 'Kliknij przycisk +, aby dodać swój pierwszy przepis w tej książce kucharskiej.'}
+            {t('cookbook.emptySubtitle')}
           </p>
         </div>
       ) : (
@@ -179,7 +179,7 @@ export const CookbookView: React.FC = () => {
           {filteredMeals.map((meal) => {
             const isGlobal = meal.type === 'Global' || !meal.household_id
 
-            // Oblicz bazowe kcal i makro dla karty
+            // Calculate base macros
             let totalKcal = 0
             let totalProtein = 0
             let totalCarbs = 0
@@ -218,7 +218,7 @@ export const CookbookView: React.FC = () => {
                           className="text-[9px] px-1.5 py-0 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                         >
                           <Globe className="w-2.5 h-2.5" />
-                          <span>Globalny</span>
+                          <span>{t('common.global')}</span>
                         </Badge>
                       ) : (
                         <Badge
@@ -226,7 +226,7 @@ export const CookbookView: React.FC = () => {
                           className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
                         >
                           <Home className="w-2.5 h-2.5" />
-                          <span>Gospodarstwo</span>
+                          <span>{t('navigation.households')}</span>
                         </Badge>
                       )}
                     </div>
@@ -242,13 +242,13 @@ export const CookbookView: React.FC = () => {
                     {totalKcal > 0 && (
                       <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg text-emerald-400 text-xs font-bold shrink-0">
                         <Flame className="w-3.5 h-3.5" />
-                        <span>{Math.round(totalKcal)} kcal</span>
+                        <span>{Math.round(totalKcal)} {t('common.kcal')}</span>
                       </div>
                     )}
                     <button
                       onClick={(e) => handleDeleteMeal(e, meal)}
-                      className="text-zinc-600 hover:text-red-400 p-1.5 transition-colors"
-                      title="Usuń przepis"
+                      className="text-zinc-600 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -258,9 +258,9 @@ export const CookbookView: React.FC = () => {
                 {/* Macro breakdown */}
                 <div className="flex items-center justify-between pt-2 border-t border-zinc-900 text-[11px] text-zinc-400">
                   <div className="flex items-center gap-3 font-mono">
-                    <span>B: <strong className="text-zinc-200">{Math.round(totalProtein)}g</strong></span>
-                    <span>W: <strong className="text-zinc-200">{Math.round(totalCarbs)}g</strong></span>
-                    <span>T: <strong className="text-zinc-200">{Math.round(totalFat)}g</strong></span>
+                    <span>{t('common.proteinShort')}: <strong className="text-zinc-200">{Math.round(totalProtein)}g</strong></span>
+                    <span>{t('common.carbsShort')}: <strong className="text-zinc-200">{Math.round(totalCarbs)}g</strong></span>
+                    <span>{t('common.fatShort')}: <strong className="text-zinc-200">{Math.round(totalFat)}g</strong></span>
                   </div>
 
                   {meal.tags && meal.tags.length > 0 && (
@@ -278,7 +278,6 @@ export const CookbookView: React.FC = () => {
           })}
         </div>
       )}
-
 
       {/* Meal Details Sheet */}
       <MealDetailsSheet

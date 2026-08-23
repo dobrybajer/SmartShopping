@@ -33,7 +33,7 @@ export function formatDate(dateInput: string | Date | null | undefined): string 
 
 /**
  * Returns the step for incrementing/decrementing a quantity based on the unit type.
- * For 'szt' or unknown: step is 1.
+ * For 'pcs' or unknown: step is 1.
  * For 'g' and 'ml': step is 100.
  */
 export function getUnitStep(unit?: string | null): number {

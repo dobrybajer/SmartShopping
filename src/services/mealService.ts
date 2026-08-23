@@ -29,7 +29,7 @@ export const mealService = {
       .order('id', { ascending: true })
 
     if (error) {
-      console.error('Błąd pobierania kategorii posiłków:', error)
+      console.error('Error fetching meal categories:', error)
       return []
     }
     return data || []
@@ -53,11 +53,10 @@ export const mealService = {
       .order('name', { ascending: true })
 
     if (error) {
-      console.error('Błąd pobierania potraw:', error)
+      console.error('Error fetching meals:', error)
       return []
     }
 
-    // Safely cast array
     return (data || []).map((m: any) => ({
       id: m.id,
       household_id: m.household_id,
@@ -83,7 +82,7 @@ export const mealService = {
     const mealType = input.type || (input.household_id ? 'Household' : 'Global')
     const targetHouseholdId = mealType === 'Global' ? null : input.household_id
 
-    // 1. Dodaj potrawę do tabeli `meals`
+    // 1. Insert meal into `meals` table
     const { data: newMeal, error: mealErr } = await supabase
       .from('meals')
       .insert({
@@ -100,11 +99,11 @@ export const mealService = {
       .single()
 
     if (mealErr || !newMeal) {
-      console.error('Błąd tworzenia posiłku:', mealErr)
+      console.error('Error creating meal:', mealErr)
       return null
     }
 
-    // 2. Dodaj składniki do `meal_ingredients`
+    // 2. Insert ingredients into `meal_ingredients` table
     if (input.ingredients && input.ingredients.length > 0) {
       const ingredientsToInsert = input.ingredients.map((ing) => ({
         meal_id: newMeal.id,
@@ -118,11 +117,11 @@ export const mealService = {
         .insert(ingredientsToInsert)
 
       if (ingErr) {
-        console.error('Błąd dodawania składników posiłku:', ingErr)
+        console.error('Error adding meal ingredients:', ingErr)
       }
     }
 
-    // Pobierz pełny obiekt potrawy z podpiętymi składnikami
+    // Fetch full meal with connected products
     const meals = await this.getMeals(input.household_id || '')
     return meals.find((m) => m.id === newMeal.id) || null
   },
@@ -130,10 +129,9 @@ export const mealService = {
   async deleteMeal(mealId: string): Promise<boolean> {
     const { error } = await supabase.from('meals').delete().eq('id', mealId)
     if (error) {
-      console.error('Błąd usuwania potrawy:', error)
+      console.error('Error deleting meal:', error)
       return false
     }
     return true
   }
 }
-

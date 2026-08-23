@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
@@ -22,22 +23,23 @@ import { cn } from '@/lib/utils'
 
 export const ProductsView: React.FC = () => {
   const { household } = useAuth()
+  const { t, formatUnit } = useTranslation()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Filtry i wyszukiwanie
+  // Filters and search
   const [searchQuery, setSearchQuery] = useState('')
   const [scopeFilter, setScopeFilter] = useState<'all' | 'Household' | 'Global'>('all')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
 
-  // Dialogi
+  // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
       const [prodsData, catsData] = await Promise.all([
@@ -47,57 +49,60 @@ export const ProductsView: React.FC = () => {
       setProducts(prodsData)
       setCategories(catsData)
     } catch (err) {
-      console.error('Błąd podczas ładowania produktów:', err)
+      console.error('Error loading products:', err)
     } finally {
       setLoading(false)
     }
-  }
+  }, [household?.id])
 
   useEffect(() => {
     loadData()
-  }, [household?.id])
+  }, [loadData])
 
-  // Szybka mapa ID kategorii -> Nazwa kategorii
+  const getCategoryLabel = React.useCallback((catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }, [t])
+
+  // Category map: ID -> Category Name
   const categoryMap = useMemo(() => {
     const map = new Map<number, string>()
     categories.forEach((cat) => map.set(cat.id, cat.name))
     return map
   }, [categories])
 
-  // Filtrowanie produktów
+  // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
       const isGlobal = prod.type === 'Global' || !prod.household_id
       const isHousehold = !isGlobal
 
-      // Filtr zasięgu
       if (scopeFilter === 'Household' && !isHousehold) return false
       if (scopeFilter === 'Global' && !isGlobal) return false
 
-      // Filtr kategorii
       if (selectedCategoryId !== null && prod.category_id !== selectedCategoryId) {
         return false
       }
 
-      // Filtr wyszukiwarki
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase()
-        const catName = prod.category_id ? categoryMap.get(prod.category_id) || '' : ''
+        const rawCatName = prod.category_id ? categoryMap.get(prod.category_id) || '' : ''
+        const translatedCatName = getCategoryLabel(rawCatName).toLowerCase()
         const matchesName = prod.name.toLowerCase().includes(query)
-        const matchesCat = catName.toLowerCase().includes(query)
+        const matchesCat = rawCatName.toLowerCase().includes(query) || translatedCatName.includes(query)
         if (!matchesName && !matchesCat) return false
       }
 
       return true
     })
-  }, [products, scopeFilter, selectedCategoryId, searchQuery, categoryMap])
+  }, [products, scopeFilter, selectedCategoryId, searchQuery, categoryMap, getCategoryLabel])
 
-  // Liczniki
+  // Counts
   const totalCount = products.length
   const householdCount = products.filter((p) => p.type === 'Household' && p.household_id).length
   const globalCount = totalCount - householdCount
 
-  // Obsługa dodawania / edycji
   const handleOpenAdd = () => {
     setEditingProduct(null)
     setIsFormOpen(true)
@@ -118,7 +123,6 @@ export const ProductsView: React.FC = () => {
     })
   }
 
-  // Obsługa usuwania
   const handleConfirmDelete = async () => {
     if (!productToDelete) return
     setIsDeleting(true)
@@ -137,12 +141,12 @@ export const ProductsView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-200">
-      {/* Pasek wyszukiwania i przycisk Dodaj */}
+      {/* Search and Add button */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
           <Input
-            placeholder="Szukaj produktu lub kategorii..."
+            placeholder={t('products.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-zinc-950 border-zinc-800 text-sm h-11 focus-visible:ring-emerald-500 rounded-xl"
@@ -153,15 +157,15 @@ export const ProductsView: React.FC = () => {
           onClick={handleOpenAdd}
           size="icon"
           className="h-11 w-11 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shrink-0 shadow-lg cursor-pointer"
-          title="Dodaj produkt do gospodarstwa"
+          title={t('products.addProduct')}
         >
           <Plus className="w-5 h-5" />
         </Button>
       </div>
 
-      {/* Pasek filtrów zasięgu oraz kategorii */}
+      {/* Filters bar */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        {/* Zasięg: Wszystkie */}
+        {/* Scope: All */}
         <button onClick={() => setScopeFilter('all')} className="shrink-0 cursor-pointer">
           <Badge
             variant={scopeFilter === 'all' ? 'default' : 'outline'}
@@ -172,11 +176,11 @@ export const ProductsView: React.FC = () => {
                 : "text-zinc-400 border-zinc-800 hover:border-zinc-700"
             )}
           >
-            Wszystkie ({totalCount})
+            {t('common.all')} ({totalCount})
           </Badge>
         </button>
 
-        {/* Zasięg: Gospodarstwo */}
+        {/* Scope: Household */}
         <button
           onClick={() => setScopeFilter(scopeFilter === 'Household' ? 'all' : 'Household')}
           className="shrink-0 cursor-pointer"
@@ -191,11 +195,11 @@ export const ProductsView: React.FC = () => {
             )}
           >
             <Home className="w-3 h-3" />
-            <span>Gospodarstwo ({householdCount})</span>
+            <span>{t('navigation.households')} ({householdCount})</span>
           </Badge>
         </button>
 
-        {/* Zasięg: Globalne */}
+        {/* Scope: Global */}
         <button
           onClick={() => setScopeFilter(scopeFilter === 'Global' ? 'all' : 'Global')}
           className="shrink-0 cursor-pointer"
@@ -210,14 +214,14 @@ export const ProductsView: React.FC = () => {
             )}
           >
             <Globe className="w-3 h-3" />
-            <span>Globalne ({globalCount})</span>
+            <span>{t('common.global')} ({globalCount})</span>
           </Badge>
         </button>
 
-        {/* Separator kategorii */}
+        {/* Category separator */}
         {categories.length > 0 && <span className="h-4 w-px bg-zinc-800 shrink-0 mx-0.5" />}
 
-        {/* Kategorie chips */}
+        {/* Category chips */}
         {categories.map((cat) => {
           const isSelected = selectedCategoryId === cat.id
           return (
@@ -235,29 +239,29 @@ export const ProductsView: React.FC = () => {
                     : "text-zinc-400 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
                 )}
               >
-                {cat.name}
+                {getCategoryLabel(cat.name)}
               </Badge>
             </button>
           )
         })}
       </div>
 
-      {/* Lista produktów */}
+      {/* Products list */}
       {loading ? (
         <div className="py-16 flex flex-col items-center justify-center text-center">
           <div className="w-7 h-7 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500">Pobieranie bazy produktów...</p>
+          <p className="text-xs text-zinc-500">{t('common.loading')}</p>
         </div>
       ) : filteredProducts.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center bg-zinc-950/50 rounded-2xl border border-zinc-900 border-dashed p-6">
           <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-3">
             <Package className="w-6 h-6" />
           </div>
-          <p className="text-sm font-semibold text-zinc-300">Brak produktów</p>
+          <p className="text-sm font-semibold text-zinc-300">{t('products.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
             {searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null
-              ? 'Brak produktów pasujących do aktualnych filtrów.'
-              : 'Kliknij przycisk +, aby dodać pierwszy własny produkt do bazy gospodarstwa.'}
+              ? t('products.emptySubtitle')
+              : t('products.emptySubtitle')}
           </p>
           {(searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null) && (
             <Button
@@ -268,9 +272,9 @@ export const ProductsView: React.FC = () => {
                 setScopeFilter('all')
                 setSelectedCategoryId(null)
               }}
-              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-lg"
+              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-lg cursor-pointer"
             >
-              Wyczyść filtry
+              {t('common.clear')}
             </Button>
           )}
         </div>
@@ -279,7 +283,8 @@ export const ProductsView: React.FC = () => {
           {filteredProducts.map((product) => {
             const isGlobal = product.type === 'Global' || !product.household_id
             const isHousehold = !isGlobal
-            const categoryName = product.category_id ? categoryMap.get(product.category_id) : null
+            const rawCatName = product.category_id ? categoryMap.get(product.category_id) : null
+            const categoryName = rawCatName ? getCategoryLabel(rawCatName) : null
 
             const kcal = product.kcal_per_100 ?? 0
             const protein = product.protein_per_100 ?? 0
@@ -287,7 +292,7 @@ export const ProductsView: React.FC = () => {
             const fat = product.fat_per_100 ?? 0
             const hasMacros = kcal > 0 || protein > 0 || carbs > 0 || fat > 0
 
-            const unitLabel = product.unit_type === 'szt' ? '1 szt.' : `100 ${product.unit_type}`
+            const unitLabel = product.unit_type === 'pcs' ? formatUnit('pcs', 1) : `100 ${product.unit_type}`
 
             return (
               <div
@@ -299,7 +304,7 @@ export const ProductsView: React.FC = () => {
                     : "border-zinc-900 hover:border-zinc-800"
                 )}
               >
-                {/* Wiersz górny: Nazwa, Badges, Akcje */}
+                {/* Top row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -307,14 +312,14 @@ export const ProductsView: React.FC = () => {
                         {product.name}
                       </h4>
 
-                      {/* Zasięg Badge */}
+                      {/* Scope Badge */}
                       {isGlobal ? (
                         <Badge
                           variant="secondary"
                           className="text-[9px] px-1.5 py-0 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                         >
                           <Globe className="w-2.5 h-2.5" />
-                          <span>Globalny</span>
+                          <span>{t('common.global')}</span>
                         </Badge>
                       ) : (
                         <Badge
@@ -322,12 +327,12 @@ export const ProductsView: React.FC = () => {
                           className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
                         >
                           <Home className="w-2.5 h-2.5" />
-                          <span>Gospodarstwo</span>
+                          <span>{t('navigation.households')}</span>
                         </Badge>
                       )}
                     </div>
 
-                    {/* Kategoria & Jednostka */}
+                    {/* Category & Unit */}
                     <div className="flex items-center gap-2 text-[11px] text-zinc-500">
                       {categoryName && (
                         <span className="text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded-md border border-zinc-800/80">
@@ -336,12 +341,12 @@ export const ProductsView: React.FC = () => {
                       )}
                       <span className="flex items-center gap-0.5 text-zinc-500">
                         <Scale className="w-3 h-3 text-zinc-500" />
-                        <span>Jedn: {product.unit_type}</span>
+                        <span>{formatUnit(product.unit_type)}</span>
                       </span>
                     </div>
                   </div>
 
-                  {/* Akcje po prawej (Tylko dla produktów gospodarstwa) */}
+                  {/* Actions on right */}
                   <div className="flex items-center gap-1 shrink-0">
                     {isHousehold && (
                       <>
@@ -349,7 +354,7 @@ export const ProductsView: React.FC = () => {
                           type="button"
                           onClick={() => handleOpenEdit(product)}
                           className="p-2 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Edytuj produkt"
+                          title={t('common.edit')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -357,7 +362,7 @@ export const ProductsView: React.FC = () => {
                           type="button"
                           onClick={() => setProductToDelete(product)}
                           className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Usuń produkt z gospodarstwa"
+                          title={t('common.delete')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -366,28 +371,26 @@ export const ProductsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Sekcja wartości odżywczych (Makro) jeśli produkt posiada parametry */}
+                {/* Macronutrient breakdown */}
                 {hasMacros && (
                   <div className="pt-2 border-t border-zinc-900 flex items-center justify-between gap-2 flex-wrap text-xs">
-                    {/* Kalorie */}
                     <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 font-bold shrink-0">
                       <Flame className="w-3 h-3" />
-                      <span>{Math.round(kcal)} kcal</span>
+                      <span>{Math.round(kcal)} {t('common.kcal')}</span>
                       <span className="text-[10px] font-normal text-amber-400/70">/{unitLabel}</span>
                     </div>
 
-                    {/* Makro B / W / T */}
                     <div className="flex items-center gap-1.5 text-[11px] font-medium ml-auto">
                       <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                        <span className="text-blue-400 font-bold">B</span>
+                        <span className="text-blue-400 font-bold">{t('common.proteinShort')}</span>
                         <span className="text-zinc-300 font-semibold">{protein}g</span>
                       </span>
                       <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                        <span className="text-amber-400 font-bold">W</span>
+                        <span className="text-amber-400 font-bold">{t('common.carbsShort')}</span>
                         <span className="text-zinc-300 font-semibold">{carbs}g</span>
                       </span>
                       <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                        <span className="text-rose-400 font-bold">T</span>
+                        <span className="text-rose-400 font-bold">{t('common.fatShort')}</span>
                         <span className="text-zinc-300 font-semibold">{fat}g</span>
                       </span>
                     </div>
@@ -399,7 +402,7 @@ export const ProductsView: React.FC = () => {
         </div>
       )}
 
-      {/* Sheet dodawania / edycji produktu */}
+      {/* Product Form Sheet */}
       <ProductFormSheet
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
@@ -407,15 +410,14 @@ export const ProductsView: React.FC = () => {
         onProductSaved={handleProductSaved}
       />
 
-      {/* Dialog potwierdzenia usunięcia */}
+      {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
         open={!!productToDelete}
         onOpenChange={(open) => {
           if (!open) setProductToDelete(null)
         }}
-        title="Usuń produkt z gospodarstwa"
+        title={t('dialogs.confirmDelete.title')}
         itemName={productToDelete?.name}
-        targetName="z bazy produktów Twojego gospodarstwa"
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />

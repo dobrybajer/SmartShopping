@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
@@ -28,7 +29,7 @@ interface AddMealSheetProps {
 interface IngredientInput {
   product_id: string
   product_name: string
-  unit_type: 'g' | 'ml' | 'szt'
+  unit_type: 'g' | 'ml' | 'pcs'
   base_quantity: number
   is_pantry_item: boolean
 }
@@ -39,6 +40,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   onMealCreated
 }) => {
   const { household } = useAuth()
+  const { t, formatUnit } = useTranslation()
   const [mealType, setMealType] = useState<'Household' | 'Global'>('Household')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -50,16 +52,16 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [ingredients, setIngredients] = useState<IngredientInput[]>([])
 
-  // State dodawania nowego składnika do listy
+  // New ingredient state
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedProductName, setSelectedProductName] = useState('')
-  const [selectedProductUnit, setSelectedProductUnit] = useState<'g' | 'ml' | 'szt'>('g')
+  const [selectedProductUnit, setSelectedProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
   const [quantityInput, setQuantityInput] = useState<number | ''>(100)
   const [isPantryInput, setIsPantryInput] = useState(false)
 
-  // Dodawanie nowego produktu ad-hoc do bazy produktów podczas składania potrawy
+  // Quick product creation
   const [newProductName, setNewProductName] = useState('')
-  const [newProductUnit, setNewProductUnit] = useState<'g' | 'ml' | 'szt'>('g')
+  const [newProductUnit, setNewProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
   const [newProductKcal, setNewProductKcal] = useState<number | ''>(0)
   const [isCreatingProduct, setIsCreatingProduct] = useState(false)
 
@@ -67,7 +69,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
 
   useEffect(() => {
     if (open && household) {
-      productService.getProducts(household.id).then(setAvailableProducts)
+      productService.getProducts(household.id).then((prods) => setAvailableProducts(prods as any))
       productService.getCategories().then(setCategories)
     }
   }, [open, household])
@@ -93,7 +95,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
       {
         product_id: prod.id,
         product_name: prod.name,
-        unit_type: prod.unit_type,
+        unit_type: prod.unit_type as 'g' | 'ml' | 'pcs',
         base_quantity: Number(quantityInput),
         is_pantry_item: isPantryInput
       }
@@ -117,7 +119,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     setIsSubmitting(false)
 
     if (newProd) {
-      setAvailableProducts([...availableProducts, newProd])
+      setAvailableProducts([...availableProducts, newProd as any])
       setSelectedProductId(newProd.id)
       setNewProductName('')
       setIsCreatingProduct(false)
@@ -167,18 +169,18 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Dodaj Nowy Przepis</SheetTitle>
+          <SheetTitle>{t('dialogs.mealForm.addTitle')}</SheetTitle>
           <SheetDescription>
-            Zdefiniuj potrawę i jej składniki w swojej książce kucharskiej.
+            {t('cookbook.subtitle')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="py-4 flex flex-col gap-4 text-xs">
-          {/* Wybór typu / widoczności przepisu */}
+          {/* Meal Scope Selection */}
           <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
             <label className="font-bold text-zinc-200 text-xs flex items-center justify-between">
-              <span>Dostępność przepisu</span>
-              <span className="text-[10px] text-zinc-500 font-normal">Gdzie ma być widoczny?</span>
+              <span>{t('dialogs.mealForm.categoryLabel')}</span>
+              <span className="text-[10px] text-zinc-500 font-normal">{t('dialogs.mealForm.scopeLabel')}</span>
             </label>
 
             <div className="grid grid-cols-2 gap-2 mt-1">
@@ -194,10 +196,10 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
               >
                 <div className="flex items-center gap-1.5 font-bold text-xs">
                   <Home className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Gospodarstwo</span>
+                  <span>{t('navigation.households')}</span>
                 </div>
                 <span className="text-[10px] text-zinc-500 leading-tight">
-                  Tylko dla domowników ({household?.name || 'Gospodarstwo'})
+                  {household?.name || t('navigation.households')}
                 </span>
               </button>
 
@@ -213,31 +215,30 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
               >
                 <div className="flex items-center gap-1.5 font-bold text-xs">
                   <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>Globalny</span>
+                  <span>{t('common.global')}</span>
                 </div>
                 <span className="text-[10px] text-zinc-500 leading-tight">
-                  Dostępny we wszystkich gospodarstwach
+                  {t('products.globalProduct')}
                 </span>
               </button>
             </div>
           </div>
 
-          {/* Nazwa */}
+          {/* Name */}
           <div>
-            <label className="font-semibold text-zinc-300 block mb-1">Nazwa Przepisu *</label>
+            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.nameLabel')} *</label>
             <Input
-              placeholder="np. Szakszuka z pomidorami i fetą"
+              placeholder={t('dialogs.mealForm.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
 
-          {/* Opis */}
+          {/* Description */}
           <div>
-            <label className="font-semibold text-zinc-300 block mb-1">Krótki opis</label>
-
+            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.descriptionLabel')}</label>
             <Input
-              placeholder="np. Pożywne śniadanie białkowo-tłuszczowe"
+              placeholder={t('dialogs.mealForm.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -245,10 +246,10 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
 
           {/* Tags */}
           <div>
-            <label className="font-semibold text-zinc-300 block mb-1">Tagi (np. WOD, Redukcja)</label>
+            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.tagsLabel')}</label>
             <div className="flex gap-2 mb-2">
               <Input
-                placeholder="Dodaj tag i naciśnij Enter"
+                placeholder={t('dialogs.mealForm.tagsPlaceholder')}
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -258,7 +259,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                   }
                 }}
               />
-              <Button onClick={handleAddTag} variant="outline" className="shrink-0">
+              <Button onClick={handleAddTag} variant="outline" className="shrink-0 cursor-pointer">
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -279,13 +280,13 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
             )}
           </div>
 
-          {/* Składniki Section */}
+          {/* Ingredients Section */}
           <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col gap-3">
             <h4 className="font-bold text-zinc-200 uppercase tracking-wider text-[11px]">
-              Składniki ({ingredients.length})
+              {t('cookbook.ingredients')} ({ingredients.length})
             </h4>
 
-            {/* Składniki dodane */}
+            {/* Added ingredients */}
             {ingredients.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 {ingredients.map((ing, idx) => (
@@ -296,16 +297,16 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                     <div>
                       <span className="font-semibold text-zinc-200">{ing.product_name}</span>
                       {ing.is_pantry_item && (
-                        <span className="text-[10px] text-zinc-500 ml-1.5">(Spiżarnia)</span>
+                        <span className="text-[10px] text-zinc-500 ml-1.5">({t('cookbook.pantryItem')})</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-emerald-400 font-bold">
-                        {ing.base_quantity} {ing.unit_type}
+                        {ing.base_quantity} {formatUnit(ing.unit_type, ing.base_quantity)}
                       </span>
                       <button
                         onClick={() => handleRemoveIngredient(idx)}
-                        className="text-zinc-500 hover:text-red-400 p-1"
+                        className="text-zinc-500 hover:text-red-400 p-1 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -315,17 +316,17 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
               </div>
             )}
 
-            {/* Formularz dodawania składnika */}
+            {/* Add ingredient form */}
             {!isCreatingProduct ? (
               <div className="flex flex-col gap-2 pt-2 border-t border-zinc-800">
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 font-medium">Wybierz produkt z bazy:</span>
+                  <span className="text-zinc-400 font-medium">{t('dialogs.mealForm.productSelectLabel')}:</span>
                   <button
                     onClick={() => setIsCreatingProduct(true)}
-                    className="text-emerald-400 hover:underline font-semibold flex items-center gap-1"
+                    className="text-emerald-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
                   >
                     <Sparkles className="w-3 h-3" />
-                    <span>Nowy produkt +</span>
+                    <span>{t('products.addProduct')} +</span>
                   </button>
                 </div>
 
@@ -336,7 +337,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                     const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
                     if (match) {
                       setSelectedProductId(match.id)
-                      setSelectedProductUnit(match.unit_type)
+                      setSelectedProductUnit(match.unit_type as any)
                     } else {
                       setSelectedProductId('')
                     }
@@ -346,24 +347,24 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                   onSelectProduct={(p) => {
                     setSelectedProductId(p.id)
                     setSelectedProductName(p.name)
-                    setSelectedProductUnit(p.unit_type)
+                    setSelectedProductUnit(p.unit_type as any)
                   }}
-                  placeholder="Szukaj składnika z bazy..."
+                  placeholder={t('cookbook.searchPlaceholder')}
                 />
 
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <Input
                       type="number"
-                      placeholder={`Ilość (${selectedProductUnit})`}
+                      placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
                       value={quantityInput}
                       onChange={(e) =>
                         setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
                       }
-                      className="h-10 font-mono pr-10"
+                      className="h-10 font-mono pr-14"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500 font-mono pointer-events-none">
-                      {selectedProductUnit}
+                      {formatUnit(selectedProductUnit)}
                     </span>
                   </div>
 
@@ -374,34 +375,34 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                       onCheckedChange={(c) => setIsPantryInput(!!c)}
                     />
                     <label htmlFor="pantry-check" className="text-[11px] text-zinc-400 cursor-pointer">
-                      Spiżarnia
+                      {t('dialogs.mealForm.isPantryLabel')}
                     </label>
                   </div>
 
                   <Button
                     onClick={handleAddIngredient}
                     disabled={!selectedProductId}
-                    className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0"
+                    className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             ) : (
-              /* Tworzenie nowego produktu od ręki */
+              /* Inline quick product creation */
               <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-emerald-400">Dodaj Nowy Produkt do Bazy</span>
+                  <span className="font-bold text-emerald-400">{t('dialogs.productForm.addTitle')}</span>
                   <button
                     onClick={() => setIsCreatingProduct(false)}
-                    className="text-zinc-500 hover:text-zinc-300"
+                    className="text-zinc-500 hover:text-zinc-300 cursor-pointer"
                   >
-                    Anuluj
+                    {t('common.cancel')}
                   </button>
                 </div>
 
                 <Input
-                  placeholder="Nazwa produktu (np. Mleko Owsiane)"
+                  placeholder={t('dialogs.productForm.namePlaceholder')}
                   value={newProductName}
                   onChange={(e) => setNewProductName(e.target.value)}
                 />
@@ -412,14 +413,14 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                     onChange={(e) => setNewProductUnit(e.target.value as any)}
                     className="h-10 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-100"
                   >
-                    <option value="g">Gram (g)</option>
-                    <option value="ml">Mililitr (ml)</option>
-                    <option value="szt">Sztuka (szt)</option>
+                    <option value="g">g ({formatUnit('g')})</option>
+                    <option value="ml">ml ({formatUnit('ml')})</option>
+                    <option value="pcs">pcs ({formatUnit('pcs')})</option>
                   </select>
 
                   <Input
                     type="number"
-                    placeholder="Kcal / 100g (np. 50)"
+                    placeholder="kcal / 100g"
                     value={newProductKcal}
                     onChange={(e) =>
                       setNewProductKcal(e.target.value === '' ? '' : Number(e.target.value))
@@ -431,30 +432,30 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                 <Button
                   onClick={handleCreateNewProduct}
                   disabled={!newProductName.trim() || isSubmitting}
-                  className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold mt-1"
+                  className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold mt-1 cursor-pointer"
                 >
-                  Zapisz i Wybierz
+                  {t('common.save')}
                 </Button>
               </div>
             )}
           </div>
 
-          {/* Kroki przygotowania */}
+          {/* Preparation steps */}
           <div>
-            <label className="font-semibold text-zinc-300 block mb-1">Kroki przygotowania</label>
+            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.stepsLabel')}</label>
             <textarea
-              placeholder="np. 1. Podsmaż cebulę. 2. Dodaj pomidory i jajka..."
+              placeholder={t('dialogs.mealForm.stepsPlaceholder')}
               value={preparationSteps}
               onChange={(e) => setPreparationSteps(e.target.value)}
               className="w-full min-h-[80px] p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder:text-zinc-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
 
-          {/* Komentarze */}
+          {/* Notes & Comments */}
           <div>
-            <label className="font-semibold text-zinc-300 block mb-1">Komentarze i Uwagi</label>
+            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.commentsLabel')}</label>
             <Input
-              placeholder="np. Najlepiej smakuje z świeżą kolendrą"
+              placeholder={t('dialogs.mealForm.commentsPlaceholder')}
               value={comments}
               onChange={(e) => setComments(e.target.value)}
             />
@@ -465,10 +466,10 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
           <Button
             onClick={handleSubmit}
             disabled={!name.trim() || isSubmitting}
-            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg"
+            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
           >
             <Save className="w-5 h-5" />
-            <span>Zapisz Przepis w Bazie</span>
+            <span>{t('dialogs.mealForm.submitAdd')}</span>
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +17,7 @@ import {
   Utensils,
   Layers
 } from 'lucide-react'
-import { formatDate, getNextQuantity } from '@/lib/utils'
+import { getNextQuantity } from '@/lib/utils'
 
 interface DesktopDraftViewProps {
   onActiveListCreated?: () => void
@@ -25,6 +26,7 @@ interface DesktopDraftViewProps {
 export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
   const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
+  const { t, formatUnit, formatDate } = useTranslation()
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
@@ -81,7 +83,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
 
     const newList = await shoppingListService.createActiveListFromDraft(
       household.id,
-      `Zakupy ${formatDate(new Date())}`,
+      `${t('activeList.title')} ${formatDate(new Date())}`,
       draftItems
     )
 
@@ -95,7 +97,12 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
     }
   }
 
-  // Count ad-hoc vs recipe items
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
+
   const adHocCount = draftItems.filter((i) => i.is_ad_hoc).length
   const recipeItemsCount = draftItems.length - adHocCount
 
@@ -106,9 +113,9 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
           <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-5 shadow-2xl">
             <ShoppingBag className="w-10 h-10" />
           </div>
-          <h3 className="text-xl font-extrabold text-zinc-100">Koszyk roboczy jest pusty</h3>
+          <h3 className="text-xl font-extrabold text-zinc-100">{t('draft.emptyTitle')}</h3>
           <p className="text-sm text-zinc-400 mt-2 max-w-md leading-relaxed">
-            Dodaj posiłki z <strong className="text-emerald-400">Książki Kucharskiej</strong> lub skorzystaj z przycisku <strong className="text-emerald-400">+ Ad-hoc</strong>, aby wrzucić chemię domową lub pojedyncze artykuły.
+            {t('draft.emptySubtitle')}
           </p>
 
           <Button
@@ -116,7 +123,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
             className="mt-6 h-11 px-6 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl shadow-lg shadow-emerald-950/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Dodaj pozycję Ad-hoc</span>
+            <span>{t('draft.addAdHoc')}</span>
           </Button>
         </div>
       ) : (
@@ -130,10 +137,10 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-zinc-100">
-                    Skomponowane Pozycje ({draftItems.length})
+                    {t('navigation.draft')} ({draftItems.length})
                   </h3>
                   <p className="text-xs text-zinc-500">
-                    Dostosuj ilości przed utworzeniem listy zakupów
+                    {t('draft.subtitle')}
                   </p>
                 </div>
               </div>
@@ -153,10 +160,10 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                   size="sm"
                   onClick={() => clearDraft()}
                   className="h-9 px-3 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 border-zinc-800 rounded-xl text-xs font-medium cursor-pointer"
-                  title="Wyczyść cały koszyk"
+                  title={t('draft.clearCart')}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  <span>Wyczyść</span>
+                  <span>{t('draft.clearCart')}</span>
                 </Button>
               </div>
             </div>
@@ -180,7 +187,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         </span>
                         {item.is_ad_hoc ? (
                           <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
-                            Ad-hoc
+                            {t('draft.adHocItem')}
                           </Badge>
                         ) : item.meal_source ? (
                           <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-zinc-400 bg-zinc-900 border-zinc-800">
@@ -189,7 +196,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         ) : null}
                       </div>
                       <span className="text-xs text-zinc-500 mt-0.5">
-                        {item.category_name || 'Inne'}
+                        {getCategoryLabel(item.category_name)}
                       </span>
                     </div>
                   </div>
@@ -201,7 +208,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         type="button"
                         onClick={() => handleDecrease(item)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                        title="Zmniejsz ilość"
+                        title="Decrease"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -228,7 +235,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                             className="w-16 h-8 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
                           />
                           <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
-                            {item.unit_type}
+                            {formatUnit(item.unit_type)}
                           </span>
                         </div>
                       ) : (
@@ -236,9 +243,9 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                           type="button"
                           onClick={() => startEditing(item.id, item.quantity)}
                           className="font-mono text-xs px-3 py-1 font-bold min-w-[4.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded-lg transition-colors cursor-text select-none"
-                          title="Kliknij, aby wpisać dokładną ilość"
+                          title="Click to edit"
                         >
-                          {item.quantity} {item.unit_type}
+                          {item.quantity} {formatUnit(item.unit_type, item.quantity)}
                         </button>
                       )}
 
@@ -246,7 +253,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         type="button"
                         onClick={() => handleIncrease(item)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                        title="Zwiększ ilość"
+                        title="Increase"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -260,7 +267,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         setIsDeleteModalOpen(true)
                       }}
                       className="p-2 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-colors cursor-pointer"
-                      title="Usuń z koszyka"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -276,32 +283,32 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
               <div className="flex items-center justify-between pb-4 border-b border-zinc-900">
                 <h3 className="font-extrabold text-base text-zinc-100 flex items-center gap-2">
                   <Layers className="w-5 h-5 text-emerald-400" />
-                  <span>Podsumowanie</span>
+                  <span>{t('draft.generateActiveList')}</span>
                 </h3>
                 <Badge variant="default" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Gotowy do zakupu
+                  {t('draft.readyBadge')}
                 </Badge>
               </div>
 
               {/* Statistics Breakdown */}
               <div className="flex flex-col gap-3 font-mono text-xs">
                 <div className="flex items-center justify-between text-zinc-400">
-                  <span>Wszystkie pozycje:</span>
+                  <span>{t('common.all')}:</span>
                   <strong className="text-zinc-100 text-sm">{draftItems.length}</strong>
                 </div>
 
                 <div className="flex items-center justify-between text-zinc-400">
-                  <span>Składniki z przepisów:</span>
+                  <span>{t('navigation.cookbook')}:</span>
                   <strong className="text-emerald-400">{recipeItemsCount}</strong>
                 </div>
 
                 <div className="flex items-center justify-between text-zinc-400">
-                  <span>Artykuły ad-hoc:</span>
+                  <span>{t('draft.adHocItem')}:</span>
                   <strong className="text-amber-400">{adHocCount}</strong>
                 </div>
 
                 <div className="pt-3 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-500">
-                  <span>Gospodarstwo docelowe:</span>
+                  <span>{t('dialogs.households.currentHousehold')}:</span>
                   <span className="text-zinc-300 font-sans font-semibold truncate max-w-[150px]">
                     {household?.name}
                   </span>
@@ -312,7 +319,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
               <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-400 leading-relaxed flex items-start gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <span>
-                  Po kliknięciu lista zostanie automatycznie posortowana według kategorii i udostępniona wszystkim domownikom w czasie rzeczywistym.
+                  {t('draft.subtitle')}
                 </span>
               </div>
 
@@ -327,7 +334,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                 ) : (
                   <>
                     <Play className="w-5 h-5 fill-black" />
-                    <span>Utwórz Aktywną Listę Zakupów</span>
+                    <span>{t('draft.generateActiveList')}</span>
                   </>
                 )}
               </Button>
@@ -344,7 +351,6 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
         itemName={itemToDelete?.name}
-        targetName="z koszyka"
         onConfirm={handleConfirmDelete}
       />
     </div>

@@ -15,7 +15,7 @@ const Checkbox = React.forwardRef<
       try {
         navigator.vibrate(35)
       } catch {
-        // Ignoruj jeśli przeglądarka blokuje vibracje
+        // Ignore if browser blocks vibrations
       }
     }
     if (onCheckedChange) {

@@ -8,6 +8,8 @@ import {
   type MemberDetail,
   type InviteDetail
 } from '@/services/householdService'
+import { useI18nStore } from '@/i18n'
+import type { SupportedLanguage } from '@/i18n/types'
 
 interface AuthContextType {
   user: User | null
@@ -20,6 +22,7 @@ interface AuthContextType {
   signOut: () => Promise<void>
   switchHousehold: (householdId: string) => Promise<void>
   updateUserProfileName: (name: string) => Promise<boolean>
+  updateUserLanguage: (lang: SupportedLanguage) => Promise<boolean>
   updateHouseholdName: (householdId: string, name: string) => Promise<boolean>
   setDefaultHousehold: (householdId: string | null) => Promise<boolean>
   createHousehold: (name: string) => Promise<Household | null>
@@ -46,25 +49,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const email = currentUser.email?.toLowerCase().trim() || ''
-      const defaultName = email.split('@')[0] || 'Użytkownik'
+      const defaultName = email.split('@')[0] || 'User'
 
-      // 1. Sprawdź czy użytkownik istnieje w tabeli `users`
+      // 1. Check if user exists in `users` table
       let { data: existingUser } = await supabase
         .from('users')
         .select('*')
         .eq('id', currentUser.id)
         .maybeSingle()
 
-      // 2. Sprawdź czy są zaproszenia dla tego adresu e-mail
+      // 2. Check for pending invitations for this email address
       const { data: pendingInvites } = await supabase
         .from('household_invites')
         .select('*')
         .eq('email', email)
 
       if (!existingUser) {
-        // Użytkownik loguje się po raz pierwszy
+        // First-time user sign-in
         if (pendingInvites && pendingInvites.length > 0) {
-          // Użytkownik został wcześniej zaproszony do gospodarstwa
+          // User was invited to household
           const firstInviteHouseholdId = pendingInvites[0].household_id
 
           const { data: createdUser, error: uErr } = await supabase
@@ -79,10 +82,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .select('*')
             .single()
 
-          if (uErr) console.error('Błąd tworzenia użytkownika z zaproszenia:', uErr)
+          if (uErr) console.error('Error creating user from invite:', uErr)
           existingUser = createdUser
 
-          // Dodaj użytkownika do wszystkich zaproszonych gospodarstw
+          // Add user to all invited households
           for (const inv of pendingInvites) {
             await supabase.from('household_members').upsert({
               household_id: inv.household_id,
@@ -90,11 +93,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             })
           }
 
-          // Usuń przetworzone zaproszenia
+          // Delete processed invites
           await supabase.from('household_invites').delete().eq('email', email)
         } else {
-          // Nowy użytkownik bez zaproszeń - utwórz 1 gospodarstwo
-          const householdName = `Gospodarstwo (${defaultName})`
+          // Brand new user without invites - create 1st household
+          const householdName = `Household (${defaultName})`
 
           const { data: newHousehold, error: hErr } = await supabase
             .from('households')
@@ -103,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single()
 
           if (hErr || !newHousehold) {
-            console.error('Błąd tworzenia gospodarstwa domowego:', hErr)
+            console.error('Error creating household:', hErr)
           } else {
             const { data: createdUser, error: uErr } = await supabase
               .from('users')
@@ -117,7 +120,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .select('*')
               .single()
 
-            if (uErr) console.error('Błąd tworzenia użytkownika:', uErr)
+            if (uErr) console.error('Error creating user profile:', uErr)
             existingUser = createdUser
 
             await supabase.from('household_members').upsert({
@@ -127,13 +130,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } else {
-        // Istniejący użytkownik - upewnij się, że pole name jest uzupełnione
+        // Existing user - ensure name is filled
         if (!existingUser.name) {
           await supabase.from('users').update({ name: defaultName }).eq('id', currentUser.id)
           existingUser.name = defaultName
         }
 
-        // Jeśli były jakieś nowe oczekujące zaproszenia po rejestracji, dodaj je
+        // If new invitations arrived after registration, process them
         if (pendingInvites && pendingInvites.length > 0) {
           for (const inv of pendingInvites) {
             await supabase.from('household_members').upsert({
@@ -144,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await supabase.from('household_invites').delete().eq('email', email)
         }
 
-        // Upewnij się, że użytkownik jest powiązany ze swoim domyślnym gospodarstwem w household_members
+        // Ensure user is connected to default household in household_members
         if (existingUser.household_id) {
           await supabase.from('household_members').upsert({
             household_id: existingUser.household_id,
@@ -153,19 +156,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 3. Pobierz listę wszystkich gospodarstw użytkownika
+      // 3. Sync language preference if present in user profile
+      if (existingUser?.language && (existingUser.language === 'pl' || existingUser.language === 'en')) {
+        useI18nStore.getState().setLanguage(existingUser.language as SupportedLanguage)
+      }
+
+      // 4. Fetch all user households
       const allHouseholds = await householdService.getUserHouseholds(currentUser.id)
       setUserHouseholds(allHouseholds)
       setUserProfile(existingUser)
 
-      // 4. Wybór aktywnego gospodarstwa:
-      // Wybieramy gospodarstwo domyślne (default) użytkownika, a jeśli nie ma lub zostało usunięte - pierwsze dostępne
+      // Choose active household: default or first available
       let activeH: Household | null = null
 
       if (existingUser?.household_id) {
         activeH = allHouseholds.find((h) => h.id === existingUser?.household_id) || null
         if (!activeH) {
-          // Pobierz bezpośrednio, jeśli jeszcze nie było w relacji
           const { data: directH } = await supabase
             .from('households')
             .select('*')
@@ -177,14 +183,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!activeH && allHouseholds.length > 0) {
         activeH = allHouseholds[0]
-        // Ustaw jako domyślne w users
         await householdService.setDefaultHousehold(currentUser.id, activeH.id)
         if (existingUser) existingUser.household_id = activeH.id
       }
 
-      // W rzadkim przypadku, gdy brak jakiegokolwiek gospodarstwa u istniejącego usera:
+      // Fallback in rare case of 0 households
       if (!activeH && allHouseholds.length === 0) {
-        const householdName = `Gospodarstwo (${defaultName})`
+        const householdName = `Household (${defaultName})`
         const newH = await householdService.createHousehold(householdName, currentUser.id)
         if (newH) {
           await householdService.setDefaultHousehold(currentUser.id, newH.id)
@@ -195,7 +200,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setHousehold(activeH)
     } catch (err) {
-      console.error('Błąd podczas synchronizacji konta:', err)
+      console.error('Error during user profile sync:', err)
     } finally {
       isSyncingRef.current = false
     }
@@ -216,7 +221,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const households = await householdService.getUserHouseholds(user.id)
     setUserHouseholds(households)
 
-    // Jeśli obecne gospodarstwo nie istnieje na liście, przełącz na domyślne lub pierwsze
     if (household && !households.some((h) => h.id === household.id)) {
       const def = households.find((h) => h.id === freshProfile?.household_id) || households[0] || null
       setHousehold(def)
@@ -227,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    // Inicjalizacja sesji
+    // Session initialization
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
@@ -238,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     })
 
-    // Nasłuchiwanie zmian autoryzacji
+    // Auth state listener
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
@@ -267,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     })
     if (error) {
-      console.error('Błąd logowania przez Google:', error)
+      console.error('Error signing in with Google:', error)
       throw error
     }
   }
@@ -275,7 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) {
-      console.error('Błąd wylogowywania:', error)
+      console.error('Error signing out:', error)
       throw error
     }
     setUser(null)
@@ -289,7 +293,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (target) {
       setHousehold(target)
     } else {
-      // Pobierz bezpośrednio z bazy
       const { data } = await supabase.from('households').select('*').eq('id', householdId).single()
       if (data) setHousehold(data)
     }
@@ -300,6 +303,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const success = await householdService.updateUserProfile(user.id, name)
     if (success) {
       setUserProfile((prev) => (prev ? { ...prev, name } : null))
+    }
+    return success
+  }
+
+  const updateUserLanguage = async (lang: SupportedLanguage): Promise<boolean> => {
+    useI18nStore.getState().setLanguage(lang)
+    if (!user) return true
+    const success = await householdService.updateUserLanguage(user.id, lang)
+    if (success) {
+      setUserProfile((prev) => (prev ? { ...prev, language: lang } : null))
     }
     return success
   }
@@ -358,6 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signOut,
         switchHousehold,
         updateUserProfileName,
+        updateUserLanguage,
         updateHouseholdName,
         setDefaultHousehold,
         createHousehold,
@@ -374,7 +388,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
-    throw new Error('useAuth musi być użyty wewnątrz AuthProvider')
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }

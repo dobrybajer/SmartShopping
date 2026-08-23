@@ -6,7 +6,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    'Brak VITE_SUPABASE_URL lub VITE_SUPABASE_ANON_KEY w pliku środowiskowym .env.local.'
+    'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in environment (.env.local).'
   )
 }
 

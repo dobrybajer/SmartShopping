@@ -55,7 +55,7 @@ describe('Macro Calculations - Pure Business Logic & Scaling Flows', () => {
       };
 
       // 3 eggs
-      const result = calculateIngredientMacros(3, per1Piece, 'szt');
+      const result = calculateIngredientMacros(3, per1Piece, 'pcs');
 
       expect(result).toEqual({
         kcal: 225,

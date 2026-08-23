@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
+import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import { SwipeToDismiss } from '@/components/ui/SwipeToDismiss'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { Trash2, Play, Plus, Minus, ShoppingBag } from 'lucide-react'
-import { formatDate, getNextQuantity } from '@/lib/utils'
+import { getNextQuantity } from '@/lib/utils'
 
 interface DraftViewProps {
   onActiveListCreated?: () => void
@@ -17,6 +18,7 @@ interface DraftViewProps {
 export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
   const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
+  const { t, formatUnit, formatDate } = useTranslation()
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
@@ -45,7 +47,6 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
   }
 
   const handleInputChange = (val: string) => {
-    // Pozwalaj wyłącznie na dodatnie liczby całkowite (cyfry 0-9 bez wiodącego 0)
     const cleaned = val.replace(/[^0-9]/g, '')
     const normalized = cleaned.replace(/^0+/, '')
     setEditValue(normalized)
@@ -74,7 +75,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
 
     const newList = await shoppingListService.createActiveListFromDraft(
       household.id,
-      `Zakupy ${formatDate(new Date())}`,
+      `${t('activeList.title')} ${formatDate(new Date())}`,
       draftItems
     )
 
@@ -85,7 +86,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         try {
           navigator.vibrate([40, 60, 40])
         } catch {
-          // Ignoruj
+          // Ignore
         }
       }
 
@@ -96,6 +97,12 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     }
   }
 
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
+
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-200">
       {/* Top Banner & AdHoc Button */}
@@ -103,7 +110,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         <div className="flex items-center gap-2.5">
           <ShoppingBag className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="text-xs text-zinc-300">
-            W koszyku (Draft): <strong className="text-white font-mono">{draftItems.length} pozycji</strong>
+            {t('navigation.draft')}: <strong className="text-white font-mono">{draftItems.length} {formatUnit('pcs', draftItems.length)}</strong>
           </span>
         </div>
 
@@ -111,17 +118,17 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           <Button
             onClick={() => setIsAdHocOpen(true)}
             size="sm"
-            className="h-8 bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700/80 rounded-lg text-xs font-semibold flex items-center gap-1"
+            className="h-8 bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700/80 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Ad-hoc</span>
+            <span>{t('draft.addAdHoc')}</span>
           </Button>
 
           {draftItems.length > 0 && (
             <button
               onClick={() => clearDraft()}
-              className="text-zinc-500 hover:text-red-400 p-1.5 transition-colors"
-              title="Wyczyść koszyk"
+              className="text-zinc-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
+              title={t('draft.clearCart')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -135,15 +142,15 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           <div className="w-14 h-14 rounded-full bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-3">
             <ShoppingBag className="w-7 h-7" />
           </div>
-          <p className="text-sm font-bold text-zinc-300">Koszyk roboczy jest pusty</p>
+          <p className="text-sm font-bold text-zinc-300">{t('draft.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
-            Dodaj posiłki z Książki Kucharskiej lub naciśnij przycisk <strong className="text-emerald-400">+ Ad-hoc</strong>, aby wrzucić chemię domową lub inne produkty.
+            {t('draft.emptySubtitle')}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
           <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold px-1">
-            Przesuń w lewo, aby usunąć pozycję z koszyka
+            Swipe left to remove item
           </p>
 
           {draftItems.map((item) => (
@@ -154,7 +161,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                     <span className="font-semibold text-sm text-zinc-100">{item.name}</span>
                     {item.is_ad_hoc ? (
                       <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
-                        Ad-hoc
+                        {t('draft.adHocItem')}
                       </Badge>
                     ) : item.meal_source ? (
                       <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-zinc-400">
@@ -162,7 +169,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{item.category_name}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">{getCategoryLabel(item.category_name)}</p>
                 </div>
 
                 <div
@@ -175,9 +182,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       e.stopPropagation()
                       handleDecrease(item)
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all"
-                    title="Zmniejsz ilość"
-                    aria-label="Zmniejsz ilość"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
+                    title="Decrease"
+                    aria-label="Decrease"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -204,7 +211,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                         className="w-14 h-7 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
                       />
                       <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
-                        {item.unit_type}
+                        {formatUnit(item.unit_type)}
                       </span>
                     </div>
                   ) : (
@@ -215,9 +222,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                         startEditing(item.id, item.quantity)
                       }}
                       className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded transition-colors cursor-text select-none"
-                      title="Kliknij, aby wpisać ilość"
+                      title="Click to edit"
                     >
-                      {item.quantity} {item.unit_type}
+                      {item.quantity} {formatUnit(item.unit_type, item.quantity)}
                     </button>
                   )}
 
@@ -227,9 +234,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       e.stopPropagation()
                       handleIncrease(item)
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all"
-                    title="Zwiększ ilość"
-                    aria-label="Zwiększ ilość"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
+                    title="Increase"
+                    aria-label="Increase"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -245,14 +252,14 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         <Button
           onClick={handleGenerateActiveList}
           disabled={isGenerating}
-          className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+          className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
         >
           {isGenerating ? (
             <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
               <Play className="w-4 h-4 fill-black" />
-              <span>Utwórz Aktywną Listę Zakupów</span>
+              <span>{t('draft.generateActiveList')}</span>
             </>
           )}
         </Button>
@@ -266,11 +273,8 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         open={isDeleteModalOpen}
         onOpenChange={setIsDeleteModalOpen}
         itemName={itemToDelete?.name}
-        targetName="z koszyka"
         onConfirm={handleConfirmDelete}
       />
     </div>
   )
 }
-
-

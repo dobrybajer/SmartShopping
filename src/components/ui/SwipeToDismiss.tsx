@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n'
 
 interface SwipeToDismissProps {
   children: React.ReactNode
@@ -15,8 +16,10 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
   onDismiss,
   threshold = 100,
   className,
-  dismissText = 'Usuń'
+  dismissText
 }) => {
+  const { t } = useTranslation()
+  const label = dismissText || t('common.delete')
   const [translateX, setTranslateX] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
   const startXRef = useRef(0)
@@ -34,7 +37,7 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const diffX = clientX - startXRef.current
 
-    // Swipe lewo (usuwanie): pozwól na ruch w lewo z pewnym ograniczeniem (max -160px)
+    // Left swipe (deletion): allow movement with limit (max -160px)
     if (diffX < 0) {
       setTranslateX(Math.max(diffX, -160))
       currentXRef.current = clientX
@@ -51,7 +54,7 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
         try {
           navigator.vibrate(50)
         } catch {
-          // Ignoruj jeśli nieobsługiwane
+          // Ignore if vibration is not supported
         }
       }
       setTranslateX(-500)
@@ -65,10 +68,10 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
 
   return (
     <div className={cn("relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950", className)}>
-      {/* Background action container (czerwone tło z ikoną kosza) */}
+      {/* Background action container (red delete background with trash icon) */}
       <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6 text-white font-medium text-xs gap-2 select-none">
         <Trash2 className="w-4 h-4 animate-pulse" />
-        <span>{dismissText}</span>
+        <span>{label}</span>
       </div>
 
       {/* Foreground content container */}

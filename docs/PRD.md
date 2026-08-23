@@ -25,7 +25,7 @@ Aplikacja oparta na architekturze Serverless (BaaS - Backend as a Service) oraz 
 ```sql
 -- Schemat dla asystenta AI do zainicjowania bazy
 
-CREATE TYPE unit_enum AS ENUM ('g', 'ml', 'szt');
+CREATE TYPE unit_enum AS ENUM ('g', 'ml', 'pcs');
 CREATE TYPE list_status_enum AS ENUM ('draft', 'active', 'archived');
 
 CREATE TABLE households (
@@ -37,7 +37,10 @@ CREATE TABLE households (
 CREATE TABLE users (
   id UUID REFERENCES auth.users PRIMARY KEY,
   household_id UUID REFERENCES households(id),
-  email TEXT UNIQUE NOT NULL
+  email TEXT UNIQUE NOT NULL,
+  name TEXT,
+  language VARCHAR(10) DEFAULT 'pl' NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE product_categories (
@@ -123,6 +126,7 @@ CREATE TABLE shopping_list_items (
 *   **PWA dla iOS:** Plik `index.html` zawiera tagi: `<meta name="apple-mobile-web-app-capable" content="yes">` oraz `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">`.
 *   **Powiadomienia Push & Realtime:** Odsłuch WebSocket na tabeli `shopping_list_items`. Zmiany synchronizowane natychmiast między domownikami.
 *   **Haptic Feedback & True Black:** Wibracje (`navigator.vibrate`) przy zaznaczaniu checkboxów oraz idealna czerń (`#000000`) dla oszczędności baterii i estetyki OLED.
+*   **Internacjonalizacja (i18n) i Pełny Angielski w Kodzie:** 100% kodu TypeScript, bazy danych i typów w języku angielskim (`unit_enum: 'g', 'ml', 'pcs'`). Domyślny język UI: Polski (`pl`), z obsługą Angielskiego (`en`). Słownik w jednym typowanym miejscu (`src/i18n/`), obsługa pluralizacji przez natywne `Intl.PluralRules`, synchroniczny cache w `localStorage` (dla działania 100% offline w sklepie) oraz asynchroniczny sync z profilem użytkownika `users.language`. Zobacz [ADR-003: Internationalization Strategy](./adr/ADR-003-internationalization-i18n.md).
 
 ## 7. Instrukcja Konfiguracji (DEV & Vercel)
 *   **Google Console:** Wygenerować OAuth Client ID dla logowania Gmail i podpiąć w panelu Auth w Supabase.

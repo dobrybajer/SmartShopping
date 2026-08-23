@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
 import type { UnitEnum } from '@/types/supabase'
@@ -30,15 +31,16 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   onProductSaved
 }) => {
   const { household } = useAuth()
+  const { t, formatUnit } = useTranslation()
   const isEditing = !!productToEdit
 
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
-  const [unitType, setUnitType] = useState<UnitEnum>('szt')
+  const [unitType, setUnitType] = useState<UnitEnum>('pcs')
   const [isFood, setIsFood] = useState(true)
 
-  // Makroskładniki
+  // Macronutrients
   const [kcal, setKcal] = useState<number | ''>(0)
   const [protein, setProtein] = useState<number | ''>(0)
   const [carbs, setCarbs] = useState<number | ''>(0)
@@ -47,7 +49,6 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Załaduj kategorie
   useEffect(() => {
     if (open) {
       productService.getCategories().then((cats) => {
@@ -59,14 +60,13 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
     }
   }, [open, productToEdit])
 
-  // Inicjalizacja pól w zależności od trybu (dodawanie/edycja)
   useEffect(() => {
     if (open) {
       setErrorMsg('')
       if (productToEdit) {
         setName(productToEdit.name)
         setCategoryId(productToEdit.category_id ?? '')
-        setUnitType(productToEdit.unit_type)
+        setUnitType(productToEdit.unit_type as UnitEnum)
         
         const hasMacro =
           (productToEdit.kcal_per_100 ?? 0) > 0 ||
@@ -74,14 +74,14 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           (productToEdit.carbs_per_100 ?? 0) > 0 ||
           (productToEdit.fat_per_100 ?? 0) > 0
 
-        setIsFood(hasMacro || productToEdit.category_id !== 7) // kategoria 7 to chemia
+        setIsFood(hasMacro || productToEdit.category_id !== 7)
         setKcal(productToEdit.kcal_per_100 ?? 0)
         setProtein(productToEdit.protein_per_100 ?? 0)
         setCarbs(productToEdit.carbs_per_100 ?? 0)
         setFat(productToEdit.fat_per_100 ?? 0)
       } else {
         setName('')
-        setUnitType('szt')
+        setUnitType('pcs')
         setIsFood(true)
         setKcal(0)
         setProtein(0)
@@ -103,39 +103,45 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
 
   const handleNumericInput = (
     setter: React.Dispatch<React.SetStateAction<number | ''>>,
-    valueStr: string
+    value: string
   ) => {
-    if (valueStr === '') {
+    if (value === '') {
       setter('')
       return
     }
-    const num = parseFloat(valueStr)
-    if (!isNaN(num) && num >= 0) {
-      setter(num)
+    const parsed = parseFloat(value)
+    if (!isNaN(parsed) && parsed >= 0) {
+      setter(parsed)
     }
+  }
+
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) {
-      setErrorMsg('Podaj nazwę produktu.')
+      setErrorMsg(t('dialogs.productForm.nameLabel'))
       return
     }
     if (!household) {
-      setErrorMsg('Brak aktywnego gospodarstwa.')
+      setErrorMsg(t('toasts.errorOccurred'))
       return
     }
 
     setIsSubmitting(true)
     setErrorMsg('')
 
-    const kcalVal = isFood ? (kcal === '' ? 0 : Number(kcal)) : 0
-    const proteinVal = isFood ? (protein === '' ? 0 : Number(protein)) : 0
-    const carbsVal = isFood ? (carbs === '' ? 0 : Number(carbs)) : 0
-    const fatVal = isFood ? (fat === '' ? 0 : Number(fat)) : 0
-    const catVal = categoryId === '' ? null : Number(categoryId)
-
     try {
+      const kcalVal = isFood && typeof kcal === 'number' ? kcal : 0
+      const proteinVal = isFood && typeof protein === 'number' ? protein : 0
+      const carbsVal = isFood && typeof carbs === 'number' ? carbs : 0
+      const fatVal = isFood && typeof fat === 'number' ? fat : 0
+      const catVal = typeof categoryId === 'number' ? categoryId : null
+
       if (isEditing && productToEdit) {
         const updated = await productService.updateProduct(productToEdit.id, {
           name: name.trim(),
@@ -151,7 +157,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           onProductSaved?.(updated)
           onOpenChange(false)
         } else {
-          setErrorMsg('Nie udało się zapisać zmian produktu.')
+          setErrorMsg(t('toasts.errorOccurred'))
         }
       } else {
         const created = await productService.createProduct({
@@ -171,18 +177,18 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           onProductSaved?.(created)
           onOpenChange(false)
         } else {
-          setErrorMsg('Nie udało się dodać produktu.')
+          setErrorMsg(t('toasts.errorOccurred'))
         }
       }
     } catch (err) {
       console.error(err)
-      setErrorMsg('Wystąpił nieoczekiwany błąd.')
+      setErrorMsg(t('toasts.errorOccurred'))
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const unitSuffix = unitType === 'szt' ? '1 szt.' : `100 ${unitType}`
+  const unitSuffix = unitType === 'pcs' ? formatUnit('pcs', 1) : `100 ${unitType}`
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -197,12 +203,12 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
             </div>
             <div>
               <SheetTitle className="text-lg font-bold text-zinc-100">
-                {isEditing ? 'Edytuj produkt gospodarstwa' : 'Dodaj produkt do gospodarstwa'}
+                {isEditing ? t('dialogs.productForm.editTitle') : t('dialogs.productForm.addTitle')}
               </SheetTitle>
               <SheetDescription className="text-xs text-zinc-400">
                 {isEditing
-                  ? 'Zmień parametry i wartości odżywcze produktu'
-                  : 'Produkt będzie dostępny dla wszystkich domowników'}
+                  ? t('products.subtitle')
+                  : t('products.householdProduct')}
               </SheetDescription>
             </div>
           </div>
@@ -216,14 +222,14 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               </div>
             )}
 
-            {/* Nazwa Produktu */}
+            {/* Product Name */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Nazwa produktu *</span>
+                <span>{t('dialogs.productForm.nameLabel')} *</span>
               </label>
               <Input
-                placeholder="np. Skyr naturalny, Mleko migdałowe..."
+                placeholder={t('dialogs.productForm.namePlaceholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="bg-zinc-900 border-zinc-800 focus-visible:ring-emerald-500 text-sm h-11"
@@ -231,56 +237,54 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               />
             </div>
 
-            {/* Kategoria i Jednostka w 2 kolumnach */}
+            {/* Category and Unit */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Kategoria */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                   <Utensils className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Kategoria</span>
+                  <span>{t('dialogs.productForm.categoryLabel')}</span>
                 </label>
                 <select
                   value={categoryId}
                   onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}
                   className="w-full h-11 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
                 >
-                  <option value="">Wybierz kategorię...</option>
+                  <option value="">{t('common.select')}</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id} className="bg-zinc-900 text-zinc-200">
-                      {cat.name}
+                      {getCategoryLabel(cat.name)}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Jednostka */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
                   <Scale className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Domyślna jednostka</span>
+                  <span>{t('dialogs.productForm.unitLabel')}</span>
                 </label>
                 <select
                   value={unitType}
                   onChange={(e) => setUnitType(e.target.value as UnitEnum)}
                   className="w-full h-11 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
                 >
-                  <option value="szt">szt (sztuki)</option>
-                  <option value="g">g (gramy)</option>
-                  <option value="ml">ml (mililitry)</option>
+                  <option value="pcs">pcs ({formatUnit('pcs')})</option>
+                  <option value="g">g ({formatUnit('g')})</option>
+                  <option value="ml">ml ({formatUnit('ml')})</option>
                 </select>
               </div>
             </div>
 
-            {/* Checkbox: Jedzenie? */}
+            {/* Is food? */}
             <div className="p-3.5 rounded-2xl bg-zinc-900/60 border border-zinc-800/80 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
                   <Flame className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-zinc-100">Artykuł spożywczy (Jedzenie)?</div>
+                  <div className="text-xs font-bold text-zinc-100">{t('products.macrosPer100')}</div>
                   <div className="text-[11px] text-zinc-400">
-                    Zaznacz, aby wprowadzić kalorie i makroskładniki
+                    {t('cookbook.macros')}
                   </div>
                 </div>
               </div>
@@ -293,25 +297,25 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               />
             </div>
 
-            {/* Pola makro jeśli isFood = true */}
+            {/* Macro inputs */}
             {isFood && (
               <div className="space-y-3.5 p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 animate-in fade-in-50 zoom-in-95 duration-200">
                 <div className="flex items-center justify-between pb-1 border-b border-zinc-800/60">
                   <span className="text-xs font-bold text-zinc-200 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    Wartości odżywcze na {unitSuffix}
+                    {t('products.macrosPer100')} ({unitSuffix})
                   </span>
-                  <span className="text-[10px] text-zinc-500">Krok: kcal ±100, B/W/T ±1</span>
+                  <span className="text-[10px] text-zinc-500">±100 kcal, ±1 P/C/F</span>
                 </div>
 
-                {/* Kcal (krok 100) */}
+                {/* Kcal */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-28">
                     <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1">
                       <Flame className="w-3.5 h-3.5 text-amber-400" />
-                      Kalorie
+                      {t('dialogs.productForm.kcalLabel')}
                     </span>
-                    <span className="text-[10px] text-zinc-500">kcal</span>
+                    <span className="text-[10px] text-zinc-500">{t('common.kcal')}</span>
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
@@ -345,10 +349,10 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
                   </div>
                 </div>
 
-                {/* Białko (krok 1) */}
+                {/* Protein */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-28">
-                    <span className="text-xs font-semibold text-blue-400">Białko</span>
+                    <span className="text-xs font-semibold text-blue-400">{t('dialogs.productForm.proteinLabel')}</span>
                     <span className="text-[10px] text-zinc-500 ml-1">g</span>
                   </div>
 
@@ -383,10 +387,10 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
                   </div>
                 </div>
 
-                {/* Węglowodany (krok 1) */}
+                {/* Carbs */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-28">
-                    <span className="text-xs font-semibold text-amber-300">Węglowodany</span>
+                    <span className="text-xs font-semibold text-amber-300">{t('dialogs.productForm.carbsLabel')}</span>
                     <span className="text-[10px] text-zinc-500 ml-1">g</span>
                   </div>
 
@@ -421,10 +425,10 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
                   </div>
                 </div>
 
-                {/* Tłuszcze (krok 1) */}
+                {/* Fat */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-28">
-                    <span className="text-xs font-semibold text-rose-400">Tłuszcze</span>
+                    <span className="text-xs font-semibold text-rose-400">{t('dialogs.productForm.fatLabel')}</span>
                     <span className="text-[10px] text-zinc-500 ml-1">g</span>
                   </div>
 
@@ -470,7 +474,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               disabled={isSubmitting}
               className="flex-1 border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl h-11 cursor-pointer"
             >
-              Anuluj
+              {t('common.cancel')}
             </Button>
             <Button
               type="submit"
@@ -482,7 +486,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  <span>{isEditing ? 'Zapisz zmiany' : 'Dodaj produkt'}</span>
+                  <span>{isEditing ? t('dialogs.productForm.submitEdit') : t('dialogs.productForm.submitAdd')}</span>
                 </>
               )}
             </Button>

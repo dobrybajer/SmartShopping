@@ -100,3 +100,22 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Konfiguracja Vitest + React Testing Library (`jsdom`).
    * Testy czystych kalkulacji (`src/lib/calculations/__tests__/`).
    * Testy integracyjne formularzy i unikalnych flow w widokach (`src/components/**/__tests__/`).
+
+## Faza 8: Internacjonalizacja (i18n) i Standaryzacja Językowa Kodu (Zakończona)
+**Cel:** 100% czystości angielskiej w kodzie bazowym, centralny system tłumaczeń i wielojęzyczność (PL / EN).
+
+1. **Fundament i Słowniki i18n:**
+   * Utworzenie centralnego silnika tłumaczeń `src/i18n/` z dedykowanymi słownikami `en.ts` i `pl.ts` oraz wsparciem reguł gramatycznych słowiańskich form liczby mnogiej (`Intl.PluralRules`).
+   * Wdrożenie hooka `useTranslation` oraz store'a Zustand `useI18nStore` z 3-stopniową hierarchią zapisu (Zustand -> Supabase `users.language` -> `localStorage`).
+2. **Czystość Kodu i Standaryzacja Bazy Danych:**
+   * Migracja PostgreSQL `supabase/migrations/20260824000000_i18n_and_english_standardization.sql`:
+     * Zmiana typu enum z `'szt'` na `'pcs'`.
+     * Dodanie kolumny `language VARCHAR(10) DEFAULT 'pl'` do tabeli `users`.
+     * Ujednolicenie systemowych kategorii posiłków i produktów do angielskich slugów.
+   * Eliminacja wszystkich polskich słów kluczowych, zmiennych, komentarzy i typów z kodu TypeScript.
+3. **Komponenty i Dual Layout:**
+   * Komponent `LanguageSwitcher` w wariantach: `pill`, `segmented`, `dropdown`.
+   * Integracja we wszystkich widokach Desktop i Mobile (`BottomNavigation`, `DesktopSidebar`, `DesktopHeader`, `LoginScreen`, `AccountDetailsDialog`, itp.).
+4. **Weryfikacja Jakości:**
+   * Pokrycie testami jednostkowymi silnika i18n (`src/i18n/__tests__/i18n.test.ts`) oraz testami nawigacji (`BottomNavigation.test.tsx`).
+   * Przejście testów Vitest (`npm run test`), lintera (`npm run lint`) oraz kompilatora TypeScript (`npx tsc -b`).

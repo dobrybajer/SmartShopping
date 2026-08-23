@@ -22,7 +22,7 @@ export interface InviteDetail {
 
 export const householdService = {
   /**
-   * Pobiera wszystkie gospodarstwa, do których należy użytkownik
+   * Fetches all households associated with the given user
    */
   async getUserHouseholds(userId: string): Promise<Household[]> {
     try {
@@ -32,7 +32,7 @@ export const householdService = {
         .eq('user_id', userId)
 
       if (error) {
-        console.error('Błąd pobierania gospodarstw użytkownika:', error)
+        console.error('Error fetching user households:', error)
         return []
       }
 
@@ -45,13 +45,13 @@ export const householdService = {
 
       return households
     } catch (err) {
-      console.error('Błąd getUserHouseholds:', err)
+      console.error('Error in getUserHouseholds:', err)
       return []
     }
   },
 
   /**
-   * Aktualizuje nazwę wybranego gospodarstwa
+   * Updates name of specified household
    */
   async updateHouseholdName(householdId: string, name: string): Promise<boolean> {
     try {
@@ -61,18 +61,18 @@ export const householdService = {
         .eq('id', householdId)
 
       if (error) {
-        console.error('Błąd aktualizacji nazwy gospodarstwa:', error)
+        console.error('Error updating household name:', error)
         return false
       }
       return true
     } catch (err) {
-      console.error('Błąd updateHouseholdName:', err)
+      console.error('Error in updateHouseholdName:', err)
       return false
     }
   },
 
   /**
-   * Ustawia domyślne gospodarstwo dla użytkownika w tabeli `users`
+   * Sets default household for user in `users` table
    */
   async setDefaultHousehold(userId: string, householdId: string | null): Promise<boolean> {
     try {
@@ -82,22 +82,22 @@ export const householdService = {
         .eq('id', userId)
 
       if (error) {
-        console.error('Błąd ustawiania domyślnego gospodarstwa:', error)
+        console.error('Error setting default household:', error)
         return false
       }
       return true
     } catch (err) {
-      console.error('Błąd setDefaultHousehold:', err)
+      console.error('Error in setDefaultHousehold:', err)
       return false
     }
   },
 
   /**
-   * Tworzy nowe gospodarstwo i przypisuje do niego obecnego użytkownika
+   * Creates new household and assigns current user as member
    */
   async createHousehold(name: string, userId: string): Promise<Household | null> {
     try {
-      const trimmedName = name.trim() || 'Nowe Gospodarstwo'
+      const trimmedName = name.trim() || 'New Household'
       const { data: newHousehold, error: hError } = await supabase
         .from('households')
         .insert({ name: trimmedName })
@@ -105,7 +105,7 @@ export const householdService = {
         .single()
 
       if (hError || !newHousehold) {
-        console.error('Błąd tworzenia nowego gospodarstwa:', hError)
+        console.error('Error creating new household:', hError)
         return null
       }
 
@@ -117,20 +117,20 @@ export const householdService = {
         })
 
       if (mError) {
-        console.error('Błąd przypisywania członka do nowego gospodarstwa:', mError)
+        console.error('Error assigning member to new household:', mError)
       }
 
       return newHousehold
     } catch (err) {
-      console.error('Błąd createHousehold:', err)
+      console.error('Error in createHousehold:', err)
       return null
     }
   },
 
   /**
-   * Dodaje użytkownika do gospodarstwa na podstawie adresu e-mail:
-   * - jeśli użytkownik już istnieje w `users`: dodaje do `household_members`; jeśli nie miał defaultowego gospodarstwa, ustawia je
-   * - jeśli użytkownik jeszcze nie istnieje: dodaje zaproszenie do `household_invites`
+   * Adds user to household via email address:
+   * - if user already exists in `users`: adds to `household_members`
+   * - if user does not exist yet: creates invitation in `household_invites`
    */
   async addUserToHousehold(
     householdId: string,
@@ -139,10 +139,10 @@ export const householdService = {
     try {
       const cleanEmail = email.trim().toLowerCase()
       if (!cleanEmail || !cleanEmail.includes('@')) {
-        return { success: false, message: 'Podaj poprawny adres e-mail.' }
+        return { success: false, message: 'Please provide a valid email address.' }
       }
 
-      // 1. Sprawdź czy użytkownik istnieje w bazie
+      // 1. Check if user exists in database
       const { data: existingUser } = await supabase
         .from('users')
         .select('*')
@@ -150,7 +150,7 @@ export const householdService = {
         .maybeSingle()
 
       if (existingUser) {
-        // Sprawdź czy już nie jest członkiem tego gospodarstwa
+        // Check if already a member of this household
         const { data: existingMember } = await supabase
           .from('household_members')
           .select('id')
@@ -159,20 +159,20 @@ export const householdService = {
           .maybeSingle()
 
         if (existingMember) {
-          return { success: false, message: 'Ten użytkownik już należy do tego gospodarstwa.' }
+          return { success: false, message: 'This user is already a member of this household.' }
         }
 
-        // Dodaj do household_members
+        // Add to household_members
         const { error: memberErr } = await supabase.from('household_members').insert({
           household_id: householdId,
           user_id: existingUser.id
         })
 
         if (memberErr) {
-          return { success: false, message: 'Nie udało się dodać użytkownika do gospodarstwa.' }
+          return { success: false, message: 'Failed to add user to household.' }
         }
 
-        // Jeśli użytkownik nie miał jeszcze gospodarstwa domyślnego, ustaw to gospodarstwo jako default
+        // If user didn't have default household, set this one
         if (!existingUser.household_id) {
           await supabase
             .from('users')
@@ -182,46 +182,46 @@ export const householdService = {
 
         return {
           success: true,
-          message: `Użytkownik ${cleanEmail} został dodany do gospodarstwa.`
+          message: `User ${cleanEmail} was added to the household.`
         }
       } else {
-        // Użytkownik nie założył jeszcze konta - utwórz zaproszenie
+        // User has not registered yet - create invitation record
         const { error: inviteErr } = await supabase.from('household_invites').upsert({
           household_id: householdId,
           email: cleanEmail
         })
 
         if (inviteErr) {
-          return { success: false, message: 'Nie udało się zapisać zaproszenia.' }
+          return { success: false, message: 'Failed to save invitation.' }
         }
 
         return {
           success: true,
-          message: `Zaproszenie dla ${cleanEmail} zostało zapisane. Gospodarstwo stanie się domyślne po pierwszym logowaniu.`
+          message: `Invitation for ${cleanEmail} has been recorded.`
         }
       }
     } catch (err) {
-      console.error('Błąd addUserToHousehold:', err)
-      return { success: false, message: 'Wystąpił błąd podczas dodawania użytkownika.' }
+      console.error('Error in addUserToHousehold:', err)
+      return { success: false, message: 'An error occurred while adding user.' }
     }
   },
 
   /**
-   * Pobiera listę członków i oczekujących zaproszeń dla danego gospodarstwa
+   * Fetches members and pending invites for household
    */
   async getHouseholdMembers(householdId: string): Promise<{
     members: MemberDetail[]
     invites: InviteDetail[]
   }> {
     try {
-      // Członkowie
+      // Members
       const { data: memberRows, error: mErr } = await supabase
         .from('household_members')
         .select('id, user_id, created_at, users(*)')
         .eq('household_id', householdId)
 
       if (mErr) {
-        console.error('Błąd pobierania członków:', mErr)
+        console.error('Error fetching members:', mErr)
       }
 
       const members: MemberDetail[] = []
@@ -230,20 +230,20 @@ export const householdService = {
         members.push({
           id: row.id,
           userId: row.user_id,
-          name: u?.name || u?.email?.split('@')[0] || 'Użytkownik',
+          name: u?.name || u?.email?.split('@')[0] || 'User',
           email: u?.email || '',
           joinedAt: row.created_at
         })
       })
 
-      // Zaproszenia
+      // Invites
       const { data: inviteRows, error: iErr } = await supabase
         .from('household_invites')
         .select('*')
         .eq('household_id', householdId)
 
       if (iErr) {
-        console.error('Błąd pobierania zaproszeń:', iErr)
+        console.error('Error fetching invites:', iErr)
       }
 
       const invites: InviteDetail[] = (inviteRows || []).map((inv) => ({
@@ -254,13 +254,13 @@ export const householdService = {
 
       return { members, invites }
     } catch (err) {
-      console.error('Błąd getHouseholdMembers:', err)
+      console.error('Error in getHouseholdMembers:', err)
       return { members: [], invites: [] }
     }
   },
 
   /**
-   * Aktualizuje profil użytkownika (np. nazwę wyświetlaną)
+   * Updates user profile (e.g. display name)
    */
   async updateUserProfile(userId: string, name: string): Promise<boolean> {
     try {
@@ -270,12 +270,33 @@ export const householdService = {
         .eq('id', userId)
 
       if (error) {
-        console.error('Błąd aktualizacji profilu użytkownika:', error)
+        console.error('Error updating user profile:', error)
         return false
       }
       return true
     } catch (err) {
-      console.error('Błąd updateUserProfile:', err)
+      console.error('Error in updateUserProfile:', err)
+      return false
+    }
+  },
+
+  /**
+   * Updates user interface language preference in Supabase
+   */
+  async updateUserLanguage(userId: string, language: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ language: language.trim() })
+        .eq('id', userId)
+
+      if (error) {
+        console.error('Error updating user language:', error)
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('Error in updateUserLanguage:', err)
       return false
     }
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
 import { MealDetailsSheet } from '@/components/dialogs/MealDetailsSheet'
@@ -24,6 +25,7 @@ import { cn } from '@/lib/utils'
 export const DesktopCookbookView: React.FC = () => {
   const { household } = useAuth()
   const { addMealToDraft } = useShoppingStore()
+  const { t } = useTranslation()
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -80,8 +82,8 @@ export const DesktopCookbookView: React.FC = () => {
     e.stopPropagation()
     const isGlobal = meal.type === 'Global' || !meal.household_id
     const confirmMsg = isGlobal
-      ? 'Czy na pewno chcesz usunąć ten przepis globalny? Zniknie on ze wszystkich gospodarstw.'
-      : 'Czy na pewno chcesz usunąć ten przepis ze swojego gospodarstwa?'
+      ? t('cookbook.deleteConfirm')
+      : t('cookbook.deleteConfirm')
 
     if (confirm(confirmMsg)) {
       const success = await mealService.deleteMeal(meal.id)
@@ -107,7 +109,7 @@ export const DesktopCookbookView: React.FC = () => {
         <div className="relative flex-1 max-w-xl">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
           <Input
-            placeholder="Szukaj przepisu, opisu lub składnika..."
+            placeholder={t('cookbook.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 h-11 bg-zinc-900/90 border-zinc-800 focus-visible:ring-emerald-500 rounded-xl text-sm"
@@ -120,7 +122,7 @@ export const DesktopCookbookView: React.FC = () => {
             className="h-11 px-5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl shadow-lg shadow-emerald-950/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Nowy Przepis</span>
+            <span>{t('cookbook.addRecipe')}</span>
           </Button>
         </div>
       </div>
@@ -138,7 +140,7 @@ export const DesktopCookbookView: React.FC = () => {
                 : "text-zinc-400 border-zinc-800 hover:border-zinc-700"
             )}
           >
-            Wszystkie ({meals.length})
+            {t('common.all')} ({meals.length})
           </Badge>
         </button>
 
@@ -156,7 +158,7 @@ export const DesktopCookbookView: React.FC = () => {
             )}
           >
             <Home className="w-3.5 h-3.5" />
-            <span>Gospodarstwo ({meals.filter((m) => m.type !== 'Global' && m.household_id).length})</span>
+            <span>{t('navigation.households')} ({meals.filter((m) => m.type !== 'Global' && m.household_id).length})</span>
           </Badge>
         </button>
 
@@ -174,7 +176,7 @@ export const DesktopCookbookView: React.FC = () => {
             )}
           >
             <Globe className="w-3.5 h-3.5" />
-            <span>Globalne ({meals.filter((m) => m.type === 'Global' || !m.household_id).length})</span>
+            <span>{t('common.global')} ({meals.filter((m) => m.type === 'Global' || !m.household_id).length})</span>
           </Badge>
         </button>
 
@@ -207,18 +209,18 @@ export const DesktopCookbookView: React.FC = () => {
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-center">
           <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm text-zinc-500">Pobieranie przepisów z bazy...</p>
+          <p className="text-sm text-zinc-500">{t('common.loading')}</p>
         </div>
       ) : filteredMeals.length === 0 ? (
         <div className="py-24 flex flex-col items-center justify-center text-center bg-zinc-950/40 border border-zinc-900 border-dashed rounded-3xl p-8">
           <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-4">
             <BookOpen className="w-8 h-8" />
           </div>
-          <p className="text-base font-bold text-zinc-200">Brak przepisów w wybranym filtrze</p>
+          <p className="text-base font-bold text-zinc-200">{t('cookbook.emptyTitle')}</p>
           <p className="text-xs text-zinc-500 mt-1 max-w-sm">
             {searchQuery || typeFilter !== 'all' || selectedTag
-              ? 'Brak wyników pasujących do wybranych kryteriów filtrowania.'
-              : 'Kliknij przycisk Nowy Przepis, aby dodać swoją pierwszą potrawę.'}
+              ? t('cookbook.emptySubtitle')
+              : t('cookbook.emptySubtitle')}
           </p>
           {(searchQuery || typeFilter !== 'all' || selectedTag) && (
             <Button
@@ -229,9 +231,9 @@ export const DesktopCookbookView: React.FC = () => {
                 setTypeFilter('all')
                 setSelectedTag(null)
               }}
-              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-xl"
+              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-xl cursor-pointer"
             >
-              Wyczyść filtry
+              {t('common.clear')}
             </Button>
           )}
         </div>
@@ -289,7 +291,7 @@ export const DesktopCookbookView: React.FC = () => {
                               className="text-[10px] px-2 py-0 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                             >
                               <Globe className="w-2.5 h-2.5" />
-                              <span>Globalny</span>
+                              <span>{t('common.global')}</span>
                             </Badge>
                           ) : (
                             <Badge
@@ -297,12 +299,12 @@ export const DesktopCookbookView: React.FC = () => {
                               className="text-[10px] px-2 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
                             >
                               <Home className="w-2.5 h-2.5" />
-                              <span>Gospodarstwo</span>
+                              <span>{t('navigation.households')}</span>
                             </Badge>
                           )}
 
                           <span className="text-[11px] text-zinc-500 font-mono">
-                            {meal.ingredients.length} składników
+                            {meal.ingredients.length} {t('cookbook.ingredients').toLowerCase()}
                           </span>
                         </div>
                       </div>
@@ -311,7 +313,7 @@ export const DesktopCookbookView: React.FC = () => {
                     {totalKcal > 0 && (
                       <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl text-emerald-400 text-xs font-extrabold shrink-0 shadow-inner">
                         <Flame className="w-4 h-4" />
-                        <span>{Math.round(totalKcal)} kcal</span>
+                        <span>{Math.round(totalKcal)} {t('common.kcal')}</span>
                       </div>
                     )}
                   </div>
@@ -328,13 +330,13 @@ export const DesktopCookbookView: React.FC = () => {
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2 font-mono">
                       <span className="bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800 text-zinc-300">
-                        B: <strong className="text-blue-400">{Math.round(totalProtein)}g</strong>
+                        {t('common.proteinShort')}: <strong className="text-blue-400">{Math.round(totalProtein)}g</strong>
                       </span>
                       <span className="bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800 text-zinc-300">
-                        W: <strong className="text-amber-400">{Math.round(totalCarbs)}g</strong>
+                        {t('common.carbsShort')}: <strong className="text-amber-400">{Math.round(totalCarbs)}g</strong>
                       </span>
                       <span className="bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800 text-zinc-300">
-                        T: <strong className="text-rose-400">{Math.round(totalFat)}g</strong>
+                        {t('common.fatShort')}: <strong className="text-rose-400">{Math.round(totalFat)}g</strong>
                       </span>
                     </div>
 
@@ -349,17 +351,17 @@ export const DesktopCookbookView: React.FC = () => {
                             ? "bg-emerald-500 text-black font-extrabold"
                             : "bg-zinc-900 hover:bg-emerald-500 hover:text-black text-emerald-400 border border-zinc-800 hover:border-emerald-400"
                         )}
-                        title="Szybko dodaj składniki tego przepisu do koszyka"
+                        title={t('cookbook.addToDraft')}
                       >
                         {isJustAdded ? (
                           <>
                             <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            <span>Dodano!</span>
+                            <span>{t('toasts.saved')}</span>
                           </>
                         ) : (
                           <>
                             <ShoppingCart className="w-3.5 h-3.5" />
-                            <span>Do Koszyka</span>
+                            <span>{t('navigation.draft')}</span>
                           </>
                         )}
                       </button>
@@ -369,7 +371,7 @@ export const DesktopCookbookView: React.FC = () => {
                         type="button"
                         onClick={(e) => handleDeleteMeal(e, meal)}
                         className="p-1.5 text-zinc-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                        title="Usuń przepis"
+                        title={t('common.delete')}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
