@@ -1,0 +1,11 @@
+# Cursor Rules for SmartShopping
+
+Please refer to the project constitution at:
+- **AGENTS.md** (Single Source of Truth)
+- **.agents/rules/** (Domain-specific architectural rules)
+
+## Key Guidelines:
+- Dual Layout: Every UI update must support both Mobile PWA and Desktop layouts.
+- State: Never query Supabase directly in components; use Zustand Store + Services.
+- Security: All database tables must have strict RLS scoped to `public.get_user_household_ids(auth.uid())`.
+- Quality: Strict TypeScript (no `any`), run `npm run test`, `npm run lint`, and `npx tsc -b`.
