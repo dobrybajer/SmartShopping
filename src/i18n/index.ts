@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { create } from 'zustand'
 import { en } from './locales/en'
 import { pl } from './locales/pl'
@@ -51,92 +52,107 @@ export const useTranslation = () => {
   const { language, setLanguage } = useI18nStore()
   const currentDict = translations[language] || translations.en
 
-  const t = (path: string, params?: Record<string, string | number>): string => {
-    const keys = path.split('.')
-    let current: any = currentDict
+  const t = useCallback(
+    (path: string, params?: Record<string, string | number>): string => {
+      const keys = path.split('.')
+      let current: any = currentDict
 
-    for (const key of keys) {
-      if (current && typeof current === 'object' && key in current) {
-        current = current[key]
-      } else {
-        // Fallback to English dictionary
-        let fallback: any = translations.en
-        for (const fbKey of keys) {
-          if (fallback && typeof fallback === 'object' && fbKey in fallback) {
-            fallback = fallback[fbKey]
-          } else {
-            fallback = path
-            break
+      for (const key of keys) {
+        if (current && typeof current === 'object' && key in current) {
+          current = current[key]
+        } else {
+          // Fallback to English dictionary
+          let fallback: any = translations.en
+          for (const fbKey of keys) {
+            if (fallback && typeof fallback === 'object' && fbKey in fallback) {
+              fallback = fallback[fbKey]
+            } else {
+              fallback = path
+              break
+            }
           }
+          current = fallback
+          break
         }
-        current = fallback
-        break
       }
-    }
 
-    // Handle Pluralization via native Intl.PluralRules
-    if (current && typeof current === 'object' && ('one' in current || 'other' in current)) {
-      const count = params?.count !== undefined ? Number(params.count) : 0
+      // Handle Pluralization via native Intl.PluralRules
+      if (current && typeof current === 'object' && ('one' in current || 'other' in current)) {
+        const count = params?.count !== undefined ? Number(params.count) : 0
+        try {
+          const pr = new Intl.PluralRules(language)
+          const rule = pr.select(count) as keyof PluralForms
+          const pluralForms = current as PluralForms
+          current = pluralForms[rule] || pluralForms.other || pluralForms.many || pluralForms.few || pluralForms.one || ''
+        } catch {
+          const pluralForms = current as PluralForms
+          current = count === 1 ? pluralForms.one : pluralForms.other || ''
+        }
+      }
+
+      if (typeof current !== 'string') {
+        return path
+      }
+
+      // Parameter Interpolation ({count}, {name}, etc.)
+      if (params) {
+        return Object.entries(params).reduce(
+          (acc, [k, v]) => acc.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
+          current
+        )
+      }
+
+      return current
+    },
+    [language, currentDict]
+  )
+
+  const formatUnit = useCallback(
+    (unit: 'g' | 'ml' | 'pcs' | string, count?: number): string => {
+      if (unit === 'pcs') {
+        return count !== undefined
+          ? t('units.pcs', { count })
+          : t('units.pcsShort')
+      }
+      if (unit === 'g') return t('units.g')
+      if (unit === 'ml') return t('units.ml')
+      return unit
+    },
+    [t]
+  )
+
+  const formatQuantity = useCallback(
+    (count: number, unit: 'g' | 'ml' | 'pcs' | string): string => {
+      return `${count} ${formatUnit(unit, count)}`
+    },
+    [formatUnit]
+  )
+
+  const formatNumber = useCallback(
+    (value: number, options?: Intl.NumberFormatOptions): string => {
       try {
-        const pr = new Intl.PluralRules(language)
-        const rule = pr.select(count) as keyof PluralForms
-        const pluralForms = current as PluralForms
-        current = pluralForms[rule] || pluralForms.other || pluralForms.many || pluralForms.few || pluralForms.one || ''
+        return new Intl.NumberFormat(language === 'pl' ? 'pl-PL' : 'en-US', options).format(value)
       } catch {
-        const pluralForms = current as PluralForms
-        current = count === 1 ? pluralForms.one : pluralForms.other || ''
+        return String(value)
       }
-    }
+    },
+    [language]
+  )
 
-    if (typeof current !== 'string') {
-      return path
-    }
-
-    // Parameter Interpolation ({count}, {name}, etc.)
-    if (params) {
-      return Object.entries(params).reduce(
-        (acc, [k, v]) => acc.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
-        current
-      )
-    }
-
-    return current
-  }
-
-  const formatUnit = (unit: 'g' | 'ml' | 'pcs' | string, count?: number): string => {
-    if (unit === 'pcs') {
-      return count !== undefined
-        ? t('units.pcs', { count })
-        : t('units.pcsShort')
-    }
-    if (unit === 'g') return t('units.g')
-    if (unit === 'ml') return t('units.ml')
-    return unit
-  }
-
-  const formatQuantity = (count: number, unit: 'g' | 'ml' | 'pcs' | string): string => {
-    return `${count} ${formatUnit(unit, count)}`
-  }
-
-  const formatNumber = (value: number, options?: Intl.NumberFormatOptions): string => {
-    try {
-      return new Intl.NumberFormat(language === 'pl' ? 'pl-PL' : 'en-US', options).format(value)
-    } catch {
-      return String(value)
-    }
-  }
-
-  const formatDate = (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
-    try {
-      const d = typeof date === 'string' ? new Date(date) : date
-      return new Intl.DateTimeFormat(
-        language === 'pl' ? 'pl-PL' : 'en-US',
-        options || { dateStyle: 'medium' }
-      ).format(d)
-    } catch {
-      return String(date)
-    }
-  }
+  const formatDate = useCallback(
+    (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
+      try {
+        const d = typeof date === 'string' ? new Date(date) : date
+        return new Intl.DateTimeFormat(
+          language === 'pl' ? 'pl-PL' : 'en-US',
+          options || { dateStyle: 'medium' }
+        ).format(d)
+      } catch {
+        return String(date)
+      }
+    },
+    [language]
+  )
 
   return {
     t,

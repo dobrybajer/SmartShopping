@@ -57,13 +57,12 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
       setProducts(prods as any)
     }
 
-    if (cats.length > 0 && !selectedCategoryId) {
+    setSelectedCategoryId((prev) => {
+      if (prev !== undefined) return prev
       const householdCat = cats.find((c) => c.name.toLowerCase().includes('household'))
-      if (householdCat) {
-        setSelectedCategoryId(householdCat.id)
-      }
-    }
-  }, [household, selectedCategoryId])
+      return householdCat ? householdCat.id : undefined
+    })
+  }, [household])
 
   useEffect(() => {
     if (open) {

@@ -161,4 +161,30 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
 
     expect(missingKeys, `Missing keys in dictionary: ${missingKeys.join(', ')}`).toEqual([])
   })
+
+  it('should maintain referential stability of helper functions across re-renders when language is unchanged', () => {
+    const { result, rerender } = renderHook(() => useTranslation())
+
+    const initialT = result.current.t
+    const initialFormatUnit = result.current.formatUnit
+    const initialFormatQuantity = result.current.formatQuantity
+    const initialFormatDate = result.current.formatDate
+    const initialFormatNumber = result.current.formatNumber
+
+    // Trigger re-render of the hook consumer
+    rerender()
+
+    expect(result.current.t).toBe(initialT)
+    expect(result.current.formatUnit).toBe(initialFormatUnit)
+    expect(result.current.formatQuantity).toBe(initialFormatQuantity)
+    expect(result.current.formatDate).toBe(initialFormatDate)
+    expect(result.current.formatNumber).toBe(initialFormatNumber)
+
+    // When language changes, new stable instances should be produced
+    act(() => {
+      result.current.setLanguage('en')
+    })
+
+    expect(result.current.t).not.toBe(initialT)
+  })
 })

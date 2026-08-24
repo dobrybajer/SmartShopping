@@ -56,11 +56,9 @@ export const DesktopHistoryView: React.FC = () => {
     setLoading(true)
     const lists = await shoppingListService.getHistoryLists(household.id)
     setHistoryLists(lists)
-    if (lists.length > 0 && !selectedListId) {
-      setSelectedListId(lists[0].id)
-    }
+    setSelectedListId((prev) => prev || (lists.length > 0 ? lists[0].id : null))
     setLoading(false)
-  }, [household, selectedListId])
+  }, [household])
 
   useEffect(() => {
     loadHistory()
@@ -79,13 +77,19 @@ export const DesktopHistoryView: React.FC = () => {
     setAllAdded(false)
     setAddedItemIds({})
 
+    let isMounted = true
     shoppingListService.getListWithDetails(selectedListId).then((details) => {
+      if (!isMounted) return
       setListDetails(details)
       if (details) {
         setEditedName(details.name || `${t('history.archivedList')} ${formatDate(details.target_date || details.created_at || new Date())}`)
       }
       setLoadingDetails(false)
     })
+
+    return () => {
+      isMounted = false
+    }
   }, [selectedListId, t, formatDate])
 
   const filteredLists = historyLists.filter((list) => {

@@ -1,10 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function useActiveListRealtime(
   activeListId: string | null,
   onRealtimeUpdate: () => void
 ) {
+  const onRealtimeUpdateRef = useRef(onRealtimeUpdate)
+  useEffect(() => {
+    onRealtimeUpdateRef.current = onRealtimeUpdate
+  })
+
   useEffect(() => {
     if (!activeListId) return
 
@@ -29,8 +34,8 @@ export function useActiveListRealtime(
             }
           }
 
-          // Trigger data refresh callback
-          onRealtimeUpdate()
+          // Trigger data refresh callback via stable ref
+          onRealtimeUpdateRef.current()
         }
       )
       .subscribe((status) => {
@@ -42,5 +47,5 @@ export function useActiveListRealtime(
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [activeListId, onRealtimeUpdate])
+  }, [activeListId])
 }

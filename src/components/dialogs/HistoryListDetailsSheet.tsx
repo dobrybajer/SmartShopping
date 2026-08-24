@@ -73,10 +73,16 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
       // Load full items details
       setLoading(true)
+      let isMounted = true
       shoppingListService.getListWithDetails(list.id).then((details) => {
+        if (!isMounted) return
         setListDetails(details)
         setLoading(false)
       })
+
+      return () => {
+        isMounted = false
+      }
     } else {
       setListDetails(null)
     }
