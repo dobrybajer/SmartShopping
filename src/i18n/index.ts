@@ -114,6 +114,10 @@ export const useTranslation = () => {
     return unit
   }
 
+  const formatQuantity = (count: number, unit: 'g' | 'ml' | 'pcs' | string): string => {
+    return `${count} ${formatUnit(unit, count)}`
+  }
+
   const formatNumber = (value: number, options?: Intl.NumberFormatOptions): string => {
     try {
       return new Intl.NumberFormat(language === 'pl' ? 'pl-PL' : 'en-US', options).format(value)
@@ -139,6 +143,7 @@ export const useTranslation = () => {
     language,
     setLanguage,
     formatUnit,
+    formatQuantity,
     formatNumber,
     formatDate,
   }

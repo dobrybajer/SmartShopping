@@ -15,7 +15,7 @@ import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
 export const ActiveListView: React.FC = () => {
   const { household } = useAuth()
   const { setDraftItems, draftItems } = useShoppingStore()
-  const { t, formatUnit, formatDate } = useTranslation()
+  const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
   const [activeList, setActiveList] = useState<ActiveListWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -354,7 +354,7 @@ export const ActiveListView: React.FC = () => {
                           )}
                           title={isChecked ? undefined : t('common.edit')}
                         >
-                          {item.total_quantity} {formatUnit(unit, item.total_quantity)}
+                          {formatQuantity(item.total_quantity, unit)}
                         </button>
                       )}
 

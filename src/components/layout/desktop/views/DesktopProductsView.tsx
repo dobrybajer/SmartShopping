@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 
 export const DesktopProductsView: React.FC = () => {
   const { household } = useAuth()
-  const { t, formatUnit } = useTranslation()
+  const { t, formatUnit, formatQuantity } = useTranslation()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -305,7 +305,7 @@ export const DesktopProductsView: React.FC = () => {
             const fat = product.fat_per_100 ?? 0
             const hasMacros = kcal > 0 || protein > 0 || carbs > 0 || fat > 0
 
-            const unitLabel = product.unit_type === 'pcs' ? formatUnit('pcs', 1) : `100 ${product.unit_type}`
+            const unitLabel = product.unit_type === 'pcs' ? formatQuantity(1, 'pcs') : `100 ${formatUnit(product.unit_type)}`
 
             return (
               <div

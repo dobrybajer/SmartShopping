@@ -31,7 +31,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   onProductSaved
 }) => {
   const { household } = useAuth()
-  const { t, formatUnit } = useTranslation()
+  const { t, formatUnit, formatQuantity } = useTranslation()
   const isEditing = !!productToEdit
 
   const [categories, setCategories] = useState<ProductCategory[]>([])
@@ -188,7 +188,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
     }
   }
 
-  const unitSuffix = unitType === 'pcs' ? formatUnit('pcs', 1) : `100 ${unitType}`
+  const unitSuffix = unitType === 'pcs' ? formatQuantity(1, 'pcs') : `100 ${formatUnit(unitType)}`
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

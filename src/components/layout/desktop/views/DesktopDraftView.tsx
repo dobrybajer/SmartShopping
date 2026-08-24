@@ -26,7 +26,7 @@ interface DesktopDraftViewProps {
 export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
   const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
-  const { t, formatUnit, formatDate } = useTranslation()
+  const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
@@ -152,7 +152,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                   className="h-9 px-3 bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Ad-hoc</span>
+                  <span>{t('draft.addAdHoc')}</span>
                 </Button>
 
                 <Button
@@ -208,7 +208,8 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         type="button"
                         onClick={() => handleDecrease(item)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                        title="Decrease"
+                        title={t('common.decrease')}
+                        aria-label={t('common.decrease')}
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -243,9 +244,9 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                           type="button"
                           onClick={() => startEditing(item.id, item.quantity)}
                           className="font-mono text-xs px-3 py-1 font-bold min-w-[4.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded-lg transition-colors cursor-text select-none"
-                          title="Click to edit"
+                          title={t('common.edit')}
                         >
-                          {item.quantity} {formatUnit(item.unit_type, item.quantity)}
+                          {formatQuantity(item.quantity, item.unit_type)}
                         </button>
                       )}
 
@@ -253,7 +254,8 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({ onActiveList
                         type="button"
                         onClick={() => handleIncrease(item)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                        title="Increase"
+                        title={t('common.increase')}
+                        aria-label={t('common.increase')}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>

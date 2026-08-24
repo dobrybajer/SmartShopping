@@ -90,6 +90,7 @@ export const pl: TranslationSchema = {
     adHocItem: 'Pozycja ad-hoc',
     fromMeal: 'Z przepisu',
     readyBadge: 'Gotowa',
+    swipeToDeleteHint: 'Przesuń w lewo, aby usunąć',
   },
   activeList: {
     title: 'Aktywna Lista Zakupów',
@@ -174,10 +175,10 @@ export const pl: TranslationSchema = {
     ml: 'ml',
     pcsShort: 'szt.',
     pcs: {
-      one: '{count} szt.',
-      few: '{count} szt.',
-      many: '{count} szt.',
-      other: '{count} szt.',
+      one: 'szt.',
+      few: 'szt.',
+      many: 'szt.',
+      other: 'szt.',
     },
   },
   dialogs: {

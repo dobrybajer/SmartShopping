@@ -13,7 +13,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   variant = 'pill',
   className = '',
 }) => {
-  const { language, setLanguage } = useTranslation()
+  const { language, setLanguage, t } = useTranslation()
   const { updateUserLanguage } = useAuth()
 
   const handleLanguageChange = async (newLang: SupportedLanguage) => {
@@ -39,7 +39,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
       <div
         className={`flex items-center p-1 bg-zinc-900 border border-zinc-800 rounded-xl ${className}`}
         role="group"
-        aria-label="Language selector"
+        aria-label={t('common.language')}
       >
         <button
           type="button"
@@ -78,7 +78,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
           value={language}
           onChange={(e) => handleLanguageChange(e.target.value as SupportedLanguage)}
           className="bg-zinc-900 border border-zinc-800 text-zinc-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-zinc-600 appearance-none pr-8 cursor-pointer"
-          aria-label="Select language"
+          aria-label={t('common.language')}
         >
           <option value="pl">🇵🇱 Polski (PL)</option>
           <option value="en">🇬🇧 English (EN)</option>
@@ -93,7 +93,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
     <div
       className={`inline-flex items-center bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-full p-0.5 transition-colors ${className}`}
       role="group"
-      aria-label="Language selector"
+      aria-label={t('common.language')}
     >
       <button
         type="button"
@@ -103,7 +103,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
             ? 'bg-zinc-800 text-white shadow-xs'
             : 'text-zinc-400 hover:text-zinc-200'
         }`}
-        title="Polish"
+        title="Polski"
         aria-pressed={language === 'pl'}
       >
         <span className="text-xs">🇵🇱</span>
@@ -117,7 +117,7 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
             ? 'bg-zinc-800 text-white shadow-xs'
             : 'text-zinc-400 hover:text-zinc-200'
         }`}
-        title="English language"
+        title="English"
         aria-pressed={language === 'en'}
       >
         <span className="text-xs">🇬🇧</span>

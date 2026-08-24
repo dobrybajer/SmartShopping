@@ -92,15 +92,19 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
     expect(result.current.t('activeList.itemsLeft', { count: 5 })).toBe('5 items left')
   })
 
-  it('should correctly format units in Polish and English', () => {
+  it('should correctly format units and quantities in Polish and English', () => {
     const { result } = renderHook(() => useTranslation())
 
-    // Polish units
+    // Polish units & quantities
     expect(result.current.formatUnit('g')).toBe('g')
     expect(result.current.formatUnit('ml')).toBe('ml')
     expect(result.current.formatUnit('pcs')).toBe('szt.')
-    expect(result.current.formatUnit('pcs', 1)).toBe('1 szt.')
-    expect(result.current.formatUnit('pcs', 3)).toBe('3 szt.')
+    expect(result.current.formatUnit('pcs', 1)).toBe('szt.')
+    expect(result.current.formatUnit('pcs', 3)).toBe('szt.')
+    expect(result.current.formatQuantity(1, 'pcs')).toBe('1 szt.')
+    expect(result.current.formatQuantity(3, 'pcs')).toBe('3 szt.')
+    expect(result.current.formatQuantity(250, 'g')).toBe('250 g')
+    expect(result.current.formatQuantity(500, 'ml')).toBe('500 ml')
 
     // Switch to English
     act(() => {
@@ -110,8 +114,12 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
     expect(result.current.formatUnit('g')).toBe('g')
     expect(result.current.formatUnit('ml')).toBe('ml')
     expect(result.current.formatUnit('pcs')).toBe('pcs')
-    expect(result.current.formatUnit('pcs', 1)).toBe('1 pc')
-    expect(result.current.formatUnit('pcs', 3)).toBe('3 pcs')
+    expect(result.current.formatUnit('pcs', 1)).toBe('pc')
+    expect(result.current.formatUnit('pcs', 3)).toBe('pcs')
+    expect(result.current.formatQuantity(1, 'pcs')).toBe('1 pc')
+    expect(result.current.formatQuantity(3, 'pcs')).toBe('3 pcs')
+    expect(result.current.formatQuantity(250, 'g')).toBe('250 g')
+    expect(result.current.formatQuantity(500, 'ml')).toBe('500 ml')
   })
 
   it('should ensure all static translation keys used across codebase exist in dictionary', () => {

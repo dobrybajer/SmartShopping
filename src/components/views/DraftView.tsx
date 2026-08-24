@@ -18,7 +18,7 @@ interface DraftViewProps {
 export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
   const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
-  const { t, formatUnit, formatDate } = useTranslation()
+  const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
@@ -110,7 +110,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         <div className="flex items-center gap-2.5">
           <ShoppingBag className="w-4 h-4 text-emerald-400 shrink-0" />
           <span className="text-xs text-zinc-300">
-            {t('navigation.draft')}: <strong className="text-white font-mono">{draftItems.length} {formatUnit('pcs', draftItems.length)}</strong>
+            {t('navigation.draft')}: <strong className="text-white font-mono">{formatQuantity(draftItems.length, 'pcs')}</strong>
           </span>
         </div>
 
@@ -150,7 +150,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
       ) : (
         <div className="flex flex-col gap-2.5">
           <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold px-1">
-            Swipe left to remove item
+            {t('draft.swipeToDeleteHint')}
           </p>
 
           {draftItems.map((item) => (
@@ -183,8 +183,8 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       handleDecrease(item)
                     }}
                     className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                    title="Decrease"
-                    aria-label="Decrease"
+                    title={t('common.decrease')}
+                    aria-label={t('common.decrease')}
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -222,9 +222,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                         startEditing(item.id, item.quantity)
                       }}
                       className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded transition-colors cursor-text select-none"
-                      title="Click to edit"
+                      title={t('common.edit')}
                     >
-                      {item.quantity} {formatUnit(item.unit_type, item.quantity)}
+                      {formatQuantity(item.quantity, item.unit_type)}
                     </button>
                   )}
 
@@ -235,8 +235,8 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       handleIncrease(item)
                     }}
                     className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
-                    title="Increase"
-                    aria-label="Increase"
+                    title={t('common.increase')}
+                    aria-label={t('common.increase')}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>

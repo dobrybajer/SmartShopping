@@ -88,6 +88,7 @@ export const en = {
     adHocItem: 'Ad-hoc item',
     fromMeal: 'From meal',
     readyBadge: 'Ready',
+    swipeToDeleteHint: 'Swipe left to remove item',
   },
   activeList: {
     title: 'Active Shopping List',
@@ -168,8 +169,8 @@ export const en = {
     ml: 'ml',
     pcsShort: 'pcs',
     pcs: {
-      one: '{count} pc',
-      other: '{count} pcs',
+      one: 'pc',
+      other: 'pcs',
     },
   },
   dialogs: {

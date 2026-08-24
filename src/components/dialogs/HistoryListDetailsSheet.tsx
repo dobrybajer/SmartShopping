@@ -45,7 +45,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   onListDeleted
 }) => {
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
-  const { t, formatUnit, formatDate } = useTranslation()
+  const { t, formatQuantity, formatDate } = useTranslation()
 
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)
   const [loading, setLoading] = useState(false)
@@ -305,7 +305,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                   <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider px-1 flex items-center justify-between">
                     <span>{group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
                     <span className="text-[10px] text-zinc-600 font-mono">
-                      {group.items.length} {formatUnit('pcs', group.items.length)}
+                      {formatQuantity(group.items.length, 'pcs')}
                     </span>
                   </h4>
 
@@ -319,7 +319,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                         <div
                           key={item.id}
                           className={cn(
-                            "p-3 rounded-xl bg-zinc-950 border border-zinc-850 flex items-center justify-between transition-all",
+                            "p-3 rounded-xl bg-zinc-950 border border-zinc-855 flex items-center justify-between transition-all",
                             item.is_checked ? "border-zinc-900 bg-zinc-950/70" : "border-zinc-800"
                           )}
                         >
@@ -347,7 +347,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
                           <div className="flex items-center gap-2 shrink-0">
                             <span className="font-mono text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
-                              {item.total_quantity} {formatUnit(unit, item.total_quantity)}
+                              {formatQuantity(item.total_quantity, unit)}
                             </span>
 
                             <Button

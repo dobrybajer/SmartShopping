@@ -40,7 +40,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   onMealCreated
 }) => {
   const { household } = useAuth()
-  const { t, formatUnit } = useTranslation()
+  const { t, formatUnit, formatQuantity } = useTranslation()
   const [mealType, setMealType] = useState<'Household' | 'Global'>('Household')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -302,7 +302,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-emerald-400 font-bold">
-                        {ing.base_quantity} {formatUnit(ing.unit_type, ing.base_quantity)}
+                        {formatQuantity(ing.base_quantity, ing.unit_type)}
                       </span>
                       <button
                         onClick={() => handleRemoveIngredient(idx)}

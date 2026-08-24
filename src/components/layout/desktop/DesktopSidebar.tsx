@@ -229,7 +229,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <button
                 onClick={() => setIsLayoutMenuOpen((prev) => !prev)}
                 className="w-full px-3 py-2 rounded-xl bg-zinc-900/50 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs flex items-center justify-between transition-colors cursor-pointer"
-                title="Layout view"
+                title={t('dialogs.layout.mode')}
               >
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400" />

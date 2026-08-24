@@ -27,7 +27,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   onOpenChange
 }) => {
   const { addMealToDraft } = useShoppingStore()
-  const { t, formatUnit } = useTranslation()
+  const { t, formatQuantity } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
   const [isAdded, setIsAdded] = useState(false)
 
@@ -199,7 +199,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                       )}
                     </div>
                     <span className="font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">
-                      {scaledQty} {formatUnit(ing.product?.unit_type || 'g', scaledQty)}
+                      {formatQuantity(scaledQty, ing.product?.unit_type || 'g')}
                     </span>
                   </div>
                 )
