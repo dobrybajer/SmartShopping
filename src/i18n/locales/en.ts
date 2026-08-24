@@ -51,6 +51,7 @@ export const en = {
     subtitle: 'Manage recipes, macros, and scale ingredients for shopping',
     searchPlaceholder: 'Search meals by name or ingredients...',
     addRecipe: 'Add Recipe',
+    noRecipes: 'No recipes found',
     emptyTitle: 'No recipes found',
     emptySubtitle: 'Add your first recipe to start planning meals and generating grocery lists.',
     calories: 'Calories',
@@ -146,6 +147,7 @@ export const en = {
     householdProduct: 'Custom household product',
     unitType: 'Unit Type',
     macrosPer100: 'Macros per 100g / 100ml / 1 piece',
+    noNutritionalInfo: 'No nutritional info',
     category: 'Category',
     allCategories: 'All Categories',
   },
@@ -173,6 +175,32 @@ export const en = {
       other: 'pcs',
     },
   },
+  themes: {
+    oledBlack: {
+      name: 'OLED Black',
+      description: 'True black background with vivid emerald accent',
+    },
+    midnightBlue: {
+      name: 'Midnight Blue',
+      description: 'Deep navy tones with crisp sky blue accents',
+    },
+    forestSage: {
+      name: 'Forest Sage',
+      description: 'Botanical pine background with mint sage highlights',
+    },
+    warmAmber: {
+      name: 'Warm Amber',
+      description: 'Cozy dark roast tones with warm golden amber',
+    },
+    cyberpunkViolet: {
+      name: 'Cyberpunk Violet',
+      description: 'Deep royal dark canvas with neon purple glow',
+    },
+    cleanLight: {
+      name: 'Clean Light',
+      description: 'Crisp paper white interface with emerald accents',
+    },
+  },
   dialogs: {
     account: {
       title: 'Account Settings',
@@ -182,6 +210,8 @@ export const en = {
       updateNameSuccess: 'Display name updated successfully.',
       languageTitle: 'Application Language',
       languageDescription: 'Choose your preferred interface language',
+      themeTitle: 'Visual Theme',
+      themeDescription: 'Select your preferred visual style and color palette',
       displayName: 'Display Name',
       email: 'Google Account Email',
       createdDate: 'Account Created',
@@ -209,6 +239,9 @@ export const en = {
       inviteEmailPlaceholder: 'Enter family member Google email...',
       inviteButton: 'Send Invitation',
       sendInvite: 'Send Invite',
+      userAddedSuccess: 'User successfully added to household.',
+      inviteSentSuccess: 'Invitation successfully sent.',
+      inviteError: 'Failed to send invitation.',
       pendingInvites: 'Pending Invitations',
       leaveHouseholdButton: 'Leave Household',
       defaultBadge: 'Default',

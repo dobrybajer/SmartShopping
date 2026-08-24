@@ -67,9 +67,9 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
   }
 
   return (
-    <div className={cn("relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950", className)}>
+    <div className={cn("relative overflow-hidden rounded-xl border border-border bg-card", className)}>
       {/* Background action container (red delete background with trash icon) */}
-      <div className="absolute inset-0 bg-red-600 flex items-center justify-end px-6 text-white font-medium text-xs gap-2 select-none">
+      <div className="absolute inset-0 bg-destructive flex items-center justify-end px-6 text-destructive-foreground font-medium text-xs gap-2 select-none">
         <Trash2 className="w-4 h-4 animate-pulse" />
         <span>{label}</span>
       </div>
@@ -77,7 +77,7 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
       {/* Foreground content container */}
       <div
         className={cn(
-          "relative bg-zinc-950 transition-transform duration-200 ease-out touch-pan-y",
+          "relative bg-card transition-transform duration-200 ease-out touch-pan-y",
           isSwiping && "transition-none"
         )}
         style={{ transform: `translateX(${translateX}px)` }}

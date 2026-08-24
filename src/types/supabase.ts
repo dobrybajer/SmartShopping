@@ -37,6 +37,7 @@ export interface Database {
           email: string
           name: string | null
           language: string
+          theme: string
           created_at: string | null
         }
         Insert: {
@@ -45,6 +46,7 @@ export interface Database {
           email: string
           name?: string | null
           language?: string
+          theme?: string
           created_at?: string | null
         }
         Update: {
@@ -53,6 +55,7 @@ export interface Database {
           email?: string
           name?: string | null
           language?: string
+          theme?: string
           created_at?: string | null
         }
         Relationships: [

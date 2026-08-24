@@ -34,18 +34,18 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm border-zinc-800 bg-zinc-950 text-zinc-100">
+      <DialogContent className="max-w-sm border-border bg-card text-foreground">
         <DialogHeader className="flex flex-col items-center text-center gap-2">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-1">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive mb-1">
             <AlertTriangle className="w-6 h-6" />
           </div>
-          <DialogTitle className="text-base font-bold text-zinc-100">
+          <DialogTitle className="text-base font-bold text-foreground">
             {title || t('dialogs.confirmDelete.title')}
           </DialogTitle>
-          <DialogDescription className="text-xs text-zinc-400 text-center leading-relaxed">
+          <DialogDescription className="text-xs text-muted-foreground text-center leading-relaxed">
             {itemName ? (
               <>
-                {t('dialogs.confirmDelete.description')}: <strong className="text-zinc-200">{itemName}</strong>
+                {t('dialogs.confirmDelete.description')}: <strong className="text-foreground font-semibold">{itemName}</strong>
                 {targetName ? ` (${targetName})` : ''}?
               </>
             ) : (
@@ -60,7 +60,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
-            className="flex-1 border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl h-10 cursor-pointer"
+            className="flex-1 border-border bg-background hover:bg-muted text-foreground rounded-xl h-10 cursor-pointer"
           >
             {t('common.cancel')}
           </Button>
@@ -69,10 +69,10 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             variant="destructive"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl h-10 flex items-center justify-center gap-1.5 shadow-md shadow-red-950/40 cursor-pointer"
+            className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold rounded-xl h-10 flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
           >
             {isDeleting ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-destructive-foreground border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
                 <Trash2 className="w-4 h-4" />

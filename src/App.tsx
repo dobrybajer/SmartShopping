@@ -16,10 +16,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="w-full min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-          <p className="text-zinc-500 text-xs tracking-wide">{t('common.loading')} Smart Shopping...</p>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-xs tracking-wide">{t('common.loading')} Smart Shopping...</p>
         </div>
       </div>
     )

@@ -210,9 +210,9 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92dvh] flex flex-col overflow-hidden p-0 gap-0">
+      <SheetContent side="bottom" className="max-h-[92dvh] flex flex-col overflow-hidden p-0 gap-0 bg-card border-t border-border text-foreground">
         {/* Header */}
-        <SheetHeader className="p-4 pb-3 border-b border-zinc-900 shrink-0">
+        <SheetHeader className="p-4 pb-3 border-b border-border shrink-0">
           <div className="flex flex-col gap-2">
             {/* Title & Edit */}
             <div className="flex items-center justify-between gap-2 pr-6">
@@ -227,14 +227,14 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                     }}
                     autoFocus
                     disabled={isSavingName}
-                    className="h-9 bg-zinc-900 border-zinc-700 text-sm font-bold text-zinc-100"
+                    className="h-9 bg-background border-input text-sm font-bold text-foreground"
                     placeholder={t('draft.listNamePlaceholder')}
                   />
                   <Button
                     onClick={handleSaveName}
                     disabled={isSavingName}
                     size="sm"
-                    className="h-9 w-9 p-0 bg-emerald-500 hover:bg-emerald-400 text-black shrink-0 cursor-pointer"
+                    className="h-9 w-9 p-0 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 cursor-pointer"
                     title={t('common.save')}
                   >
                     <Check className="w-4 h-4" />
@@ -244,7 +244,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                     disabled={isSavingName}
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 text-zinc-400 hover:text-white shrink-0 cursor-pointer"
+                    className="h-9 w-9 p-0 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
                     title={t('common.cancel')}
                   >
                     <X className="w-4 h-4" />
@@ -252,12 +252,12 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group flex-1 min-w-0">
-                  <SheetTitle className="text-base font-bold text-zinc-100 truncate">
+                  <SheetTitle className="text-base font-bold text-foreground truncate">
                     {list.name || `${t('history.archivedList')} ${formattedDate}`}
                   </SheetTitle>
                   <button
                     onClick={() => setIsEditingName(true)}
-                    className="text-zinc-500 hover:text-emerald-400 p-1 transition-colors rounded-md hover:bg-zinc-900 shrink-0 cursor-pointer"
+                    className="text-muted-foreground hover:text-primary p-1 transition-colors rounded-md hover:bg-muted shrink-0 cursor-pointer"
                     title={t('common.edit')}
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -267,14 +267,14 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             </div>
 
             {/* Date & Status */}
-            <div className="flex items-center justify-between text-xs text-zinc-400">
-              <div className="flex items-center gap-1.5 font-mono text-[11px] text-zinc-400">
-                <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                 <span>{formattedDate}</span>
               </div>
 
               <div className="flex items-center gap-1.5">
-                <Badge variant="default" className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-0.5">
+                <Badge variant="default" className="text-[10px] bg-primary/10 text-primary border border-primary/20 py-0.5">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   {t('history.completedOn')}
                 </Badge>
@@ -293,24 +293,24 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-center">
-              <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-2" />
-              <p className="text-xs text-zinc-500">{t('common.loading')}</p>
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
+              <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
             </div>
           ) : items.length === 0 ? (
             <div className="py-10 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-2">
+              <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground mb-2">
                 <PackageCheck className="w-6 h-6" />
               </div>
-              <p className="text-sm font-semibold text-zinc-300">{t('history.emptyTitle')}</p>
-              <p className="text-xs text-zinc-500 mt-0.5">{t('history.emptySubtitle')}</p>
+              <p className="text-sm font-semibold text-foreground">{t('history.emptyTitle')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('history.emptySubtitle')}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-4">
               {sortedCategories.map((group) => (
                 <div key={group.name} className="flex flex-col gap-2">
-                  <h4 className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider px-1 flex items-center justify-between">
+                  <h4 className="text-[11px] font-bold text-primary uppercase tracking-wider px-1 flex items-center justify-between">
                     <span>{group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
-                    <span className="text-[10px] text-zinc-600 font-mono">
+                    <span className="text-[10px] text-muted-foreground font-mono">
                       {formatQuantity(group.items.length, 'pcs')}
                     </span>
                   </h4>
@@ -325,8 +325,8 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                         <div
                           key={item.id}
                           className={cn(
-                            "p-3 rounded-xl bg-zinc-950 border border-zinc-855 flex items-center justify-between transition-all",
-                            item.is_checked ? "border-zinc-900 bg-zinc-950/70" : "border-zinc-800"
+                            "p-3 rounded-xl bg-card border flex items-center justify-between transition-all",
+                            item.is_checked ? "border-border/60 bg-card/70" : "border-border"
                           )}
                         >
                           <div className="flex items-center gap-2.5 min-w-0 pr-2">
@@ -334,25 +334,25 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                               className={cn(
                                 "w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px]",
                                 item.is_checked
-                                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                  : "bg-zinc-900 text-zinc-600 border border-zinc-800"
+                                  ? "bg-primary/20 text-primary border border-primary/30"
+                                  : "bg-muted text-muted-foreground border border-border"
                               )}
                             >
                               {item.is_checked ? <Check className="w-2.5 h-2.5" /> : null}
                             </div>
 
                             <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-xs text-zinc-200 truncate">
+                              <span className="font-semibold text-xs text-foreground truncate">
                                 {name}
                               </span>
                               {item.added_ad_hoc && (
-                                <span className="text-[9px] text-zinc-500 font-mono">{t('draft.adHocItem')}</span>
+                                <span className="text-[9px] text-muted-foreground font-mono">{t('draft.adHocItem')}</span>
                               )}
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                            <span className="font-mono text-xs text-primary font-bold bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-lg">
                               {formatQuantity(item.total_quantity, unit)}
                             </span>
 
@@ -363,8 +363,8 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                               className={cn(
                                 "h-8 px-2.5 text-xs rounded-lg border transition-all cursor-pointer",
                                 isItemAdded
-                                  ? "bg-emerald-500 text-black border-emerald-400 font-bold"
-                                  : "bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:border-emerald-500/40 hover:text-emerald-400"
+                                  ? "bg-primary text-primary-foreground border-primary font-bold"
+                                  : "bg-card hover:bg-muted text-foreground border-border hover:border-primary/40 hover:text-primary"
                               )}
                               title={t('draft.addMealsButton')}
                             >
@@ -375,7 +375,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1">
-                                  <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                                  <Plus className="w-3.5 h-3.5 text-primary" />
                                   <ShoppingCart className="w-3 h-3" />
                                 </span>
                               )}
@@ -392,12 +392,12 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
           {/* Delete confirmation section */}
           {isConfirmingDelete ? (
-            <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-150 mt-2">
-              <div className="flex items-center gap-2 text-red-400 text-xs font-semibold">
+            <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-150 mt-2">
+              <div className="flex items-center gap-2 text-destructive text-xs font-semibold">
                 <CircleAlert className="w-4 h-4 shrink-0" />
                 <span>{t('history.deleteHistoryConfirm')}</span>
               </div>
-              <p className="text-[11px] text-zinc-400">
+              <p className="text-[11px] text-muted-foreground">
                 {t('dialogs.confirmDelete.description')}
               </p>
               <div className="flex items-center gap-2 pt-1">
@@ -405,7 +405,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                   onClick={handleDeleteList}
                   disabled={isDeleting}
                   size="sm"
-                  className="flex-1 h-9 bg-red-600 hover:bg-red-500 text-white font-bold text-xs cursor-pointer"
+                  className="flex-1 h-9 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-xs cursor-pointer"
                 >
                   {isDeleting ? t('common.loading') : t('dialogs.confirmDelete.confirmButton')}
                 </Button>
@@ -424,7 +424,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             <div className="flex justify-center pt-2">
               <button
                 onClick={() => setIsConfirmingDelete(true)}
-                className="text-[11px] text-zinc-500 hover:text-red-400 flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-zinc-900 transition-colors cursor-pointer"
+                className="text-[11px] text-muted-foreground hover:text-destructive flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{t('history.deleteHistoryConfirm')}</span>
@@ -434,16 +434,11 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
         </div>
 
         {/* Footer Actions */}
-        <SheetFooter className="p-4 pt-3 border-t border-zinc-900 bg-zinc-950/90 shrink-0">
+        <SheetFooter className="p-4 pt-3 border-t border-border bg-card/90 shrink-0">
           <Button
             onClick={handleAddAllToDraft}
             disabled={items.length === 0 || allAdded}
-            className={cn(
-              "w-full h-12 font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all text-sm cursor-pointer",
-              allAdded
-                ? "bg-emerald-400 text-black"
-                : "bg-emerald-500 hover:bg-emerald-400 text-black"
-            )}
+            className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all text-sm cursor-pointer"
           >
             {allAdded ? (
               <>
@@ -452,7 +447,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               </>
             ) : (
               <>
-                <ShoppingCart className="w-4 h-4 fill-black" />
+                <ShoppingCart className="w-4 h-4 fill-current" />
                 <span>{t('history.restoreToDraft')} ({items.length})</span>
               </>
             )}

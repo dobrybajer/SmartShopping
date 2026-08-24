@@ -299,5 +299,26 @@ export const householdService = {
       console.error('Error in updateUserLanguage:', err)
       return false
     }
+  },
+
+  /**
+   * Updates user visual theme preference in Supabase
+   */
+  async updateUserTheme(userId: string, theme: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ theme: theme.trim() })
+        .eq('id', userId)
+
+      if (error) {
+        console.error('Error updating user theme:', error)
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('Error in updateUserTheme:', err)
+      return false
+    }
   }
 }

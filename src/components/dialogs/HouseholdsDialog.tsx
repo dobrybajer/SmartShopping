@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import type { MemberDetail, InviteDetail } from '@/services/householdService'
@@ -11,18 +11,17 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import {
   Home,
-  Users,
-  Plus,
-  UserPlus,
   Save,
   Check,
-  CheckCircle2,
+  Plus,
+  Users,
+  UserPlus,
   Mail,
   Clock,
+  CheckCircle2,
   Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -38,59 +37,57 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 }) => {
   const {
     household,
-    userProfile,
     userHouseholds,
+    userProfile,
     switchHousehold,
     updateHouseholdName,
-    setDefaultHousehold,
     createHousehold,
     addUserToHousehold,
     getHouseholdMembers
   } = useAuth()
   const { t } = useTranslation()
 
-  // State for active household name edit
   const [householdName, setHouseholdName] = useState('')
   const [isSavingName, setIsSavingName] = useState(false)
   const [nameSaveSuccess, setNameSaveSuccess] = useState(false)
 
-  // State for new household creation
   const [newHouseholdName, setNewHouseholdName] = useState('')
   const [isCreatingHousehold, setIsCreatingHousehold] = useState(false)
 
-  // State for invite user
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [isInviting, setIsInviting] = useState(false)
-  const [inviteFeedback, setInviteFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
-  // Members and invites
   const [members, setMembers] = useState<MemberDetail[]>([])
   const [invites, setInvites] = useState<InviteDetail[]>([])
   const [loadingMembers, setLoadingMembers] = useState(false)
 
-  const isCurrentDefault = !!(household && userProfile?.household_id === household.id)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [isInviting, setIsInviting] = useState(false)
+  const [inviteFeedback, setInviteFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const loadMembersData = React.useCallback(async (hId: string) => {
+  // Sync current household name to state
+  useEffect(() => {
+    if (household) {
+      setHouseholdName(household.name)
+    }
+  }, [household])
+
+  // Load members and invites for current household
+  const loadHouseholdDetails = useCallback(async () => {
+    if (!household) return
     setLoadingMembers(true)
-    const data = await getHouseholdMembers(hId)
-    setMembers(data.members)
-    setInvites(data.invites)
+    const data = await getHouseholdMembers(household.id)
+    setMembers(data.members || [])
+    setInvites(data.invites || [])
     setLoadingMembers(false)
-  }, [getHouseholdMembers])
+  }, [household, getHouseholdMembers])
 
   useEffect(() => {
     if (open && household) {
-      setHouseholdName(household.name || '')
-      setNameSaveSuccess(false)
-      setInviteFeedback(null)
-      loadMembersData(household.id)
+      loadHouseholdDetails()
     }
-  }, [open, household, loadMembersData])
+  }, [open, household, loadHouseholdDetails])
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!household || !householdName.trim()) return
-
+    if (!household || !householdName.trim() || isSavingName) return
     setIsSavingName(true)
     setNameSaveSuccess(false)
 
@@ -99,51 +96,50 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
     if (success) {
       setNameSaveSuccess(true)
-      setTimeout(() => setNameSaveSuccess(false), 2500)
+      setTimeout(() => setNameSaveSuccess(false), 2000)
     }
-  }
-
-  const handleToggleDefault = async (checked: boolean) => {
-    if (!household) return
-    await setDefaultHousehold(checked ? household.id : null)
   }
 
   const handleCreateNewHousehold = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newHouseholdName.trim()) return
-
+    if (!newHouseholdName.trim() || isCreatingHousehold) return
     setIsCreatingHousehold(true)
-    const created = await createHousehold(newHouseholdName.trim())
+
+    const newH = await createHousehold(newHouseholdName.trim())
     setIsCreatingHousehold(false)
 
-    if (created) {
+    if (newH) {
       setNewHouseholdName('')
-      setHouseholdName(created.name)
-      loadMembersData(created.id)
+      switchHousehold(newH.id)
     }
   }
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!household || !inviteEmail.trim()) return
-
+    if (!inviteEmail.trim() || !household || isInviting) return
     setIsInviting(true)
     setInviteFeedback(null)
 
-    const res = await addUserToHousehold(household.id, inviteEmail.trim())
+    const result = await addUserToHousehold(household.id, inviteEmail.trim())
     setIsInviting(false)
 
-    setInviteFeedback({
-      type: res.success ? 'success' : 'error',
-      text: res.message
-    })
-
-    if (res.success) {
+    if (result.success) {
       setInviteEmail('')
-      loadMembersData(household.id)
-      setTimeout(() => setInviteFeedback(null), 5000)
+      setInviteFeedback({
+        type: 'success',
+        text: result.message || t('dialogs.households.inviteSentSuccess')
+      })
+      loadHouseholdDetails()
+      setTimeout(() => setInviteFeedback(null), 4000)
+    } else {
+      setInviteFeedback({
+        type: 'error',
+        text: result.message || t('dialogs.households.inviteError')
+      })
     }
   }
+
+  const isCurrentDefault = userProfile?.household_id === household?.id
 
   const handleSelectHousehold = (hId: string) => {
     if (hId !== household?.id) {
@@ -155,18 +151,18 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="max-w-lg bg-zinc-950 border-zinc-800 text-zinc-100 p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin"
+        className="max-w-lg bg-card border-border text-foreground p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin"
       >
         <DialogHeader>
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
               <Home className="w-5 h-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-bold text-zinc-100">
+              <DialogTitle className="text-lg font-bold text-foreground">
                 {t('dialogs.households.title')}
               </DialogTitle>
-              <DialogDescription className="text-xs text-zinc-400">
+              <DialogDescription className="text-xs text-muted-foreground">
                 {t('dialogs.households.myHouseholds')}
               </DialogDescription>
             </div>
@@ -175,9 +171,9 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
         <div className="flex flex-col gap-6 mt-2">
           {/* Active Household Section */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800/80 flex flex-col gap-3">
+          <div className="p-4 rounded-xl bg-background border border-border flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{t('dialogs.households.currentHousehold')}</span>
               </span>
@@ -195,7 +191,7 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                   value={householdName}
                   onChange={(e) => setHouseholdName(e.target.value)}
                   placeholder={t('dialogs.households.householdNamePlaceholder')}
-                  className="bg-zinc-950 border-zinc-800 text-zinc-100 text-sm focus:border-emerald-500"
+                  className="bg-card border-input text-foreground text-sm focus:border-primary"
                   required
                 />
                 <Button
@@ -206,12 +202,12 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                     householdName.trim() === (household?.name || '')
                   }
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shrink-0 disabled:opacity-40"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shrink-0 disabled:opacity-40"
                 >
                   {isSavingName ? (
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
                   ) : nameSaveSuccess ? (
-                    <Check className="w-4 h-4 text-black" />
+                    <Check className="w-4 h-4 text-primary-foreground" />
                   ) : (
                     <>
                       <Save className="w-3.5 h-3.5" />
@@ -220,33 +216,19 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                   )}
                 </Button>
               </div>
-
-              {/* Checkbox: Set as default */}
-              <div
-                onClick={() => handleToggleDefault(!isCurrentDefault)}
-                className="flex items-center gap-2.5 pt-1 cursor-pointer select-none group"
-              >
-                <Checkbox
-                  id="default-household-chk"
-                  checked={isCurrentDefault}
-                  onCheckedChange={(c) => handleToggleDefault(!!c)}
-                />
-                <label
-                  htmlFor="default-household-chk"
-                  className="text-xs text-zinc-300 group-hover:text-white cursor-pointer"
-                >
-                  {t('dialogs.households.setAsDefault')}
-                </label>
-              </div>
             </form>
           </div>
 
-          {/* Households List */}
-          <div className="flex flex-col gap-2.5">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider px-1 flex items-center justify-between">
-              <span>{t('dialogs.households.myHouseholds')} ({userHouseholds.length})</span>
-              <span className="text-[10px] text-zinc-500 lowercase">{t('dialogs.households.switchHousehold')}</span>
-            </span>
+          {/* Switch Active Household */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {t('dialogs.households.switchHousehold')}
+              </span>
+              <span className="text-[11px] text-muted-foreground font-mono">
+                {userHouseholds.length}
+              </span>
+            </div>
 
             <div className="flex flex-col gap-2 max-h-44 overflow-y-auto scrollbar-thin">
               {userHouseholds.map((h) => {
@@ -260,25 +242,25 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                     className={cn(
                       "p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all active:scale-[0.99]",
                       isActive
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-zinc-100"
-                        : "bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 text-zinc-300"
+                        ? "bg-primary/10 border-primary/40 text-foreground"
+                        : "bg-background border-border hover:border-border/80 text-muted-foreground"
                     )}
                   >
                     <div className="flex items-center gap-2.5">
                       <Home
                         className={cn(
                           "w-4 h-4",
-                          isActive ? "text-emerald-400" : "text-zinc-500"
+                          isActive ? "text-primary" : "text-muted-foreground"
                         )}
                       />
-                      <span className="font-semibold text-sm">{h.name}</span>
+                      <span className="font-semibold text-sm text-foreground">{h.name}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
                       {isDef && (
                         <Badge
                           variant="secondary"
-                          className="text-[9px] px-1.5 py-0 bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                          className="text-[9px] px-1.5 py-0 bg-blue-500/10 text-blue-400 border-blue-500/20"
                         >
                           {t('dialogs.households.defaultBadge')}
                         </Badge>
@@ -286,12 +268,12 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                       {isActive ? (
                         <Badge
                           variant="default"
-                          className="text-[9px] px-1.5 py-0 bg-emerald-500 text-black font-bold"
+                          className="text-[9px] px-1.5 py-0 bg-primary text-primary-foreground font-bold"
                         >
                           {t('dialogs.households.activeBadge')}
                         </Badge>
                       ) : (
-                        <span className="text-[11px] text-zinc-500 hover:text-zinc-300 font-mono">
+                        <span className="text-[11px] text-muted-foreground hover:text-foreground font-mono">
                           {t('common.select')}
                         </span>
                       )}
@@ -303,9 +285,9 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
           </div>
 
           {/* Add New Household */}
-          <div className="p-3.5 rounded-xl bg-zinc-900/30 border border-zinc-800/60 flex flex-col gap-2.5">
-            <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="p-3.5 rounded-xl bg-background border border-border flex flex-col gap-2.5">
+            <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5 text-primary" />
               <span>{t('dialogs.households.createHousehold')}</span>
             </span>
 
@@ -315,16 +297,16 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                 value={newHouseholdName}
                 onChange={(e) => setNewHouseholdName(e.target.value)}
                 placeholder={t('dialogs.households.householdNamePlaceholder')}
-                className="bg-zinc-950 border-zinc-800 text-zinc-100 text-xs focus:border-emerald-500"
+                className="bg-card border-input text-foreground text-xs focus:border-primary"
               />
               <Button
                 type="submit"
                 disabled={isCreatingHousehold || !newHouseholdName.trim()}
                 size="sm"
-                className="bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700 text-xs font-semibold shrink-0 disabled:opacity-40"
+                className="bg-card hover:bg-muted text-primary border border-border text-xs font-semibold shrink-0 disabled:opacity-40"
               >
                 {isCreatingHousehold ? (
-                  <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
                     <Plus className="w-3.5 h-3.5" />
@@ -336,13 +318,13 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
           </div>
 
           {/* Members & Invites Section */}
-          <div className="flex flex-col gap-3 pt-2 border-t border-zinc-900">
+          <div className="flex flex-col gap-3 pt-2 border-t border-border">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-zinc-400" />
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-muted-foreground" />
                 <span>{t('dialogs.households.members')}</span>
               </span>
-              <span className="text-[11px] text-zinc-500 font-mono">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 {t('dialogs.households.membersCount', { count: members.length })}
               </span>
             </div>
@@ -350,25 +332,25 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
             {/* Members List */}
             <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto scrollbar-thin">
               {loadingMembers ? (
-                <div className="py-3 text-center text-xs text-zinc-500">{t('common.loading')}</div>
+                <div className="py-3 text-center text-xs text-muted-foreground">{t('common.loading')}</div>
               ) : (
                 <>
                   {members.map((m) => (
                     <div
                       key={m.id}
-                      className="p-2.5 rounded-lg bg-zinc-900/40 border border-zinc-800/60 flex items-center justify-between text-xs"
+                      className="p-2.5 rounded-lg bg-background border border-border flex items-center justify-between text-xs"
                     >
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-300">
+                        <div className="w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-[10px] font-bold text-foreground">
                           {m.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex flex-col">
-                          <span className="font-semibold text-zinc-200">{m.name}</span>
-                          <span className="text-[10px] text-zinc-500 font-mono">{m.email}</span>
+                          <span className="font-semibold text-foreground">{m.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">{m.email}</span>
                         </div>
                       </div>
                       {m.userId === userProfile?.id && (
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-zinc-400 border-zinc-700">
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-muted-foreground border-border">
                           {t('dialogs.households.youBadge')}
                         </Badge>
                       )}
@@ -383,7 +365,7 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                     >
                       <div className="flex items-center gap-2">
                         <Mail className="w-4 h-4 text-amber-400/80" />
-                        <span className="font-mono text-zinc-300 text-[11px]">{inv.email}</span>
+                        <span className="font-mono text-foreground text-[11px]">{inv.email}</span>
                       </div>
                       <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-400 border-amber-500/30 flex items-center gap-1">
                         <Clock className="w-2.5 h-2.5" /> {t('dialogs.households.pendingBadge')}
@@ -396,8 +378,8 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
             {/* Invite user form */}
             <form onSubmit={handleAddUser} className="flex flex-col gap-2 mt-1">
-              <label className="text-[11px] font-semibold text-zinc-400 flex items-center gap-1">
-                <UserPlus className="w-3 h-3 text-zinc-400" />
+              <label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                <UserPlus className="w-3 h-3 text-muted-foreground" />
                 <span>{t('dialogs.households.invites')}</span>
               </label>
 
@@ -407,17 +389,17 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   placeholder={t('dialogs.households.inviteEmailPlaceholder')}
-                  className="bg-zinc-950 border-zinc-800 text-zinc-100 text-xs focus:border-emerald-500"
+                  className="bg-background border-input text-foreground text-xs focus:border-primary"
                   required
                 />
                 <Button
                   type="submit"
                   disabled={isInviting || !inviteEmail.trim()}
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shrink-0 disabled:opacity-40"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shrink-0 disabled:opacity-40"
                 >
                   {isInviting ? (
-                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       <UserPlus className="w-3.5 h-3.5" />
@@ -431,8 +413,8 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
                 <div
                   className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200 ${
                     inviteFeedback.type === 'success'
-                      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-                      : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                      ? 'bg-primary/10 border border-primary/20 text-primary'
+                      : 'bg-destructive/10 border border-destructive/20 text-destructive'
                   }`}
                 >
                   {inviteFeedback.type === 'success' && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}

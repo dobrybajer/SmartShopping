@@ -28,9 +28,9 @@ export const LoginScreen: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-black text-white flex flex-col justify-between p-6 select-none relative overflow-hidden">
+    <div className="max-w-md mx-auto min-h-screen bg-background text-foreground flex flex-col justify-between p-6 select-none relative overflow-hidden">
       {/* Background Subtle Gradient Glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Top Bar with Language Switcher */}
       <div className="w-full flex justify-end pt-2 z-20">
@@ -39,14 +39,14 @@ export const LoginScreen: React.FC = () => {
 
       {/* Header Section */}
       <div className="pt-8 flex flex-col items-center text-center z-10">
-        <div className="w-20 h-20 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-center mb-6 shadow-2xl relative p-2">
+        <div className="w-20 h-20 rounded-2xl bg-card border border-border flex items-center justify-center mb-6 shadow-2xl relative p-2">
           <AppLogo size={56} />
         </div>
 
-        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+        <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-b from-foreground to-muted-foreground bg-clip-text text-transparent">
           Smart Shopping
         </h1>
-        <p className="text-zinc-400 text-sm mt-2 max-w-xs leading-relaxed">
+        <p className="text-muted-foreground text-sm mt-2 max-w-xs leading-relaxed">
           {t('auth.tagline')}
         </p>
       </div>
@@ -54,7 +54,7 @@ export const LoginScreen: React.FC = () => {
       {/* Action Section */}
       <div className="pb-12 flex flex-col items-center w-full z-10 gap-4">
         {errorMessage && (
-          <div className="w-full p-3 rounded-lg bg-red-950/60 border border-red-800/80 text-red-200 text-xs text-center">
+          <div className="w-full p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs text-center">
             {errorMessage}
           </div>
         )}
@@ -62,10 +62,10 @@ export const LoginScreen: React.FC = () => {
         <Button
           onClick={handleGoogleLogin}
           disabled={isSigningIn}
-          className="w-full h-13 bg-zinc-900 hover:bg-zinc-800 text-white border border-zinc-700/80 rounded-xl font-medium flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 cursor-pointer"
+          className="w-full h-13 bg-card hover:bg-muted text-foreground border border-border rounded-xl font-medium flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg disabled:opacity-50 cursor-pointer"
         >
           {isSigningIn ? (
-            <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
               {/* Google Logo SVG */}

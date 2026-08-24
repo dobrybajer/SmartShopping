@@ -1,174 +1,137 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
-import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
-import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import {
   Search,
   Plus,
-  Flame,
-  Globe,
-  Home,
-  Trash2,
-  Edit2,
   Package,
-  Scale
+  Home,
+  Globe,
+  Edit2,
+  Trash2,
+  Scale,
+  Flame
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const DesktopProductsView: React.FC = () => {
   const { household } = useAuth()
   const { t, formatUnit, formatQuantity } = useTranslation()
+
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
-  const [scopeFilter, setScopeFilter] = useState<'all' | 'Household' | 'Global'>('all')
+  const [scopeFilter, setScopeFilter] = useState<'all' | 'Global' | 'Household'>('all')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
 
-  // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [productToEdit, setProductToEdit] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   const loadData = useCallback(async () => {
+    if (!household) return
     setLoading(true)
-    try {
-      const [prodsData, catsData] = await Promise.all([
-        productService.getProducts(household?.id),
-        productService.getCategories()
-      ])
-      setProducts(prodsData)
-      setCategories(catsData)
-    } catch (err) {
-      console.error('Error loading products:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [household?.id])
+    const [fetchedProducts, fetchedCategories] = await Promise.all([
+      productService.getProducts(household.id),
+      productService.getCategories()
+    ])
+    setProducts(fetchedProducts)
+    setCategories(fetchedCategories)
+    setLoading(false)
+  }, [household])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
+  // Custom event listener for global triggers
   useEffect(() => {
-    const handleRefresh = () => {
-      loadData()
-    }
+    const handleRefresh = () => loadData()
     window.addEventListener('smartshopping_refresh_products', handleRefresh)
     return () => window.removeEventListener('smartshopping_refresh_products', handleRefresh)
   }, [loadData])
 
-  const getCategoryLabel = useCallback((catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }, [t])
-
-  // Category Map: ID -> Name
-  const categoryMap = useMemo(() => {
+  const categoryMap = React.useMemo(() => {
     const map = new Map<number, string>()
-    categories.forEach((cat) => map.set(cat.id, cat.name))
+    categories.forEach((c) => map.set(c.id, c.name))
     return map
   }, [categories])
 
-  // Filtered Products
-  const filteredProducts = useMemo(() => {
-    return products.filter((prod) => {
-      const isGlobal = prod.type === 'Global' || !prod.household_id
-      const isHousehold = !isGlobal
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
 
-      // Scope filter
-      if (scopeFilter === 'Household' && !isHousehold) return false
-      if (scopeFilter === 'Global' && !isGlobal) return false
+  // Filtered and sorted products
+  const filteredProducts = React.useMemo(() => {
+    return products.filter((p) => {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
 
-      // Category filter
-      if (selectedCategoryId !== null && prod.category_id !== selectedCategoryId) {
-        return false
-      }
+      const matchesScope =
+        scopeFilter === 'all'
+          ? true
+          : scopeFilter === 'Global'
+          ? p.type === 'Global' || !p.household_id
+          : p.type !== 'Global' && p.household_id
 
-      // Search filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase()
-        const rawCatName = prod.category_id ? categoryMap.get(prod.category_id) || '' : ''
-        const translatedCatName = getCategoryLabel(rawCatName).toLowerCase()
-        const matchesName = prod.name.toLowerCase().includes(query)
-        const matchesCat = rawCatName.toLowerCase().includes(query) || translatedCatName.includes(query)
-        if (!matchesName && !matchesCat) return false
-      }
+      const matchesCategory =
+        selectedCategoryId === null ? true : p.category_id === selectedCategoryId
 
-      return true
+      return matchesSearch && matchesScope && matchesCategory
     })
-  }, [products, scopeFilter, selectedCategoryId, searchQuery, categoryMap, getCategoryLabel])
+  }, [products, searchQuery, scopeFilter, selectedCategoryId])
 
-  // Counters
+  const householdCount = products.filter((p) => p.type !== 'Global' && p.household_id).length
+  const globalCount = products.filter((p) => p.type === 'Global' || !p.household_id).length
   const totalCount = products.length
-  const householdCount = products.filter((p) => p.type === 'Household' && p.household_id).length
-  const globalCount = totalCount - householdCount
 
-  // Handlers
   const handleOpenAdd = () => {
-    setEditingProduct(null)
+    setProductToEdit(null)
     setIsFormOpen(true)
   }
 
-  const handleOpenEdit = (prod: Product) => {
-    setEditingProduct(prod)
+  const handleOpenEdit = (p: Product) => {
+    setProductToEdit(p)
     setIsFormOpen(true)
-  }
-
-  const handleProductSaved = (savedProduct: Product) => {
-    setProducts((prev) => {
-      const exists = prev.some((p) => p.id === savedProduct.id)
-      if (exists) {
-        return prev.map((p) => (p.id === savedProduct.id ? savedProduct : p))
-      }
-      return [savedProduct, ...prev]
-    })
   }
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return
-    setIsDeleting(true)
-    try {
-      const success = await productService.deleteProduct(productToDelete.id)
-      if (success) {
-        setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id))
-        setProductToDelete(null)
-      }
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setIsDeleting(false)
+    const success = await productService.deleteProduct(productToDelete.id)
+    if (success) {
+      setProductToDelete(null)
+      loadData()
     }
   }
 
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-200">
-      {/* Top Search & Create Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-zinc-950/70 border border-zinc-900 shadow-sm backdrop-blur-md">
-        <div className="relative flex-1 max-w-xl">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+      {/* Search & Actions Top Bar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="relative w-full md:w-96">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t('products.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-11 bg-zinc-900/90 border-zinc-800 focus-visible:ring-emerald-500 rounded-xl text-sm"
+            className="pl-10 h-11 bg-background border-input focus-visible:ring-primary rounded-xl text-sm"
           />
         </div>
 
         <div className="flex items-center gap-3">
           <Button
             onClick={handleOpenAdd}
-            className="h-11 px-5 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl shadow-lg shadow-emerald-950/30 flex items-center gap-2 cursor-pointer transition-all active:scale-95"
+            className="h-11 px-5 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>{t('products.addProduct')}</span>
@@ -185,8 +148,8 @@ export const DesktopProductsView: React.FC = () => {
             className={cn(
               "px-3.5 py-1.5 text-xs transition-all font-medium",
               scopeFilter === 'all'
-                ? "bg-zinc-100 text-zinc-900 border-zinc-100 font-bold shadow-xs"
-                : "text-zinc-400 border-zinc-800 hover:border-zinc-700"
+                ? "bg-foreground text-background border-foreground font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-border/80"
             )}
           >
             {t('common.all')} ({totalCount})
@@ -201,10 +164,10 @@ export const DesktopProductsView: React.FC = () => {
           <Badge
             variant={scopeFilter === 'Household' ? 'default' : 'outline'}
             className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
+              "px-3.5 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
               scopeFilter === 'Household'
-                ? "bg-emerald-500 text-black border-emerald-400 font-bold shadow-xs shadow-emerald-950/30"
-                : "text-zinc-400 border-zinc-800 hover:border-emerald-500/40 hover:text-emerald-300"
+                ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
             )}
           >
             <Home className="w-3.5 h-3.5" />
@@ -220,10 +183,10 @@ export const DesktopProductsView: React.FC = () => {
           <Badge
             variant={scopeFilter === 'Global' ? 'default' : 'outline'}
             className={cn(
-              "px-3 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
+              "px-3.5 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
               scopeFilter === 'Global'
-                ? "bg-sky-500 text-black border-sky-400 font-bold shadow-xs shadow-sky-950/30"
-                : "text-zinc-400 border-zinc-800 hover:border-sky-500/40 hover:text-sky-300"
+                ? "bg-sky-500 text-white border-sky-400 font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-sky-500/40 hover:text-sky-300"
             )}
           >
             <Globe className="w-3.5 h-3.5" />
@@ -231,10 +194,10 @@ export const DesktopProductsView: React.FC = () => {
           </Badge>
         </button>
 
-        {/* Category Separator */}
-        {categories.length > 0 && <span className="h-5 w-px bg-zinc-800 mx-1" />}
+        {/* Separator if categories exist */}
+        {categories.length > 0 && <span className="h-5 w-px bg-border mx-1" />}
 
-        {/* Category Chips */}
+        {/* Category Pills */}
         {categories.map((cat) => {
           const isSelected = selectedCategoryId === cat.id
           return (
@@ -248,8 +211,8 @@ export const DesktopProductsView: React.FC = () => {
                 className={cn(
                   "px-3 py-1.5 text-xs transition-all",
                   isSelected
-                    ? "bg-zinc-800 text-emerald-400 border-emerald-500/50 font-bold"
-                    : "text-zinc-400 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
+                    ? "bg-card text-primary border-primary/50 font-bold"
+                    : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
                 )}
               >
                 {getCategoryLabel(cat.name)}
@@ -262,16 +225,16 @@ export const DesktopProductsView: React.FC = () => {
       {/* Products Grid */}
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-center">
-          <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm text-zinc-500">{t('common.loading')}</p>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="py-24 flex flex-col items-center justify-center text-center bg-zinc-950/40 border border-zinc-900 border-dashed rounded-3xl p-8">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-4">
+        <div className="py-24 flex flex-col items-center justify-center text-center bg-card/40 border border-border border-dashed rounded-3xl p-8">
+          <div className="w-16 h-16 rounded-2xl bg-background border border-border flex items-center justify-center text-muted-foreground mb-4">
             <Package className="w-8 h-8" />
           </div>
-          <p className="text-base font-bold text-zinc-200">{t('products.emptyTitle')}</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-sm">
+          <p className="text-base font-bold text-foreground">{t('products.emptyTitle')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm">
             {searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null
               ? t('products.emptySubtitle')
               : t('products.emptySubtitle')}
@@ -285,7 +248,7 @@ export const DesktopProductsView: React.FC = () => {
                 setScopeFilter('all')
                 setSelectedCategoryId(null)
               }}
-              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-xl cursor-pointer"
+              className="mt-4 text-xs border-border bg-card text-muted-foreground hover:bg-muted rounded-xl cursor-pointer"
             >
               {t('common.clear')}
             </Button>
@@ -311,21 +274,21 @@ export const DesktopProductsView: React.FC = () => {
               <div
                 key={product.id}
                 className={cn(
-                  "p-4 rounded-2xl bg-zinc-950/80 border transition-all duration-200 flex flex-col justify-between gap-3 shadow-sm hover:shadow-lg group",
+                  "p-4 rounded-2xl bg-card border transition-all duration-200 flex flex-col justify-between gap-3 shadow-sm hover:shadow-lg group",
                   isHousehold
-                    ? "border-zinc-900 hover:border-emerald-500/50 bg-gradient-to-br from-emerald-950/15 via-zinc-950 to-zinc-950"
-                    : "border-zinc-900 hover:border-zinc-700"
+                    ? "border-border hover:border-primary/50 hover:bg-muted/50"
+                    : "border-border hover:border-border/80"
                 )}
               >
                 {/* Header: Name, Scope, Category, Edit Actions */}
                 <div className="flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition-colors shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground group-hover:text-primary group-hover:border-primary/30 transition-colors shrink-0">
                         <Package className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col min-w-0">
-                        <h4 className="font-bold text-sm text-zinc-100 group-hover:text-white transition-colors truncate">
+                        <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                           {product.name}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -340,7 +303,7 @@ export const DesktopProductsView: React.FC = () => {
                           ) : (
                             <Badge
                               variant="secondary"
-                              className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
+                              className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border border-primary/20 font-medium flex items-center gap-1"
                             >
                               <Home className="w-2.5 h-2.5" />
                               <span>{t('navigation.households')}</span>
@@ -356,7 +319,7 @@ export const DesktopProductsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(product)}
-                          className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
                           title={t('common.edit')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -364,7 +327,7 @@ export const DesktopProductsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setProductToDelete(product)}
-                          className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                           title={t('common.delete')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -374,74 +337,60 @@ export const DesktopProductsView: React.FC = () => {
                   </div>
 
                   {/* Category & Unit Meta */}
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500 pt-1">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
                     {categoryName ? (
-                      <span className="text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded-md border border-zinc-800/80 truncate max-w-[150px]">
+                      <span className="text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border truncate max-w-[150px]">
                         {categoryName}
                       </span>
-                    ) : (
-                      <span className="text-zinc-600">{t('categories.other')}</span>
-                    )}
+                    ) : <span />}
 
-                    <span className="flex items-center gap-1 text-zinc-400 font-mono bg-zinc-900/60 px-1.5 py-0.5 rounded">
-                      <Scale className="w-3 h-3 text-zinc-500" />
+                    <span className="flex items-center gap-1 font-mono text-muted-foreground">
+                      <Scale className="w-3 h-3 text-muted-foreground" />
                       <span>{formatUnit(product.unit_type)}</span>
                     </span>
                   </div>
                 </div>
 
-                {/* Macro & Calories section */}
-                {hasMacros ? (
-                  <div className="pt-2.5 border-t border-zinc-900 flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-amber-400 font-bold text-[11px]">
-                        <Flame className="w-3 h-3" />
-                        <span>{Math.round(kcal)} {t('common.kcal')}</span>
-                        <span className="text-[9px] font-normal text-amber-400/70">/{unitLabel}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-[10px] font-mono">
-                        <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          {t('common.proteinShort')}:<strong className="text-blue-400 ml-0.5">{protein}g</strong>
-                        </span>
-                        <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          {t('common.carbsShort')}:<strong className="text-amber-400 ml-0.5">{carbs}g</strong>
-                        </span>
-                        <span className="text-zinc-400 bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded">
-                          {t('common.fatShort')}:<strong className="text-rose-400 ml-0.5">{fat}g</strong>
-                        </span>
-                      </div>
+                {/* Macro summary footer */}
+                <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
+                  {hasMacros ? (
+                    <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground flex-wrap">
+                      <span className="text-foreground font-semibold flex items-center gap-0.5">
+                        <Flame className="w-3 h-3 text-amber-500" />
+                        <span>{Math.round(kcal)} kcal</span>
+                      </span>
+                      <span className="text-border">|</span>
+                      <span>P: <strong className="text-blue-400 font-semibold">{Math.round(protein)}g</strong></span>
+                      <span>C: <strong className="text-amber-400 font-semibold">{Math.round(carbs)}g</strong></span>
+                      <span>F: <strong className="text-rose-400 font-semibold">{Math.round(fat)}g</strong></span>
+                      <span className="text-muted-foreground">/ {unitLabel}</span>
                     </div>
-                  </div>
-                ) : (
-                  <div className="pt-2 border-t border-zinc-900 text-[11px] text-zinc-600 italic">
-                    {t('products.macrosPer100')} -
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {t('products.noNutritionalInfo')}
+                    </span>
+                  )}
+                </div>
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Product Form Sheet */}
+      {/* Product Form Modal / Sheet */}
       <ProductFormSheet
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
-        productToEdit={editingProduct}
-        onProductSaved={handleProductSaved}
+        productToEdit={productToEdit}
+        onProductSaved={loadData}
       />
 
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
         open={!!productToDelete}
-        onOpenChange={(open) => {
-          if (!open) setProductToDelete(null)
-        }}
-        title={t('dialogs.confirmDelete.title')}
+        onOpenChange={(open) => !open && setProductToDelete(null)}
         itemName={productToDelete?.name}
         onConfirm={handleConfirmDelete}
-        isDeleting={isDeleting}
       />
     </div>
   )

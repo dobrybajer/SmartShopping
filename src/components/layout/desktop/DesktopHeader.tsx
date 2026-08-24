@@ -41,20 +41,20 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
 
   return (
     <>
-      <header className="h-16 px-8 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 flex items-center justify-between sticky top-0 z-20 select-none">
+      <header className="h-16 px-8 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between sticky top-0 z-20 select-none">
         {/* Left: Breadcrumbs & Dynamic Title */}
         <div className="flex flex-col">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
             <span>Smart Shopping</span>
             <span>/</span>
-            <span className="text-emerald-400 font-semibold">{household?.name || t('navigation.households')}</span>
+            <span className="text-primary font-semibold">{household?.name || t('navigation.households')}</span>
           </div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-extrabold text-zinc-100 tracking-tight">
+            <h1 className="text-lg font-extrabold text-foreground tracking-tight">
               {title}
             </h1>
             {subtitle && (
-              <span className="text-xs text-zinc-400 border-l border-zinc-800 pl-3">
+              <span className="text-xs text-muted-foreground border-l border-border pl-3">
                 {subtitle}
               </span>
             )}
@@ -67,13 +67,13 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           <LanguageSwitcher variant="pill" />
 
           {/* Realtime Live Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/80 border border-zinc-800 text-xs font-medium text-zinc-400">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border text-xs font-medium text-muted-foreground">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
             </span>
             <span className="flex items-center gap-1">
-              <Radio className="w-3 h-3 text-emerald-400" />
+              <Radio className="w-3 h-3 text-primary" />
               <span>{t('common.realtime')}</span>
             </span>
           </div>
@@ -82,7 +82,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           <div className="relative" ref={quickAddRef}>
             <button
               onClick={() => setIsQuickAddOpen((prev) => !prev)}
-              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg shadow-emerald-950/30 cursor-pointer active:scale-95"
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl text-xs flex items-center gap-2 transition-all shadow-lg cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
               <span>{t('common.add')}</span>
@@ -90,20 +90,20 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </button>
 
             {isQuickAddOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-zinc-950 border border-zinc-800 p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1">
+              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-card border border-border p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1">
                 <button
                   onClick={() => {
                     setIsQuickAddOpen(false)
                     setIsAddMealOpen(true)
                   }}
-                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-2.5 cursor-pointer"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">{t('cookbook.addRecipe')}</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.cookbook')}</span>
+                    <span className="block text-foreground">{t('cookbook.addRecipe')}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">{t('navigation.cookbook')}</span>
                   </div>
                 </button>
 
@@ -112,14 +112,14 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     setIsQuickAddOpen(false)
                     setIsAddProductOpen(true)
                   }}
-                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-2.5 cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
                     <Package className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">{t('products.addProduct')}</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.products')}</span>
+                    <span className="block text-foreground">{t('products.addProduct')}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">{t('navigation.products')}</span>
                   </div>
                 </button>
 
@@ -128,14 +128,14 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     setIsQuickAddOpen(false)
                     setIsAddAdHocOpen(true)
                   }}
-                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-2.5 cursor-pointer"
                 >
                   <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="block">{t('dialogs.adHoc.title')}</span>
-                    <span className="text-[10px] text-zinc-500 font-normal">{t('navigation.draft')}</span>
+                    <span className="block text-foreground">{t('dialogs.adHoc.title')}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">{t('navigation.draft')}</span>
                   </div>
                 </button>
               </div>

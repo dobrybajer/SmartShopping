@@ -23,6 +23,7 @@ interface AuthContextType {
   switchHousehold: (householdId: string) => Promise<void>
   updateUserProfileName: (name: string) => Promise<boolean>
   updateUserLanguage: (lang: SupportedLanguage) => Promise<boolean>
+  updateUserTheme: (theme: string) => Promise<boolean>
   updateHouseholdName: (householdId: string, name: string) => Promise<boolean>
   setDefaultHousehold: (householdId: string | null) => Promise<boolean>
   createHousehold: (name: string) => Promise<Household | null>
@@ -317,6 +318,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return success
   }
 
+  const updateUserTheme = async (theme: string): Promise<boolean> => {
+    if (!user) return true
+    const success = await householdService.updateUserTheme(user.id, theme)
+    if (success) {
+      setUserProfile((prev) => (prev ? { ...prev, theme } : null))
+    }
+    return success
+  }
+
   const updateHouseholdName = async (householdId: string, name: string): Promise<boolean> => {
     const success = await householdService.updateHouseholdName(householdId, name)
     if (success) {
@@ -372,6 +382,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         switchHousehold,
         updateUserProfileName,
         updateUserLanguage,
+        updateUserTheme,
         updateHouseholdName,
         setDefaultHousehold,
         createHousehold,

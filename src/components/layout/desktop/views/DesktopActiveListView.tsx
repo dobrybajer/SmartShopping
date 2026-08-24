@@ -185,20 +185,20 @@ export const DesktopActiveListView: React.FC = () => {
   if (loading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center text-center">
-        <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-sm text-zinc-500">{t('common.loading')}</p>
+        <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       </div>
     )
   }
 
   if (!activeList || activeList.items.length === 0) {
     return (
-      <div className="py-24 flex flex-col items-center justify-center text-center bg-zinc-950/40 border border-zinc-900 border-dashed rounded-3xl p-12 max-w-2xl mx-auto">
-        <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-5 shadow-2xl">
-          <ShoppingCart className="w-10 h-10" />
+      <div className="py-24 flex flex-col items-center justify-center text-center max-w-lg mx-auto bg-card border border-border rounded-3xl p-12 shadow-xl">
+        <div className="w-20 h-20 rounded-3xl bg-background border border-border flex items-center justify-center text-muted-foreground mb-5 shadow-inner">
+          <ShoppingCart className="w-10 h-10 stroke-[1.5]" />
         </div>
-        <h3 className="text-xl font-extrabold text-zinc-100">{t('activeList.emptyTitle')}</h3>
-        <p className="text-sm text-zinc-400 mt-2 max-w-md leading-relaxed">
+        <h3 className="text-xl font-extrabold text-foreground">{t('activeList.emptyTitle')}</h3>
+        <p className="text-sm text-muted-foreground mt-2 max-w-md leading-relaxed">
           {t('activeList.emptySubtitle')}
         </p>
       </div>
@@ -231,22 +231,22 @@ export const DesktopActiveListView: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 animate-in fade-in duration-200">
       {/* Top Status & Progress Bar Card */}
-      <div className="p-6 rounded-3xl bg-zinc-950 border border-zinc-800/80 shadow-2xl flex flex-col gap-4 backdrop-blur-xl">
+      <div className="p-6 rounded-3xl bg-card border border-border shadow-2xl flex flex-col gap-4 backdrop-blur-xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
               <Radio className="w-5 h-5 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-base text-zinc-100">
+                <h3 className="font-extrabold text-base text-foreground">
                   {activeList.name || t('activeList.title')}
                 </h3>
-                <Badge variant="default" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs">
+                <Badge variant="default" className="bg-primary/10 text-primary border border-primary/20 text-xs">
                   {t('activeList.realtimeSync')}
                 </Badge>
               </div>
-              <p className="text-xs text-zinc-500 flex items-center gap-2 mt-0.5 font-mono">
+              <p className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5 font-mono">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>{t('history.completedOn')}: {formatDate(activeList.target_date || activeList.created_at || new Date())}</span>
               </p>
@@ -256,7 +256,7 @@ export const DesktopActiveListView: React.FC = () => {
           {/* Progress summary & Archive trigger */}
           <div className="flex items-center gap-4">
             <div className="flex flex-col items-end">
-              <span className="text-xs text-zinc-400 font-mono">
+              <span className="text-xs text-muted-foreground font-mono">
                 {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })} ({percentage}%)
               </span>
             </div>
@@ -264,13 +264,13 @@ export const DesktopActiveListView: React.FC = () => {
             <Button
               onClick={handleArchiveList}
               disabled={isArchiving}
-              className="h-11 px-5 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 border border-zinc-700/80 font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+              className="h-11 px-5 bg-card hover:bg-muted text-foreground border border-border font-extrabold rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer transition-all active:scale-95 disabled:opacity-50"
             >
               {isArchiving ? (
-                <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <Archive className="w-4 h-4 text-emerald-400" />
+                  <Archive className="w-4 h-4 text-primary" />
                   <span>{t('activeList.archiveButton')}</span>
                 </>
               )}
@@ -279,9 +279,9 @@ export const DesktopActiveListView: React.FC = () => {
         </div>
 
         {/* Visual Progress Bar */}
-        <div className="w-full bg-zinc-900 rounded-full h-2.5 overflow-hidden border border-zinc-800/80">
+        <div className="w-full bg-background rounded-full h-2.5 overflow-hidden border border-border">
           <div
-            className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-500 shadow-[0_0_12px_rgba(52,211,153,0.5)]"
+            className="bg-primary h-full rounded-full transition-all duration-500 shadow-sm"
             style={{ width: `${percentage}%` }}
           />
         </div>
@@ -289,8 +289,8 @@ export const DesktopActiveListView: React.FC = () => {
 
       {/* Completion celebratory state */}
       {checkedCount === totalCount && (
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center flex items-center justify-center gap-3 text-emerald-300 text-sm font-extrabold shadow-lg animate-in zoom-in-95 duration-300">
-          <CheckCheck className="w-5 h-5 text-emerald-400 stroke-[3]" />
+        <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 text-center flex items-center justify-center gap-3 text-primary text-sm font-extrabold shadow-lg animate-in zoom-in-95 duration-300">
+          <CheckCheck className="w-5 h-5 text-primary stroke-[3]" />
           <span>{t('activeList.allPurchased')}</span>
         </div>
       )}
@@ -305,17 +305,17 @@ export const DesktopActiveListView: React.FC = () => {
             <div
               key={group.name}
               className={cn(
-                "p-5 rounded-3xl bg-zinc-950/90 border transition-all duration-200 flex flex-col gap-3 shadow-md",
+                "p-5 rounded-3xl bg-card border transition-all duration-200 flex flex-col gap-3 shadow-md",
                 isGroupComplete
-                  ? "border-emerald-950/60 bg-gradient-to-b from-emerald-950/10 to-zinc-950"
-                  : "border-zinc-900"
+                  ? "border-primary/40 bg-gradient-to-b from-primary/5 to-card"
+                  : "border-border"
               )}
             >
               {/* Category Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-900">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-emerald-400" />
-                  <h4 className="font-extrabold text-sm text-zinc-100 tracking-tight">
+                  <Package className="w-4 h-4 text-primary" />
+                  <h4 className="font-extrabold text-sm text-foreground tracking-tight">
                     {group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}
                   </h4>
                 </div>
@@ -324,8 +324,8 @@ export const DesktopActiveListView: React.FC = () => {
                   className={cn(
                     "text-xs font-mono px-2 py-0.5 rounded-full border font-bold",
                     isGroupComplete
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                      : "bg-zinc-900 text-zinc-400 border-zinc-800"
+                      ? "bg-primary/10 text-primary border-primary/30"
+                      : "bg-background text-muted-foreground border-border"
                   )}
                 >
                   {groupChecked} / {group.items.length}
@@ -344,10 +344,10 @@ export const DesktopActiveListView: React.FC = () => {
                       key={item.id}
                       onClick={() => handleToggleCheck(item.id, isChecked)}
                       className={cn(
-                        "p-3.5 rounded-2xl bg-zinc-900/60 border transition-all flex items-center justify-between gap-3 cursor-pointer group hover:bg-zinc-900",
+                        "p-3.5 rounded-2xl bg-background/60 border transition-all flex items-center justify-between gap-3 cursor-pointer group hover:bg-muted/50",
                         isChecked
-                          ? "bg-zinc-950/40 border-zinc-900/60 opacity-50"
-                          : "border-zinc-800/80 hover:border-emerald-500/40"
+                          ? "bg-card/40 border-border/60 opacity-50"
+                          : "border-border hover:border-primary/40"
                       )}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -361,20 +361,20 @@ export const DesktopActiveListView: React.FC = () => {
                           <span
                             className={cn(
                               "font-bold text-sm transition-all truncate",
-                              isChecked ? "line-through text-zinc-500" : "text-zinc-100 group-hover:text-white"
+                              isChecked ? "line-through text-muted-foreground" : "text-foreground group-hover:text-foreground"
                             )}
                           >
                             {name}
                           </span>
                           {item.added_ad_hoc && (
-                            <span className="text-[10px] text-zinc-500 font-mono">{t('draft.adHocItem')}</span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{t('draft.adHocItem')}</span>
                           )}
                         </div>
                       </div>
 
                       {/* Stepper +/- */}
                       <div
-                        className="flex items-center bg-zinc-950 border border-zinc-800 rounded-xl p-0.5 shrink-0"
+                        className="flex items-center bg-card border border-border rounded-xl p-0.5 shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
@@ -384,7 +384,7 @@ export const DesktopActiveListView: React.FC = () => {
                             handleDecrease(item)
                           }}
                           disabled={isChecked}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                           title={t('common.decrease')}
                           aria-label={t('common.decrease')}
                         >
@@ -410,9 +410,9 @@ export const DesktopActiveListView: React.FC = () => {
                                 }
                               }}
                               onBlur={() => handleCommitEdit(item)}
-                              className="w-14 h-7 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
+                              className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
                             />
-                            <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
+                            <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
                               {formatUnit(unit)}
                             </span>
                           </div>
@@ -429,8 +429,8 @@ export const DesktopActiveListView: React.FC = () => {
                             className={cn(
                               "font-mono text-xs px-2.5 py-0.5 font-bold min-w-[3.5rem] text-center select-none transition-colors rounded-md",
                               isChecked
-                                ? "text-zinc-600 line-through cursor-default"
-                                : "text-emerald-400 hover:bg-zinc-800/80 cursor-text"
+                                ? "text-muted-foreground line-through cursor-default"
+                                : "text-primary hover:bg-muted cursor-text"
                             )}
                             title={isChecked ? undefined : t('common.edit')}
                           >
@@ -445,7 +445,7 @@ export const DesktopActiveListView: React.FC = () => {
                             handleIncrease(item)
                           }}
                           disabled={isChecked}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                           title={t('common.increase')}
                           aria-label={t('common.increase')}
                         >

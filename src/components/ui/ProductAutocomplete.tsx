@@ -138,15 +138,15 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
           placeholder={placeholder || t('products.searchPlaceholder')}
           autoFocus={autoFocus}
           autoComplete="off"
-          className="pr-9 h-11 text-xs bg-zinc-950 border-zinc-800 focus:border-emerald-500 rounded-xl"
+          className="pr-9 h-11 text-xs bg-background border-input focus:border-primary rounded-xl"
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
           <Search className="w-4 h-4" />
         </div>
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl bg-zinc-950 border border-zinc-800 shadow-2xl backdrop-blur-lg animate-in fade-in-50 zoom-in-95">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl bg-card border border-border shadow-2xl backdrop-blur-lg animate-in fade-in-50 zoom-in-95">
           {filteredProducts.length > 0 ? (
             <ul ref={listRef} className="p-1 flex flex-col gap-0.5" role="listbox">
               {filteredProducts.map((p, index) => {
@@ -167,18 +167,18 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                     className={cn(
                       'px-3 py-2 rounded-lg text-xs cursor-pointer flex items-center justify-between transition-colors',
                       isHighlighted
-                        ? 'bg-emerald-500/15 text-emerald-300 font-medium'
-                        : 'text-zinc-200 hover:bg-zinc-900',
-                      isSelected && 'bg-emerald-500/20 text-emerald-400 font-semibold'
+                        ? 'bg-primary/15 text-primary font-medium'
+                        : 'text-foreground hover:bg-muted',
+                      isSelected && 'bg-primary/20 text-primary font-semibold'
                     )}
                   >
                     <div className="flex items-center gap-2 truncate">
                       {isSelected ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                       ) : p.type === 'Global' ? (
-                        <Globe className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                        <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       ) : (
-                        <Home className="w-3.5 h-3.5 text-emerald-500/70 shrink-0" />
+                        <Home className="w-3.5 h-3.5 text-primary/70 shrink-0" />
                       )}
                       <span className="truncate">{p.name}</span>
                     </div>
@@ -187,12 +187,12 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
                       {categoryName && (
                         <Badge
                           variant="secondary"
-                          className="text-[9px] px-1.5 py-0 bg-zinc-900 text-zinc-400 border border-zinc-800 font-normal truncate max-w-[120px]"
+                          className="text-[9px] px-1.5 py-0 bg-background text-muted-foreground border border-border font-normal truncate max-w-[120px]"
                         >
                           {categoryName}
                         </Badge>
                       )}
-                      <span className="font-mono text-[10px] text-zinc-500 font-semibold">
+                      <span className="font-mono text-[10px] text-muted-foreground font-semibold">
                         ({formatUnit(p.unit_type)})
                       </span>
                     </div>
@@ -201,9 +201,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
               })}
             </ul>
           ) : (
-            <div className="p-3 text-center text-xs text-zinc-400 flex flex-col gap-1">
-              <span className="font-medium text-zinc-300">{t('products.emptyTitle')}</span>
-              <span className="text-[11px] text-zinc-500">
+            <div className="p-3 text-center text-xs text-muted-foreground flex flex-col gap-1">
+              <span className="font-medium text-foreground">{t('products.emptyTitle')}</span>
+              <span className="text-[11px] text-muted-foreground">
                 {t('products.emptySubtitle')}
               </span>
             </div>

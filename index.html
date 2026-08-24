@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pl" class="bg-black">
+<html lang="pl" class="bg-background">
 
 <head>
   <meta charset="UTF-8" />
@@ -18,9 +18,24 @@
   <title>Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe</title>
   <meta name="description"
     content="Inteligentna aplikacja do przeliczania makroskładników, skalowania posiłków i błyskawicznego odhaczania wspólnych zakupów w czasie rzeczywistym." />
+  <!-- Anti-FOUC Theme Pre-Hydration Script -->
+  <script>
+    (function() {
+      try {
+        var savedTheme = localStorage.getItem('smartshopping_theme') || 'oled-black';
+        var validThemes = ['oled-black', 'midnight-blue', 'forest-sage', 'warm-amber', 'cyberpunk-violet', 'clean-light'];
+        if (validThemes.indexOf(savedTheme) === -1) {
+          savedTheme = 'oled-black';
+        }
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'oled-black');
+      }
+    })();
+  </script>
 </head>
 
-<body class="bg-black text-white antialiased selection:bg-emerald-500 selection:text-black">
+<body class="bg-background text-foreground antialiased">
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

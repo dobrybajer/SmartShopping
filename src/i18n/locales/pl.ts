@@ -53,6 +53,7 @@ export const pl: TranslationSchema = {
     subtitle: 'Zarządzaj przepisami, makroskładnikami i skaluj składniki do koszyka',
     searchPlaceholder: 'Szukaj przepisów po nazwie lub składnikach...',
     addRecipe: 'Dodaj Przepis',
+    noRecipes: 'Brak przepisów',
     emptyTitle: 'Brak przepisów',
     emptySubtitle: 'Dodaj swój pierwszy przepis, aby zacząć planować posiłki i generować listy zakupów.',
     calories: 'Kalorie',
@@ -152,6 +153,7 @@ export const pl: TranslationSchema = {
     householdProduct: 'Produkt własny gospodarstwa',
     unitType: 'Typ Jednostki',
     macrosPer100: 'Wartości odżywcze na 100g / 100ml / 1 szt.',
+    noNutritionalInfo: 'Brak wartości odżywczych',
     category: 'Kategoria',
     allCategories: 'Wszystkie Kategorie',
   },
@@ -181,6 +183,32 @@ export const pl: TranslationSchema = {
       other: 'szt.',
     },
   },
+  themes: {
+    oledBlack: {
+      name: 'OLED Black',
+      description: 'Głęboka czerń z żywym szmaragdowym akcentem',
+    },
+    midnightBlue: {
+      name: 'Midnight Blue',
+      description: 'Nocny granat z wyrazistym błękitem lazurowym',
+    },
+    forestSage: {
+      name: 'Forest Sage',
+      description: 'Botaniczna zieleń jodłowa ze świeżą miętą',
+    },
+    warmAmber: {
+      name: 'Warm Amber',
+      description: 'Klimatyczna palona kawa z ciepłym bursztynem',
+    },
+    cyberpunkViolet: {
+      name: 'Cyberpunk Violet',
+      description: 'Królewska ciemność z neonowym ultrafioletem',
+    },
+    cleanLight: {
+      name: 'Clean Light',
+      description: 'Krystaliczny jasny papier ze szmaragdem na ostre słońce',
+    },
+  },
   dialogs: {
     account: {
       title: 'Ustawienia Konta',
@@ -190,6 +218,8 @@ export const pl: TranslationSchema = {
       updateNameSuccess: 'Pomyślnie zaktualizowano nazwę wyświetlaną.',
       languageTitle: 'Język Aplikacji',
       languageDescription: 'Wybierz preferowany język interfejsu',
+      themeTitle: 'Szata Graficzna',
+      themeDescription: 'Wybierz styl wizualny i paletę kolorystyczną',
       displayName: 'Nazwa Wyświetlana',
       email: 'Adres Email Konta Google',
       createdDate: 'Konto utworzone',
@@ -217,6 +247,9 @@ export const pl: TranslationSchema = {
       inviteEmailPlaceholder: 'Wpisz email Google domownika...',
       inviteButton: 'Wyślij Zaproszenie',
       sendInvite: 'Wyślij Zaproszenie',
+      userAddedSuccess: 'Użytkownik został pomyślnie dodany do gospodarstwa.',
+      inviteSentSuccess: 'Zaproszenie zostało pomyślnie wysłane.',
+      inviteError: 'Nie udało się wysłać zaproszenia.',
       pendingInvites: 'Oczekujące Zaproszenia',
       leaveHouseholdButton: 'Opuść Gospodarstwo',
       defaultBadge: 'Domyślne',

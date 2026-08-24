@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
+import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
 import {
@@ -9,8 +10,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-  SheetFooter
+  SheetDescription
 } from '@/components/ui/sheet'
 import {
   Dialog,
@@ -33,6 +33,7 @@ interface AddAdHocSheetProps {
 
 export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange }) => {
   const { household } = useAuth()
+  const { isDesktop } = useDeviceLayout()
   const { addAdHocToDraft } = useShoppingStore()
   const { t, formatUnit } = useTranslation()
   
@@ -154,117 +155,152 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
       : catName
   }
 
+  const headerContent = (
+    <div className="flex items-center gap-2 text-foreground">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+        <Sparkles className="w-4 h-4" />
+      </div>
+      <div>
+        <h3 className="text-base font-bold text-foreground leading-tight">
+          {t('dialogs.adHoc.title')}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {t('dialogs.adHoc.subtitle')}
+        </p>
+      </div>
+    </div>
+  )
+
+  const bodyContent = (
+    <form
+      onSubmit={handleFormSubmit}
+      className="py-3 px-6 flex flex-col gap-3.5 text-xs overflow-y-auto flex-1 scrollbar-thin"
+    >
+      {/* Product Name */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">
+          {t('dialogs.adHoc.nameLabel')} *
+        </label>
+        <ProductAutocomplete
+          value={name}
+          onChange={setName}
+          products={products}
+          categories={categories}
+          onSelectProduct={handleSelectProduct}
+          placeholder={t('dialogs.adHoc.namePlaceholder')}
+          autoFocus
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="font-semibold text-foreground block mb-1">{t('dialogs.adHoc.quantityLabel')}</label>
+          <Input
+            type="number"
+            step="any"
+            value={quantity}
+            onChange={(e) =>
+              setQuantity(e.target.value === '' ? '' : Number(e.target.value))
+            }
+            onFocus={(e) => {
+              setTimeout(() => {
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }, 300)
+            }}
+            className="font-mono h-11 text-xs bg-background border-input text-foreground focus-visible:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label className="font-semibold text-foreground block mb-1">{t('dialogs.adHoc.unitLabel')}</label>
+          <select
+            value={unitType}
+            onChange={(e) => setUnitType(e.target.value as UnitEnum)}
+            className="h-11 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+          >
+            <option value="pcs" className="bg-card text-foreground">pcs ({formatUnit('pcs')})</option>
+            <option value="g" className="bg-card text-foreground">g ({formatUnit('g')})</option>
+            <option value="ml" className="bg-card text-foreground">ml ({formatUnit('ml')})</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="font-semibold text-foreground block mb-1">
+          {t('dialogs.adHoc.categoryLabel')}
+        </label>
+        <select
+          value={selectedCategoryId || ''}
+          onChange={(e) =>
+            setSelectedCategoryId(e.target.value ? Number(e.target.value) : undefined)
+          }
+          className="h-11 w-full rounded-xl border border-input bg-background px-3 text-xs text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+        >
+          <option value="" className="bg-card text-foreground">-- {t('common.select')} --</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id} className="bg-card text-foreground">
+              {c.sort_order}. {getCategoryLabel(c.name)}
+            </option>
+          ))}
+        </select>
+      </div>
+    </form>
+  )
+
+  const footerContent = (
+    <div className="p-4 border-t border-border bg-card/90 shrink-0">
+      <Button
+        type="button"
+        onClick={() => handleFormSubmit()}
+        disabled={!name.trim() || quantity === ''}
+        className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+      >
+        <Plus className="w-5 h-5" />
+        <span>{t('dialogs.adHoc.submitButton')}</span>
+      </Button>
+    </div>
+  )
+
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[90dvh] flex flex-col p-5 sm:p-6">
-          <SheetHeader className="shrink-0">
-            <SheetTitle className="flex items-center gap-2">
-              <span>{t('dialogs.adHoc.title')}</span>
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-            </SheetTitle>
-            <SheetDescription>
-              {t('dialogs.adHoc.subtitle')}
-            </SheetDescription>
-          </SheetHeader>
-
-          <form
-            onSubmit={handleFormSubmit}
-            className="py-3 flex flex-col gap-3.5 text-xs overflow-y-auto flex-1 overscroll-contain"
+      {isDesktop ? (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            className="max-w-md w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
           >
-            {/* Product Name */}
-            <div>
-              <label className="font-semibold text-zinc-300 block mb-1">
-                {t('dialogs.adHoc.nameLabel')} *
-              </label>
-              <ProductAutocomplete
-                value={name}
-                onChange={setName}
-                products={products}
-                categories={categories}
-                onSelectProduct={handleSelectProduct}
-                placeholder={t('dialogs.adHoc.namePlaceholder')}
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.adHoc.quantityLabel')}</label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={quantity}
-                  onChange={(e) =>
-                    setQuantity(e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  onFocus={(e) => {
-                    setTimeout(() => {
-                      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                    }, 300)
-                  }}
-                  className="font-mono h-11 text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.adHoc.unitLabel')}</label>
-                <select
-                  value={unitType}
-                  onChange={(e) => setUnitType(e.target.value as UnitEnum)}
-                  className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-xs text-zinc-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                  <option value="pcs">pcs ({formatUnit('pcs')})</option>
-                  <option value="g">g ({formatUnit('g')})</option>
-                  <option value="ml">ml ({formatUnit('ml')})</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="font-semibold text-zinc-300 block mb-1">
-                {t('dialogs.adHoc.categoryLabel')}
-              </label>
-              <select
-                value={selectedCategoryId || ''}
-                onChange={(e) =>
-                  setSelectedCategoryId(e.target.value ? Number(e.target.value) : undefined)
-                }
-                className="h-11 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 text-xs text-zinc-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              >
-                <option value="">-- {t('common.select')} --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.sort_order}. {getCategoryLabel(c.name)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </form>
-
-          <SheetFooter className="pt-2 shrink-0">
-            <Button
-              type="button"
-              onClick={() => handleFormSubmit()}
-              disabled={!name.trim() || quantity === ''}
-              className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              <span>{t('dialogs.adHoc.submitButton')}</span>
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+            <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <DialogTitle className="sr-only">{t('dialogs.adHoc.title')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('dialogs.adHoc.subtitle')}</DialogDescription>
+              {headerContent}
+            </DialogHeader>
+            {bodyContent}
+            {footerContent}
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent side="bottom" className="max-h-[90dvh] flex flex-col p-0 bg-card border-t border-border text-foreground rounded-t-3xl overflow-hidden">
+            <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <SheetTitle className="sr-only">{t('dialogs.adHoc.title')}</SheetTitle>
+              <SheetDescription className="sr-only">{t('dialogs.adHoc.subtitle')}</SheetDescription>
+              {headerContent}
+            </SheetHeader>
+            {bodyContent}
+            {footerContent}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-        <DialogContent className="max-w-xs sm:max-w-sm">
+        <DialogContent className="max-w-xs sm:max-w-sm bg-card border-border text-foreground">
           <DialogHeader>
-            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-2 mx-auto sm:mx-0">
+            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-2 mx-auto sm:mx-0">
               <Database className="w-5 h-5" />
             </div>
-            <DialogTitle>{t('dialogs.productForm.addTitle')}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground">{t('dialogs.productForm.addTitle')}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               {t('dialogs.adHoc.saveToCatalogPrompt', { name: name.trim() })}
             </DialogDescription>
           </DialogHeader>
@@ -273,10 +309,10 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
             <Button
               onClick={handleSaveToDatabaseAndDraft}
               disabled={isSavingToDb}
-              className="w-full h-11 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
             >
               {isSavingToDb ? (
-                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <Database className="w-4 h-4" />
@@ -288,7 +324,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
             <Button
               variant="outline"
               onClick={handleAddOnlyToDraft}
-              className="w-full h-10 border-zinc-800 text-zinc-300 hover:bg-zinc-900 rounded-xl cursor-pointer"
+              className="w-full h-10 border-border bg-card text-muted-foreground hover:bg-muted rounded-xl cursor-pointer"
             >
               {t('draft.adHocItem')} {t('common.only')}
             </Button>

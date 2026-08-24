@@ -144,19 +144,19 @@ export const ProductsView: React.FC = () => {
       {/* Search and Add button */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t('products.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-zinc-950 border-zinc-800 text-sm h-11 focus-visible:ring-emerald-500 rounded-xl"
+            className="pl-9 bg-background border-input text-sm h-11 focus-visible:ring-primary rounded-xl"
           />
         </div>
 
         <Button
           onClick={handleOpenAdd}
           size="icon"
-          className="h-11 w-11 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shrink-0 shadow-lg cursor-pointer"
+          className="h-11 w-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shrink-0 shadow-lg cursor-pointer"
           title={t('products.addProduct')}
         >
           <Plus className="w-5 h-5" />
@@ -172,8 +172,8 @@ export const ProductsView: React.FC = () => {
             className={cn(
               "px-3 py-1.5 text-xs transition-all font-medium",
               scopeFilter === 'all'
-                ? "bg-zinc-100 text-zinc-900 border-zinc-100 font-bold shadow-xs"
-                : "text-zinc-400 border-zinc-800 hover:border-zinc-700"
+                ? "bg-foreground text-background border-foreground font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-border/80"
             )}
           >
             {t('common.all')} ({totalCount})
@@ -190,8 +190,8 @@ export const ProductsView: React.FC = () => {
             className={cn(
               "px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
               scopeFilter === 'Household'
-                ? "bg-emerald-500 text-black border-emerald-400 font-bold shadow-xs shadow-emerald-950/30"
-                : "text-zinc-400 border-zinc-800 hover:border-emerald-500/40 hover:text-emerald-300"
+                ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-primary/40 hover:text-primary"
             )}
           >
             <Home className="w-3 h-3" />
@@ -209,8 +209,8 @@ export const ProductsView: React.FC = () => {
             className={cn(
               "px-2.5 py-1.5 text-xs flex items-center gap-1.5 transition-all font-medium",
               scopeFilter === 'Global'
-                ? "bg-sky-500 text-black border-sky-400 font-bold shadow-xs shadow-sky-950/30"
-                : "text-zinc-400 border-zinc-800 hover:border-sky-500/40 hover:text-sky-300"
+                ? "bg-sky-500 text-white border-sky-400 font-bold shadow-xs"
+                : "text-muted-foreground border-border hover:border-sky-500/40 hover:text-sky-300"
             )}
           >
             <Globe className="w-3 h-3" />
@@ -219,7 +219,7 @@ export const ProductsView: React.FC = () => {
         </button>
 
         {/* Category separator */}
-        {categories.length > 0 && <span className="h-4 w-px bg-zinc-800 shrink-0 mx-0.5" />}
+        {categories.length > 0 && <span className="h-4 w-px bg-border shrink-0 mx-0.5" />}
 
         {/* Category chips */}
         {categories.map((cat) => {
@@ -235,8 +235,8 @@ export const ProductsView: React.FC = () => {
                 className={cn(
                   "px-2.5 py-1.5 text-xs transition-all",
                   isSelected
-                    ? "bg-zinc-800 text-emerald-400 border-emerald-500/50 font-bold"
-                    : "text-zinc-400 border-zinc-800/80 hover:border-zinc-700 hover:text-zinc-300"
+                    ? "bg-muted text-primary border-primary/50 font-bold"
+                    : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
                 )}
               >
                 {getCategoryLabel(cat.name)}
@@ -249,16 +249,16 @@ export const ProductsView: React.FC = () => {
       {/* Products list */}
       {loading ? (
         <div className="py-16 flex flex-col items-center justify-center text-center">
-          <div className="w-7 h-7 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-xs text-zinc-500">{t('common.loading')}</p>
+          <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="py-16 flex flex-col items-center justify-center text-center bg-zinc-950/50 rounded-2xl border border-zinc-900 border-dashed p-6">
-          <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 mb-3">
+        <div className="py-16 flex flex-col items-center justify-center text-center bg-card/50 rounded-2xl border border-border border-dashed p-6">
+          <div className="w-12 h-12 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground mb-3">
             <Package className="w-6 h-6" />
           </div>
-          <p className="text-sm font-semibold text-zinc-300">{t('products.emptyTitle')}</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
+          <p className="text-sm font-semibold text-foreground">{t('products.emptyTitle')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
             {searchQuery || scopeFilter !== 'all' || selectedCategoryId !== null
               ? t('products.emptySubtitle')
               : t('products.emptySubtitle')}
@@ -272,7 +272,7 @@ export const ProductsView: React.FC = () => {
                 setScopeFilter('all')
                 setSelectedCategoryId(null)
               }}
-              className="mt-4 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded-lg cursor-pointer"
+              className="mt-4 text-xs border-border bg-card text-muted-foreground hover:bg-muted rounded-lg cursor-pointer"
             >
               {t('common.clear')}
             </Button>
@@ -298,17 +298,17 @@ export const ProductsView: React.FC = () => {
               <div
                 key={product.id}
                 className={cn(
-                  "p-3.5 rounded-2xl bg-zinc-950 border transition-all flex flex-col gap-2.5 shadow-sm group",
+                  "p-3.5 rounded-2xl bg-card border transition-all flex flex-col gap-2.5 shadow-sm group",
                   isHousehold
-                    ? "border-emerald-950/70 hover:border-emerald-500/40 bg-gradient-to-r from-emerald-950/10 to-transparent"
-                    : "border-zinc-900 hover:border-zinc-800"
+                    ? "border-border hover:border-primary/40 bg-card"
+                    : "border-border hover:border-border/80"
                 )}
               >
                 {/* Top row */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex flex-col gap-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="font-semibold text-sm text-zinc-100 group-hover:text-zinc-50 transition-colors truncate">
+                      <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                         {product.name}
                       </h4>
 
@@ -324,7 +324,7 @@ export const ProductsView: React.FC = () => {
                       ) : (
                         <Badge
                           variant="secondary"
-                          className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1"
+                          className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border border-primary/20 font-medium flex items-center gap-1"
                         >
                           <Home className="w-2.5 h-2.5" />
                           <span>{t('navigation.households')}</span>
@@ -333,14 +333,14 @@ export const ProductsView: React.FC = () => {
                     </div>
 
                     {/* Category & Unit */}
-                    <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                       {categoryName && (
-                        <span className="text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded-md border border-zinc-800/80">
+                        <span className="text-muted-foreground bg-background px-1.5 py-0.5 rounded-md border border-border">
                           {categoryName}
                         </span>
                       )}
-                      <span className="flex items-center gap-0.5 text-zinc-500">
-                        <Scale className="w-3 h-3 text-zinc-500" />
+                      <span className="flex items-center gap-0.5 text-muted-foreground">
+                        <Scale className="w-3 h-3 text-muted-foreground" />
                         <span>{formatUnit(product.unit_type)}</span>
                       </span>
                     </div>
@@ -353,7 +353,7 @@ export const ProductsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(product)}
-                          className="p-2 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
                           title={t('common.edit')}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -361,7 +361,7 @@ export const ProductsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setProductToDelete(product)}
-                          className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                           title={t('common.delete')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -373,7 +373,7 @@ export const ProductsView: React.FC = () => {
 
                 {/* Macronutrient breakdown */}
                 {hasMacros && (
-                  <div className="pt-2 border-t border-zinc-900 flex items-center justify-between gap-2 flex-wrap text-xs">
+                  <div className="pt-2 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
                     <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 font-bold shrink-0">
                       <Flame className="w-3 h-3" />
                       <span>{Math.round(kcal)} {t('common.kcal')}</span>
@@ -381,17 +381,17 @@ export const ProductsView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-1.5 text-[11px] font-medium ml-auto">
-                      <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
                         <span className="text-blue-400 font-bold">{t('common.proteinShort')}</span>
-                        <span className="text-zinc-300 font-semibold">{protein}g</span>
+                        <span className="text-foreground font-semibold">{protein}g</span>
                       </span>
-                      <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
                         <span className="text-amber-400 font-bold">{t('common.carbsShort')}</span>
-                        <span className="text-zinc-300 font-semibold">{carbs}g</span>
+                        <span className="text-foreground font-semibold">{carbs}g</span>
                       </span>
-                      <span className="text-zinc-500 bg-zinc-900/90 border border-zinc-800 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                      <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
                         <span className="text-rose-400 font-bold">{t('common.fatShort')}</span>
-                        <span className="text-zinc-300 font-semibold">{fat}g</span>
+                        <span className="text-foreground font-semibold">{fat}g</span>
                       </span>
                     </div>
                   </div>

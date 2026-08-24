@@ -1,16 +1,23 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
+import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { mealService } from '@/services/mealService'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-  SheetFooter
+  SheetDescription
 } from '@/components/ui/sheet'
 import { ProductAutocomplete } from '@/components/ui/ProductAutocomplete'
 import { Button } from '@/components/ui/button'
@@ -40,6 +47,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   onMealCreated
 }) => {
   const { household } = useAuth()
+  const { isDesktop } = useDeviceLayout()
   const { t, formatUnit, formatQuantity } = useTranslation()
   const [mealType, setMealType] = useState<'Household' | 'Global'>('Household')
   const [name, setName] = useState('')
@@ -59,24 +67,33 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   const [quantityInput, setQuantityInput] = useState<number | ''>(100)
   const [isPantryInput, setIsPantryInput] = useState(false)
 
-  // Quick product creation
+  // Inline quick create state
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false)
   const [newProductName, setNewProductName] = useState('')
   const [newProductUnit, setNewProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
   const [newProductKcal, setNewProductKcal] = useState<number | ''>(0)
-  const [isCreatingProduct, setIsCreatingProduct] = useState(false)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    if (open && household) {
-      productService.getProducts(household.id).then((prods) => setAvailableProducts(prods as any))
-      productService.getCategories().then(setCategories)
+    async function loadData() {
+      if (!household) return
+      const [allProds, allCats] = await Promise.all([
+        productService.getProducts(household.id),
+        productService.getCategories()
+      ])
+      setAvailableProducts(allProds)
+      setCategories(allCats)
+    }
+    if (open) {
+      loadData()
     }
   }, [open, household])
 
   const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()])
+    const trimmed = tagInput.trim()
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed])
       setTagInput('')
     }
   }
@@ -86,48 +103,52 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   }
 
   const handleAddIngredient = () => {
-    if (!selectedProductId || quantityInput === '' || quantityInput <= 0) return
-    const prod = availableProducts.find((p) => p.id === selectedProductId)
-    if (!prod) return
+    if (!selectedProductId || !quantityInput || quantityInput <= 0) return
 
     setIngredients([
       ...ingredients,
       {
-        product_id: prod.id,
-        product_name: prod.name,
-        unit_type: prod.unit_type as 'g' | 'ml' | 'pcs',
+        product_id: selectedProductId,
+        product_name: selectedProductName,
+        unit_type: selectedProductUnit,
         base_quantity: Number(quantityInput),
         is_pantry_item: isPantryInput
       }
     ])
 
+    // Reset ingredient form
     setSelectedProductId('')
     setSelectedProductName('')
     setQuantityInput(100)
     setIsPantryInput(false)
   }
 
+  const handleRemoveIngredient = (index: number) => {
+    setIngredients(ingredients.filter((_, i) => i !== index))
+  }
+
   const handleCreateNewProduct = async () => {
     if (!newProductName.trim() || !household) return
     setIsSubmitting(true)
-    const newProd = await productService.createProduct({
-      household_id: household.id,
+
+    const created = await productService.createProduct({
+      household_id: mealType === 'Household' ? household.id : null,
       name: newProductName.trim(),
       unit_type: newProductUnit,
-      kcal_per_100: Number(newProductKcal || 0)
+      kcal_per_100: typeof newProductKcal === 'number' ? newProductKcal : 0
     })
+
     setIsSubmitting(false)
 
-    if (newProd) {
-      setAvailableProducts([...availableProducts, newProd as any])
-      setSelectedProductId(newProd.id)
-      setNewProductName('')
+    if (created) {
+      setAvailableProducts([...availableProducts, created])
+      setSelectedProductId(created.id)
+      setSelectedProductName(created.name)
+      setSelectedProductUnit(created.unit_type)
       setIsCreatingProduct(false)
+      setNewProductName('')
+      setNewProductKcal(0)
     }
-  }
-
-  const handleRemoveIngredient = (index: number) => {
-    setIngredients(ingredients.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async () => {
@@ -135,13 +156,13 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     setIsSubmitting(true)
 
     const result = await mealService.createMeal({
-      household_id: household.id,
+      household_id: mealType === 'Household' ? household.id : null,
       type: mealType,
       name: name.trim(),
       description: description.trim() || undefined,
       preparation_steps: preparationSteps.trim() || undefined,
       comments: comments.trim() || undefined,
-      tags: tags,
+      tags: tags.length > 0 ? tags : undefined,
       ingredients: ingredients.map((ing) => ({
         product_id: ing.product_id,
         base_quantity: ing.base_quantity,
@@ -165,313 +186,353 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     }
   }
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{t('dialogs.mealForm.addTitle')}</SheetTitle>
-          <SheetDescription>
-            {t('cookbook.subtitle')}
-          </SheetDescription>
-        </SheetHeader>
+  const headerContent = (
+    <div className="flex items-center gap-2.5">
+      <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+        <Sparkles className="w-5 h-5" />
+      </div>
+      <div>
+        <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
+          {t('dialogs.mealForm.addTitle')}
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {t('cookbook.subtitle')}
+        </p>
+      </div>
+    </div>
+  )
 
-        <div className="py-4 flex flex-col gap-4 text-xs">
-          {/* Meal Scope Selection */}
-          <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-zinc-950 border border-zinc-800/80">
-            <label className="font-bold text-zinc-200 text-xs flex items-center justify-between">
-              <span>{t('dialogs.mealForm.categoryLabel')}</span>
-              <span className="text-[10px] text-zinc-500 font-normal">{t('dialogs.mealForm.scopeLabel')}</span>
-            </label>
+  const bodyContent = (
+    <div className="py-4 flex flex-col gap-4 text-xs flex-1 overflow-y-auto px-6 scrollbar-thin">
+      {/* Meal Scope Selection */}
+      <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-background border border-border">
+        <label className="font-bold text-foreground text-xs flex items-center justify-between">
+          <span>{t('dialogs.mealForm.categoryLabel')}</span>
+          <span className="text-[10px] text-muted-foreground font-normal">{t('dialogs.mealForm.scopeLabel')}</span>
+        </label>
 
-            <div className="grid grid-cols-2 gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => setMealType('Household')}
-                className={cn(
-                  "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
-                  mealType === 'Household'
-                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/30 shadow-xs"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
-                )}
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <button
+            type="button"
+            onClick={() => setMealType('Household')}
+            className={cn(
+              "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+              mealType === 'Household'
+                ? "bg-primary/10 border-primary/50 text-primary ring-1 ring-primary/30 shadow-xs"
+                : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <div className="flex items-center gap-1.5 font-bold text-xs">
+              <Home className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>{t('navigation.households')}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {household?.name || t('navigation.households')}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMealType('Global')}
+            className={cn(
+              "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
+              mealType === 'Global'
+                ? "bg-sky-500/10 border-sky-500/50 text-sky-300 ring-1 ring-sky-500/30 shadow-xs"
+                : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            <div className="flex items-center gap-1.5 font-bold text-xs">
+              <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>{t('common.global')}</span>
+            </div>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {t('products.globalProduct')}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Name */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">{t('dialogs.mealForm.nameLabel')} *</label>
+        <Input
+          placeholder={t('dialogs.mealForm.namePlaceholder')}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">{t('dialogs.mealForm.descriptionLabel')}</label>
+        <Input
+          placeholder={t('dialogs.mealForm.descriptionPlaceholder')}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">{t('dialogs.mealForm.tagsLabel')}</label>
+        <div className="flex gap-2 mb-2">
+          <Input
+            placeholder={t('dialogs.mealForm.tagsPlaceholder')}
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleAddTag()
+              }
+            }}
+          />
+          <Button onClick={handleAddTag} variant="outline" className="shrink-0 cursor-pointer">
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {tags.map((t) => (
+              <Badge
+                key={t}
+                variant="secondary"
+                className="cursor-pointer hover:bg-destructive/20 hover:text-destructive"
+                onClick={() => handleRemoveTag(t)}
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs">
-                  <Home className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>{t('navigation.households')}</span>
-                </div>
-                <span className="text-[10px] text-zinc-500 leading-tight">
-                  {household?.name || t('navigation.households')}
-                </span>
-              </button>
+                {t} ×
+              </Badge>
+            ))}
+          </div>
+        )}
+      </div>
 
-              <button
-                type="button"
-                onClick={() => setMealType('Global')}
-                className={cn(
-                  "flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer",
-                  mealType === 'Global'
-                    ? "bg-sky-500/10 border-sky-500/50 text-sky-300 ring-1 ring-sky-500/30 shadow-xs"
-                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850"
-                )}
+      {/* Ingredients Section */}
+      <div className="p-3 rounded-xl bg-background border border-border flex flex-col gap-3">
+        <h4 className="font-bold text-foreground uppercase tracking-wider text-[11px]">
+          {t('cookbook.ingredients')} ({ingredients.length})
+        </h4>
+
+        {/* Added ingredients */}
+        {ingredients.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {ingredients.map((ing, idx) => (
+              <div
+                key={idx}
+                className="p-2 rounded-lg bg-card border border-border flex items-center justify-between"
               >
-                <div className="flex items-center gap-1.5 font-bold text-xs">
-                  <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                  <span>{t('common.global')}</span>
+                <div>
+                  <span className="font-semibold text-foreground">{ing.product_name}</span>
+                  {ing.is_pantry_item && (
+                    <span className="text-[10px] text-muted-foreground ml-1.5">({t('cookbook.pantryItem')})</span>
+                  )}
                 </div>
-                <span className="text-[10px] text-zinc-500 leading-tight">
-                  {t('products.globalProduct')}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-primary font-bold">
+                    {formatQuantity(ing.base_quantity, ing.unit_type)}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveIngredient(idx)}
+                    className="text-muted-foreground hover:text-destructive p-1 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add ingredient form */}
+        {!isCreatingProduct ? (
+          <div className="flex flex-col gap-2 pt-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground font-medium">{t('dialogs.mealForm.productSelectLabel')}:</span>
+              <button
+                onClick={() => setIsCreatingProduct(true)}
+                className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>{t('products.addProduct')} +</span>
               </button>
             </div>
-          </div>
 
-          {/* Name */}
-          <div>
-            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.nameLabel')} *</label>
-            <Input
-              placeholder={t('dialogs.mealForm.namePlaceholder')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+            <ProductAutocomplete
+              value={selectedProductName}
+              onChange={(val) => {
+                setSelectedProductName(val)
+                const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
+                if (match) {
+                  setSelectedProductId(match.id)
+                  setSelectedProductUnit(match.unit_type as any)
+                } else {
+                  setSelectedProductId('')
+                }
+              }}
+              products={availableProducts}
+              categories={categories}
+              onSelectProduct={(p) => {
+                setSelectedProductId(p.id)
+                setSelectedProductName(p.name)
+                setSelectedProductUnit(p.unit_type as any)
+              }}
+              placeholder={t('cookbook.searchPlaceholder')}
             />
-          </div>
 
-          {/* Description */}
-          <div>
-            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.descriptionLabel')}</label>
-            <Input
-              placeholder={t('dialogs.mealForm.descriptionPlaceholder')}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.tagsLabel')}</label>
-            <div className="flex gap-2 mb-2">
-              <Input
-                placeholder={t('dialogs.mealForm.tagsPlaceholder')}
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    handleAddTag()
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type="number"
+                  placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
+                  value={quantityInput}
+                  onChange={(e) =>
+                    setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
                   }
-                }}
-              />
-              <Button onClick={handleAddTag} variant="outline" className="shrink-0 cursor-pointer">
+                  className="h-10 font-mono pr-14"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono pointer-events-none">
+                  {formatUnit(selectedProductUnit)}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-2 bg-card rounded-xl border border-border h-10 shrink-0">
+                <Checkbox
+                  id="pantry-check"
+                  checked={isPantryInput}
+                  onCheckedChange={(c) => setIsPantryInput(!!c)}
+                />
+                <label htmlFor="pantry-check" className="text-[11px] text-muted-foreground cursor-pointer">
+                  {t('dialogs.mealForm.isPantryLabel')}
+                </label>
+              </div>
+
+              <Button
+                onClick={handleAddIngredient}
+                disabled={!selectedProductId}
+                className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0 cursor-pointer"
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {tags.map((t) => (
-                  <Badge
-                    key={t}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-red-950/50 hover:text-red-400"
-                    onClick={() => handleRemoveTag(t)}
-                  >
-                    {t} ×
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
+        ) : (
+          /* Inline quick product creation */
+          <div className="p-3 rounded-lg bg-card border border-border flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-primary">{t('dialogs.productForm.addTitle')}</span>
+              <button
+                onClick={() => setIsCreatingProduct(false)}
+                className="text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
 
-          {/* Ingredients Section */}
-          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 flex flex-col gap-3">
-            <h4 className="font-bold text-zinc-200 uppercase tracking-wider text-[11px]">
-              {t('cookbook.ingredients')} ({ingredients.length})
-            </h4>
-
-            {/* Added ingredients */}
-            {ingredients.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                {ingredients.map((ing, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between"
-                  >
-                    <div>
-                      <span className="font-semibold text-zinc-200">{ing.product_name}</span>
-                      {ing.is_pantry_item && (
-                        <span className="text-[10px] text-zinc-500 ml-1.5">({t('cookbook.pantryItem')})</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-emerald-400 font-bold">
-                        {formatQuantity(ing.base_quantity, ing.unit_type)}
-                      </span>
-                      <button
-                        onClick={() => handleRemoveIngredient(idx)}
-                        className="text-zinc-500 hover:text-red-400 p-1 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Add ingredient form */}
-            {!isCreatingProduct ? (
-              <div className="flex flex-col gap-2 pt-2 border-t border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <span className="text-zinc-400 font-medium">{t('dialogs.mealForm.productSelectLabel')}:</span>
-                  <button
-                    onClick={() => setIsCreatingProduct(true)}
-                    className="text-emerald-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    <span>{t('products.addProduct')} +</span>
-                  </button>
-                </div>
-
-                <ProductAutocomplete
-                  value={selectedProductName}
-                  onChange={(val) => {
-                    setSelectedProductName(val)
-                    const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
-                    if (match) {
-                      setSelectedProductId(match.id)
-                      setSelectedProductUnit(match.unit_type as any)
-                    } else {
-                      setSelectedProductId('')
-                    }
-                  }}
-                  products={availableProducts}
-                  categories={categories}
-                  onSelectProduct={(p) => {
-                    setSelectedProductId(p.id)
-                    setSelectedProductName(p.name)
-                    setSelectedProductUnit(p.unit_type as any)
-                  }}
-                  placeholder={t('cookbook.searchPlaceholder')}
-                />
-
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      type="number"
-                      placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
-                      value={quantityInput}
-                      onChange={(e) =>
-                        setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
-                      }
-                      className="h-10 font-mono pr-14"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500 font-mono pointer-events-none">
-                      {formatUnit(selectedProductUnit)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 px-2 bg-zinc-950 rounded-xl border border-zinc-800 h-10 shrink-0">
-                    <Checkbox
-                      id="pantry-check"
-                      checked={isPantryInput}
-                      onCheckedChange={(c) => setIsPantryInput(!!c)}
-                    />
-                    <label htmlFor="pantry-check" className="text-[11px] text-zinc-400 cursor-pointer">
-                      {t('dialogs.mealForm.isPantryLabel')}
-                    </label>
-                  </div>
-
-                  <Button
-                    onClick={handleAddIngredient}
-                    disabled={!selectedProductId}
-                    className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold shrink-0 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              /* Inline quick product creation */
-              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800 flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-emerald-400">{t('dialogs.productForm.addTitle')}</span>
-                  <button
-                    onClick={() => setIsCreatingProduct(false)}
-                    className="text-zinc-500 hover:text-zinc-300 cursor-pointer"
-                  >
-                    {t('common.cancel')}
-                  </button>
-                </div>
-
-                <Input
-                  placeholder={t('dialogs.productForm.namePlaceholder')}
-                  value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
-                />
-
-                <div className="flex gap-2">
-                  <select
-                    value={newProductUnit}
-                    onChange={(e) => setNewProductUnit(e.target.value as any)}
-                    className="h-10 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-xs text-zinc-100"
-                  >
-                    <option value="g">g ({formatUnit('g')})</option>
-                    <option value="ml">ml ({formatUnit('ml')})</option>
-                    <option value="pcs">pcs ({formatUnit('pcs')})</option>
-                  </select>
-
-                  <Input
-                    type="number"
-                    placeholder="kcal / 100g"
-                    value={newProductKcal}
-                    onChange={(e) =>
-                      setNewProductKcal(e.target.value === '' ? '' : Number(e.target.value))
-                    }
-                    className="h-10 font-mono"
-                  />
-                </div>
-
-                <Button
-                  onClick={handleCreateNewProduct}
-                  disabled={!newProductName.trim() || isSubmitting}
-                  className="h-10 bg-emerald-500 hover:bg-emerald-400 text-black font-bold mt-1 cursor-pointer"
-                >
-                  {t('common.save')}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Preparation steps */}
-          <div>
-            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.stepsLabel')}</label>
-            <textarea
-              placeholder={t('dialogs.mealForm.stepsPlaceholder')}
-              value={preparationSteps}
-              onChange={(e) => setPreparationSteps(e.target.value)}
-              className="w-full min-h-[80px] p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-100 placeholder:text-zinc-600 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Notes & Comments */}
-          <div>
-            <label className="font-semibold text-zinc-300 block mb-1">{t('dialogs.mealForm.commentsLabel')}</label>
             <Input
-              placeholder={t('dialogs.mealForm.commentsPlaceholder')}
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
+              placeholder={t('dialogs.productForm.namePlaceholder')}
+              value={newProductName}
+              onChange={(e) => setNewProductName(e.target.value)}
             />
-          </div>
-        </div>
 
-        <SheetFooter className="pt-2">
-          <Button
-            onClick={handleSubmit}
-            disabled={!name.trim() || isSubmitting}
-            className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
-          >
-            <Save className="w-5 h-5" />
-            <span>{t('dialogs.mealForm.submitAdd')}</span>
-          </Button>
-        </SheetFooter>
+            <div className="flex gap-2">
+              <select
+                value={newProductUnit}
+                onChange={(e) => setNewProductUnit(e.target.value as any)}
+                className="h-10 rounded-xl border border-border bg-background px-3 text-xs text-foreground"
+              >
+                <option value="g" className="bg-card text-foreground">g ({formatUnit('g')})</option>
+                <option value="ml" className="bg-card text-foreground">ml ({formatUnit('ml')})</option>
+                <option value="pcs" className="bg-card text-foreground">pcs ({formatUnit('pcs')})</option>
+              </select>
+
+              <Input
+                type="number"
+                placeholder="kcal / 100g"
+                value={newProductKcal}
+                onChange={(e) =>
+                  setNewProductKcal(e.target.value === '' ? '' : Number(e.target.value))
+                }
+                className="h-10 font-mono"
+              />
+            </div>
+
+            <Button
+              onClick={handleCreateNewProduct}
+              disabled={!newProductName.trim() || isSubmitting}
+              className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1 cursor-pointer"
+            >
+              {t('common.save')}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Preparation steps */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">{t('dialogs.mealForm.stepsLabel')}</label>
+        <textarea
+          placeholder={t('dialogs.mealForm.stepsPlaceholder')}
+          value={preparationSteps}
+          onChange={(e) => setPreparationSteps(e.target.value)}
+          className="w-full min-h-[80px] p-3 rounded-xl bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+        />
+      </div>
+
+      {/* Notes & Comments */}
+      <div>
+        <label className="font-semibold text-foreground block mb-1">{t('dialogs.mealForm.commentsLabel')}</label>
+        <Input
+          placeholder={t('dialogs.mealForm.commentsPlaceholder')}
+          value={comments}
+          onChange={(e) => setComments(e.target.value)}
+        />
+      </div>
+    </div>
+  )
+
+  const footerContent = (
+    <div className="p-4 border-t border-border bg-card/90 shrink-0">
+      <Button
+        onClick={handleSubmit}
+        disabled={!name.trim() || isSubmitting}
+        className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+      >
+        <Save className="w-5 h-5" />
+        <span>{t('dialogs.mealForm.submitAdd')}</span>
+      </Button>
+    </div>
+  )
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
+        >
+          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+            <DialogTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</DialogTitle>
+            <DialogDescription className="sr-only">{t('cookbook.subtitle')}</DialogDescription>
+            {headerContent}
+          </DialogHeader>
+          {bodyContent}
+          {footerContent}
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[92vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden">
+        <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+          <SheetTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</SheetTitle>
+          <SheetDescription className="sr-only">{t('cookbook.subtitle')}</SheetDescription>
+          {headerContent}
+        </SheetHeader>
+        {bodyContent}
+        {footerContent}
       </SheetContent>
     </Sheet>
   )

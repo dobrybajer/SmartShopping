@@ -35,7 +35,7 @@ describe('BottomNavigation - UI Interaction & User Flow Suite', () => {
     );
 
     const draftButton = screen.getByText('Koszyk').closest('button');
-    expect(draftButton).toHaveClass('text-emerald-400');
+    expect(draftButton).toHaveClass('text-primary');
   });
 
   it('Flow 04: renders badge counters when draft and active counts are greater than 0', () => {

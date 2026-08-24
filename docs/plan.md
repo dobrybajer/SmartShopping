@@ -121,7 +121,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Pokrycie testami jednostkowymi silnika i18n (`src/i18n/__tests__/i18n.test.ts`) oraz testami nawigacji (`BottomNavigation.test.tsx`).
    * Przejście testów Vitest (`npm run test`), lintera (`npm run lint`) oraz kompilatora TypeScript (`npx tsc -b`).
 
-## Faza 9: System Szat Graficznych i Motywów (Zaplanowana / Do Wdrożenia)
+## Faza 9: System Szat Graficznych i Motywów (Zakończona)
 **Cel:** Personalizacja wyglądu (6 motywów: OLED Black, Midnight Blue, Forest Sage, Warm Amber, Cyberpunk Violet, Clean Light), semantyczne tokeny CSS i wsparcie dla warunków oświetleniowych w markecie.
 
 1. **Baza Danych & Typy:**

@@ -26,7 +26,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
   onLayoutModeChange
 }) => {
   return (
-    <div className="w-full h-screen bg-black text-white flex overflow-hidden font-sans select-none antialiased">
+    <div className="w-full h-screen bg-background text-foreground flex overflow-hidden font-sans select-none antialiased">
       {/* Left Sidebar */}
       <DesktopSidebar
         activeTab={activeTab}
@@ -38,7 +38,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       />
 
       {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-gradient-to-b from-zinc-950 via-black to-zinc-950">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-background">
         {/* Desktop Header */}
         <DesktopHeader title={headerTitle} />
 

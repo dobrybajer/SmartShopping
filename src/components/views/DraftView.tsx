@@ -106,11 +106,11 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-200">
       {/* Top Banner & AdHoc Button */}
-      <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
+      <div className="p-3.5 rounded-xl bg-card border border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <ShoppingBag className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs text-zinc-300">
-            {t('navigation.draft')}: <strong className="text-white font-mono">{formatQuantity(draftItems.length, 'pcs')}</strong>
+          <ShoppingBag className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-xs text-foreground">
+            {t('navigation.draft')}: <strong className="text-foreground font-mono">{formatQuantity(draftItems.length, 'pcs')}</strong>
           </span>
         </div>
 
@@ -118,7 +118,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           <Button
             onClick={() => setIsAdHocOpen(true)}
             size="sm"
-            className="h-8 bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-zinc-700/80 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+            className="h-8 bg-card hover:bg-muted text-primary border border-border rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t('draft.addAdHoc')}</span>
@@ -127,7 +127,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           {draftItems.length > 0 && (
             <button
               onClick={() => clearDraft()}
-              className="text-zinc-500 hover:text-red-400 p-1.5 transition-colors cursor-pointer"
+              className="text-muted-foreground hover:text-destructive p-1.5 transition-colors cursor-pointer"
               title={t('draft.clearCart')}
             >
               <Trash2 className="w-4 h-4" />
@@ -139,17 +139,17 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
       {/* Draft Items List */}
       {draftItems.length === 0 ? (
         <div className="py-16 flex flex-col items-center justify-center text-center">
-          <div className="w-14 h-14 rounded-full bg-zinc-900/80 border border-zinc-800 flex items-center justify-center text-zinc-600 mb-3">
+          <div className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground mb-3">
             <ShoppingBag className="w-7 h-7" />
           </div>
-          <p className="text-sm font-bold text-zinc-300">{t('draft.emptyTitle')}</p>
-          <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
+          <p className="text-sm font-bold text-foreground">{t('draft.emptyTitle')}</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
             {t('draft.emptySubtitle')}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-semibold px-1">
+          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold px-1">
             {t('draft.swipeToDeleteHint')}
           </p>
 
@@ -158,22 +158,22 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
               <div className="p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-zinc-100">{item.name}</span>
+                    <span className="font-semibold text-sm text-foreground">{item.name}</span>
                     {item.is_ad_hoc ? (
                       <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
                         {t('draft.adHocItem')}
                       </Badge>
                     ) : item.meal_source ? (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-zinc-400">
+                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-muted-foreground">
                         {item.meal_source}
                       </Badge>
                     ) : null}
                   </div>
-                  <p className="text-xs text-zinc-500 mt-0.5">{getCategoryLabel(item.category_name)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{getCategoryLabel(item.category_name)}</p>
                 </div>
 
                 <div
-                  className="flex items-center bg-zinc-900/90 border border-zinc-800 rounded-lg p-0.5 shrink-0"
+                  className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -182,7 +182,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       e.stopPropagation()
                       handleDecrease(item)
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
                     title={t('common.decrease')}
                     aria-label={t('common.decrease')}
                   >
@@ -208,9 +208,9 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                           }
                         }}
                         onBlur={() => handleCommitEdit(item.id)}
-                        className="w-14 h-7 bg-zinc-950 text-center font-mono text-xs font-bold text-emerald-400 border border-emerald-500/60 rounded px-1 outline-none ring-1 ring-emerald-500/40 shadow-inner"
+                        className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
                       />
-                      <span className="font-mono text-xs text-emerald-400 font-bold pr-1 select-none">
+                      <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
                         {formatUnit(item.unit_type)}
                       </span>
                     </div>
@@ -221,7 +221,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                         e.stopPropagation()
                         startEditing(item.id, item.quantity)
                       }}
-                      className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-emerald-400 hover:bg-zinc-800/80 rounded transition-colors cursor-text select-none"
+                      className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-primary hover:bg-muted rounded transition-colors cursor-text select-none"
                       title={t('common.edit')}
                     >
                       {formatQuantity(item.quantity, item.unit_type)}
@@ -234,7 +234,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                       e.stopPropagation()
                       handleIncrease(item)
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 active:scale-90 transition-all cursor-pointer"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
                     title={t('common.increase')}
                     aria-label={t('common.increase')}
                   >
@@ -252,13 +252,13 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         <Button
           onClick={handleGenerateActiveList}
           disabled={isGenerating}
-          className="w-full h-12 bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
+          className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
         >
           {isGenerating ? (
-            <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <Play className="w-4 h-4 fill-black" />
+              <Play className="w-4 h-4 fill-current" />
               <span>{t('draft.generateActiveList')}</span>
             </>
           )}

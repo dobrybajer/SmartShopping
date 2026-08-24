@@ -20,7 +20,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   activeCount = 0
 }) => {
   return (
-    <div className="max-w-md mx-auto h-[100dvh] h-screen max-h-[100dvh] bg-black text-white flex flex-col justify-between relative border-x border-zinc-900 shadow-2xl overflow-hidden select-none font-sans">
+    <div className="max-w-md mx-auto h-[100dvh] h-screen max-h-[100dvh] bg-background text-foreground flex flex-col justify-between relative border-x border-border shadow-2xl overflow-hidden select-none font-sans">
       <div className="shrink-0 z-30">
         <AppHeader title={headerTitle} />
       </div>
