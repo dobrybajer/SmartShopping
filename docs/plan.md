@@ -96,6 +96,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * [ADR-001: Dual Layout Architecture](./adr/ADR-001-dual-layout-architecture.md)
    * [ADR-002: State & Realtime Optimistic UI](./adr/ADR-002-state-and-realtime-architecture.md)
    * [ADR-003: Internationalization (i18n) Strategy](./adr/ADR-003-internationalization-i18n.md)
+   * [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md)
 3. **Automatyczne Testy Jednostkowe & User Flow:**
    * Konfiguracja Vitest + React Testing Library (`jsdom`).
    * Testy czystych kalkulacji (`src/lib/calculations/__tests__/`).
@@ -119,3 +120,21 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 4. **Weryfikacja Jakości:**
    * Pokrycie testami jednostkowymi silnika i18n (`src/i18n/__tests__/i18n.test.ts`) oraz testami nawigacji (`BottomNavigation.test.tsx`).
    * Przejście testów Vitest (`npm run test`), lintera (`npm run lint`) oraz kompilatora TypeScript (`npx tsc -b`).
+
+## Faza 9: System Szat Graficznych i Motywów (Zaplanowana / Do Wdrożenia)
+**Cel:** Personalizacja wyglądu (6 motywów: OLED Black, Midnight Blue, Forest Sage, Warm Amber, Cyberpunk Violet, Clean Light), semantyczne tokeny CSS i wsparcie dla warunków oświetleniowych w markecie.
+
+1. **Baza Danych & Typy:**
+   * Migracja `supabase/migrations/20260825000000_add_theme_to_users.sql` (kolumna `theme VARCHAR(30) DEFAULT 'oled-black' NOT NULL` w tabeli `public.users` z RLS).
+   * Typy TypeScript w `src/types/theme.ts` i aktualizacja `src/types/supabase.ts`.
+2. **System Tokenów CSS & Anti-FOUC:**
+   * Definicja zestawów HSL dla 6 motywów w `src/index.css` sterowanych atrybutem `data-theme` na `<html>`.
+   * Anti-FOUC skrypt w `<head>` pliku `index.html`.
+   * Kontekst/Store `ThemeContext` / `useTheme` z hierarchią (DOM -> `localStorage` -> debounced sync do Supabase).
+3. **Komponenty i UX Duality:**
+   * Komponent `ThemeSelector` z wizualnymi kartami próbek kolorów (Visual Theme Swatch Cards).
+   * Integracja w `AccountDetailsDialog` (Desktop) i Settings Sheet (Mobile PWA) z haptyką (`navigator.vibrate(50)`).
+   * Refaktoryzacja klas Tailwind w komponentach ze sztywnych `zinc-*` / `emerald-*` na semantyczne tokeny (`bg-background`, `bg-card`, `border-border`, `bg-primary`, `text-primary`).
+4. **Testy i Weryfikacja:**
+   * Testy jednostkowe walidatora motywów i tokenów (`src/theme/__tests__/theme.test.ts`).
+   * Testy integracyjne RTL dla Desktop i Mobile PWA (`AccountDetailsTheme.test.tsx`).
