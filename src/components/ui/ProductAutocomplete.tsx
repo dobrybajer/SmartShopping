@@ -15,6 +15,7 @@ interface ProductAutocompleteProps {
   placeholder?: string
   autoFocus?: boolean
   className?: string
+  listClassName?: string
   id?: string
 }
 
@@ -27,6 +28,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   placeholder,
   autoFocus = false,
   className,
+  listClassName,
   id
 }) => {
   const { t, formatUnit } = useTranslation()
@@ -45,10 +47,19 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
       return products
     }
     const query = normalize(value)
-    return products.filter((p) => {
+    const startsWithMatches: Product[] = []
+    const containsMatches: Product[] = []
+
+    for (const p of products) {
       const pName = normalize(p.name)
-      return pName.startsWith(query)
-    })
+      if (pName.startsWith(query)) {
+        startsWithMatches.push(p)
+      } else if (pName.includes(query)) {
+        containsMatches.push(p)
+      }
+    }
+
+    return [...startsWithMatches, ...containsMatches]
   }, [products, value])
 
   useEffect(() => {
@@ -64,7 +75,7 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
   useEffect(() => {
     if (highlightedIndex >= 0 && listRef.current) {
       const item = listRef.current.children[highlightedIndex] as HTMLElement
-      if (item) {
+      if (item && typeof item.scrollIntoView === 'function') {
         item.scrollIntoView({ block: 'nearest' })
       }
     }
@@ -131,7 +142,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
             setIsOpen(true)
             setHighlightedIndex(0)
             setTimeout(() => {
-              e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              if (typeof e.target.scrollIntoView === 'function') {
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
             }, 300)
           }}
           onKeyDown={handleKeyDown}
@@ -146,7 +159,12 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 max-h-56 overflow-y-auto rounded-xl bg-card border border-border shadow-2xl backdrop-blur-lg animate-in fade-in-50 zoom-in-95">
+        <div
+          className={cn(
+            'absolute z-50 left-0 right-0 top-full mt-1.5 max-h-[260px] overflow-y-auto rounded-xl bg-card border border-border shadow-2xl backdrop-blur-lg animate-in fade-in-50 zoom-in-95 scrollbar-thin',
+            listClassName
+          )}
+        >
           {filteredProducts.length > 0 ? (
             <ul ref={listRef} className="p-1 flex flex-col gap-0.5" role="listbox">
               {filteredProducts.map((p, index) => {

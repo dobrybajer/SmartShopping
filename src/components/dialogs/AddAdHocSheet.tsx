@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Database, Sparkles } from 'lucide-react'
 import type { UnitEnum } from '@/types/supabase'
+import { cn } from '@/lib/utils'
 
 interface AddAdHocSheetProps {
   open: boolean
@@ -174,11 +175,14 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
   const bodyContent = (
     <form
       onSubmit={handleFormSubmit}
-      className="py-3 px-6 flex flex-col gap-3.5 text-xs overflow-y-auto flex-1 scrollbar-thin"
+      className={cn(
+        'py-4 px-6 flex flex-col gap-4 text-xs flex-1 min-h-[380px]',
+        isDesktop ? 'overflow-visible' : 'overflow-y-auto scrollbar-thin'
+      )}
     >
       {/* Product Name */}
-      <div>
-        <label className="font-semibold text-foreground block mb-1">
+      <div className="relative">
+        <label className="font-semibold text-foreground block mb-1.5">
           {t('dialogs.adHoc.nameLabel')} *
         </label>
         <ProductAutocomplete
@@ -188,13 +192,14 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
           categories={categories}
           onSelectProduct={handleSelectProduct}
           placeholder={t('dialogs.adHoc.namePlaceholder')}
+          listClassName="max-h-[260px]"
           autoFocus
         />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="font-semibold text-foreground block mb-1">{t('dialogs.adHoc.quantityLabel')}</label>
+          <label className="font-semibold text-foreground block mb-1.5">{t('dialogs.adHoc.quantityLabel')}</label>
           <Input
             type="number"
             step="any"
@@ -207,12 +212,12 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
                 e.target.scrollIntoView({ behavior: 'smooth', block: 'center' })
               }, 300)
             }}
-            className="font-mono h-11 text-xs bg-background border-input text-foreground focus-visible:ring-primary"
+            className="font-mono h-11 text-xs bg-background border-input text-foreground focus-visible:ring-primary rounded-xl"
           />
         </div>
 
         <div>
-          <label className="font-semibold text-foreground block mb-1">{t('dialogs.adHoc.unitLabel')}</label>
+          <label className="font-semibold text-foreground block mb-1.5">{t('dialogs.adHoc.unitLabel')}</label>
           <select
             value={unitType}
             onChange={(e) => setUnitType(e.target.value as UnitEnum)}
@@ -226,7 +231,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
       </div>
 
       <div>
-        <label className="font-semibold text-foreground block mb-1">
+        <label className="font-semibold text-foreground block mb-1.5">
           {t('dialogs.adHoc.categoryLabel')}
         </label>
         <select
@@ -267,7 +272,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
         <Dialog open={open} onOpenChange={onOpenChange}>
           <DialogContent
             onOpenAutoFocus={(e) => e.preventDefault()}
-            className="max-w-md w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            className="max-w-md w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl min-h-[520px] max-h-[85vh] flex flex-col overflow-hidden"
           >
             <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
               <DialogTitle className="sr-only">{t('dialogs.adHoc.title')}</DialogTitle>
@@ -280,7 +285,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
         </Dialog>
       ) : (
         <Sheet open={open} onOpenChange={onOpenChange}>
-          <SheetContent side="bottom" className="max-h-[90dvh] flex flex-col p-0 bg-card border-t border-border text-foreground rounded-t-3xl overflow-hidden">
+          <SheetContent side="bottom" className="h-[85vh] max-h-[92dvh] flex flex-col p-0 bg-card border-t border-border text-foreground rounded-t-3xl overflow-hidden">
             <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
               <SheetTitle className="sr-only">{t('dialogs.adHoc.title')}</SheetTitle>
               <SheetDescription className="sr-only">{t('dialogs.adHoc.subtitle')}</SheetDescription>
