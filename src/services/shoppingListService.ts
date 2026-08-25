@@ -25,6 +25,15 @@ export interface ActiveListWithDetails extends ShoppingList {
   items: ActiveListItemWithProduct[]
 }
 
+export interface HistoryListItemSummary {
+  id: string
+  is_checked: boolean | null
+}
+
+export interface HistoryShoppingList extends ShoppingList {
+  items?: HistoryListItemSummary[]
+}
+
 export const shoppingListService = {
   async getActiveList(householdId: string): Promise<ActiveListWithDetails | null> {
     const { data: listData, error: listErr } = await supabase
@@ -331,10 +340,16 @@ export const shoppingListService = {
     return remainingDraftItems
   },
 
-  async getHistoryLists(householdId: string): Promise<ShoppingList[]> {
+  async getHistoryLists(householdId: string): Promise<HistoryShoppingList[]> {
     const { data, error } = await supabase
       .from('shopping_lists')
-      .select('*')
+      .select(`
+        *,
+        items:shopping_list_items(
+          id,
+          is_checked
+        )
+      `)
       .eq('household_id', householdId)
       .eq('status', 'archived')
       .order('created_at', { ascending: false })
@@ -343,6 +358,6 @@ export const shoppingListService = {
       console.error('Error fetching shopping list history:', error)
       return []
     }
-    return data || []
+    return (data as any) || []
   }
 }

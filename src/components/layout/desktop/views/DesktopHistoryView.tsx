@@ -3,13 +3,12 @@ import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
-import type { ShoppingList, ActiveListWithDetails, ActiveListItemWithProduct } from '@/services/shoppingListService'
+import type { ActiveListWithDetails, ActiveListItemWithProduct, HistoryShoppingList } from '@/services/shoppingListService'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
 import {
   Calendar,
-  CheckCircle2,
   History,
   ShoppingCart,
   Check,
@@ -29,7 +28,7 @@ export const DesktopHistoryView: React.FC = () => {
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
   const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
-  const [historyLists, setHistoryLists] = useState<ShoppingList[]>([])
+  const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)
   const [loadingLists, setLoadingLists] = useState(true)
@@ -246,17 +245,7 @@ export const DesktopHistoryView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <Badge
-                    variant="default"
-                    className={cn(
-                      "text-[10px]",
-                      isSelected
-                        ? "bg-primary text-primary-foreground font-extrabold"
-                        : "bg-muted text-muted-foreground border border-border"
-                    )}
-                  >
-                    {t('history.completedOn')}
-                  </Badge>
+                  <HistoryStatusBadge items={list.items} />
 
                   <ChevronRight className={cn("w-4 h-4 transition-transform", isSelected ? "text-primary translate-x-1" : "text-muted-foreground group-hover:text-foreground")} />
                 </div>
@@ -331,10 +320,7 @@ export const DesktopHistoryView: React.FC = () => {
                 )}
 
                 <div className="flex items-center gap-2">
-                  <Badge variant="default" className="bg-primary/10 text-primary border border-primary/20 text-xs py-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    {t('history.completedOn')}
-                  </Badge>
+                  <HistoryStatusBadge items={listDetails.items} className="text-xs py-1" />
                 </div>
               </div>
 

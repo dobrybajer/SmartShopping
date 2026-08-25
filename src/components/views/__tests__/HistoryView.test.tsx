@@ -3,7 +3,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { HistoryView } from '../HistoryView'
 import { shoppingListService } from '@/services/shoppingListService'
 import { useI18nStore } from '@/i18n'
-import type { ShoppingList } from '@/services/shoppingListService'
+import type { HistoryShoppingList } from '@/services/shoppingListService'
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
@@ -12,7 +12,7 @@ vi.mock('@/context/AuthContext', () => ({
   })
 }))
 
-const sampleHistoryLists: ShoppingList[] = [
+const sampleHistoryLists: HistoryShoppingList[] = [
   {
     id: 'history-1',
     household_id: 'household-123',
@@ -20,7 +20,11 @@ const sampleHistoryLists: ShoppingList[] = [
     status: 'archived',
     target_date: '2026-08-25',
     created_at: '2026-08-25T14:30:00Z',
-    preset_tags: null
+    preset_tags: null,
+    items: [
+      { id: 'item-1', is_checked: true },
+      { id: 'item-2', is_checked: true }
+    ]
   },
   {
     id: 'history-2',
@@ -29,11 +33,28 @@ const sampleHistoryLists: ShoppingList[] = [
     status: 'archived',
     target_date: '2026-08-20',
     created_at: '2026-08-20T09:15:00Z',
-    preset_tags: null
+    preset_tags: null,
+    items: [
+      { id: 'item-3', is_checked: true },
+      { id: 'item-4', is_checked: false }
+    ]
+  },
+  {
+    id: 'history-3',
+    household_id: 'household-123',
+    name: 'Niekupione Zakupy',
+    status: 'archived',
+    target_date: '2026-08-18',
+    created_at: '2026-08-18T16:00:00Z',
+    preset_tags: null,
+    items: [
+      { id: 'item-5', is_checked: false },
+      { id: 'item-6', is_checked: false }
+    ]
   }
 ]
 
-describe('HistoryView - History List and Creation Time User Flows', () => {
+describe('HistoryView - History List, Creation Time and Dynamic Status Flows', () => {
   beforeEach(() => {
     localStorage.clear()
     useI18nStore.getState().setLanguage('pl')
@@ -97,5 +118,33 @@ describe('HistoryView - History List and Creation Time User Flows', () => {
     await waitFor(() => {
       expect(screen.getByText('Brak zarchiwizowanej historii')).toBeInTheDocument()
     })
+  })
+
+  it('Flow 04: renders green "Zrealizowano", amber "Zrealizowano", and red "Niezrealizowano" status badges based on bought items', async () => {
+    vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
+
+    render(<HistoryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
+    })
+
+    // List 1 (all bought): green badge with "Zrealizowano"
+    const completedBadges = screen.getAllByText('Zrealizowano')
+    expect(completedBadges.length).toBe(2) // List 1 (full) and List 2 (partial)
+
+    // List 3 (none bought): red badge with "Niezrealizowano"
+    expect(screen.getByText('Niezrealizowano')).toBeInTheDocument()
+
+    // Check color classes on the badges
+    const badgeElements = screen.getAllByRole('generic').filter((el) =>
+      el.className?.includes?.('bg-emerald-500') ||
+      el.className?.includes?.('bg-amber-500') ||
+      el.className?.includes?.('bg-rose-500')
+    )
+
+    expect(badgeElements.some((el) => el.className.includes('bg-emerald-500'))).toBe(true)
+    expect(badgeElements.some((el) => el.className.includes('bg-amber-500'))).toBe(true)
+    expect(badgeElements.some((el) => el.className.includes('bg-rose-500'))).toBe(true)
   })
 })

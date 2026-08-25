@@ -15,9 +15,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
 import {
   Calendar,
-  CheckCircle2,
   Edit2,
   Check,
   X,
@@ -283,10 +283,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               </div>
 
               <div className="flex items-center gap-1.5">
-                <Badge variant="default" className="text-[10px] bg-primary/10 text-primary border border-primary/20 py-0.5">
-                  <CheckCircle2 className="w-3 h-3 mr-1" />
-                  {t('history.completedOn')}
-                </Badge>
+                <HistoryStatusBadge items={items} />
                 {totalCount > 0 && (
                   <Badge variant="secondary" className="text-[10px] font-mono py-0.5">
                     {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}

@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
-import type { ShoppingList } from '@/services/shoppingListService'
+import type { HistoryShoppingList, ShoppingList } from '@/services/shoppingListService'
 import { HistoryListDetailsSheet } from '@/components/dialogs/HistoryListDetailsSheet'
-import { Badge } from '@/components/ui/badge'
-import { Calendar, CheckCircle2, History, ChevronRight, Clock } from 'lucide-react'
+import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
+import { Calendar, History, ChevronRight, Clock } from 'lucide-react'
 
 export const HistoryView: React.FC = () => {
   const { household } = useAuth()
   const { t, formatDate, formatTime } = useTranslation()
-  const [historyLists, setHistoryLists] = useState<ShoppingList[]>([])
+  const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedList, setSelectedList] = useState<ShoppingList | null>(null)
@@ -94,13 +94,7 @@ export const HistoryView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2.5 shrink-0">
-                  <Badge
-                    variant="default"
-                    className="text-[10px] bg-primary/10 text-primary border border-primary/20"
-                  >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    {t('history.completedOn')}
-                  </Badge>
+                  <HistoryStatusBadge items={list.items} />
 
                   <div className="w-7 h-7 rounded-lg bg-background flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
                     <ChevronRight className="w-4 h-4" />
