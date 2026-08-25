@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function useActiveListRealtime(
+  householdId: string | null,
   activeListId: string | null,
   onRealtimeUpdate: () => void
 ) {
@@ -11,12 +12,38 @@ export function useActiveListRealtime(
   })
 
   useEffect(() => {
-    if (!activeListId) return
+    if (!householdId) return
 
-    // Create dedicated Realtime channel for active list
-    const channel = supabase
-      .channel(`active_list_${activeListId}`)
-      .on(
+    const channelName = activeListId
+      ? `household_${householdId}_list_${activeListId}`
+      : `household_${householdId}_lists`
+
+    let channel = supabase.channel(channelName)
+
+    // 1. Listen for changes to shopping_lists (household level)
+    channel = channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'shopping_lists',
+        filter: `household_id=eq.${householdId}`
+      },
+      (_payload) => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          try {
+            navigator.vibrate([25, 40, 25])
+          } catch {
+            // Ignore
+          }
+        }
+        onRealtimeUpdateRef.current()
+      }
+    )
+
+    // 2. Listen for changes to shopping_list_items (for selected list)
+    if (activeListId) {
+      channel = channel.on(
         'postgres_changes',
         {
           event: '*',
@@ -25,27 +52,26 @@ export function useActiveListRealtime(
           filter: `shopping_list_id=eq.${activeListId}`
         },
         (_payload) => {
-          // Haptic feedback notification for real-time changes by household members
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
             try {
               navigator.vibrate([25, 40, 25])
             } catch {
-              // Ignore if not supported
+              // Ignore
             }
           }
-
-          // Trigger data refresh callback via stable ref
           onRealtimeUpdateRef.current()
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`[Realtime] Subscription active for list: ${activeListId}`)
-        }
-      })
+    }
+
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`[Realtime] Subscription active for channel: ${channelName}`)
+      }
+    })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [activeListId])
+  }, [householdId, activeListId])
 }

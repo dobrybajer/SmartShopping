@@ -82,6 +82,9 @@ The agent must navigate through the **8 Architectural Decision Branches** in seq
    - Pure function unit tests in `src/lib/calculations/__tests__/`.
    - Comprehensive UI user flow integration tests in Vitest with `@testing-library/react`.
    - Migration, deployment, and rollback plan.
+9. **Branch 9: Any additional user remark**
+   - Ask user whether there is any other information or requirements that should be considered for the ADR.
+   - If the user provides any additional information, update the ADR accordingly.  
 
 ---
 

@@ -12,6 +12,11 @@ vi.mock('@/context/AuthContext', () => ({
   })
 }))
 
+const mockGetActiveListsSummary = vi.spyOn(
+  shoppingListService,
+  'getActiveListsSummary'
+).mockResolvedValue([])
+
 const mockCreateActiveListFromDraft = vi.spyOn(
   shoppingListService,
   'createActiveListFromDraft'
@@ -20,13 +25,14 @@ const mockCreateActiveListFromDraft = vi.spyOn(
   household_id: 'household-123',
   name: 'Aktywna Lista',
   status: 'active',
+  is_default: true,
   target_date: '2026-08-25',
   created_at: '2026-08-25T20:00:00Z',
   updated_at: '2026-08-25T20:00:00Z',
   items: []
 } as any)
 
-describe('DesktopDraftView - Desktop Layout Item Selection', () => {
+describe('DesktopDraftView - Desktop Layout Item Selection & Transfer', () => {
   const sampleItems: DraftItem[] = [
     {
       id: 'draft-1',
@@ -68,6 +74,7 @@ describe('DesktopDraftView - Desktop Layout Item Selection', () => {
       draftItems: sampleItems
     })
     vi.clearAllMocks()
+    mockGetActiveListsSummary.mockResolvedValue([])
   })
 
   it('Flow 01: renders items with checkboxes in desktop layout, showing breakdown in summary deck', () => {
@@ -81,20 +88,24 @@ describe('DesktopDraftView - Desktop Layout Item Selection', () => {
     const checkboxes = screen.getAllByRole('checkbox')
     expect(checkboxes).toHaveLength(3)
 
-    // Verify summary deck has correct counts
-    const generateBtn = screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów/i })
-    expect(generateBtn).toBeEnabled()
+    // Verify transfer button is enabled
+    const transferBtn = screen.getByRole('button', { name: /Przenieś do Listy Zakupów/i })
+    expect(transferBtn).toBeEnabled()
   })
 
-  it('Flow 02: deselects items, updates summary deck stats and sends only selected items to active list', async () => {
+  it('Flow 02: deselects items, opens transfer dialog and sends only selected items to active list', async () => {
     render(<DesktopDraftView />)
 
     const checkboxes = screen.getAllByRole('checkbox')
     // Deselect item 3 (Ręcznik papierowy - ad hoc, index 2)
     fireEvent.click(checkboxes[2])
 
-    const generateBtn = screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów \(2\)/i })
-    fireEvent.click(generateBtn)
+    const transferBtn = screen.getByRole('button', { name: /Przenieś do Listy Zakupów \(2\)/i })
+    fireEvent.click(transferBtn)
+
+    // In dialog, click submit
+    const confirmBtn = await screen.findByRole('button', { name: /Utwórz Listę/i })
+    fireEvent.click(confirmBtn)
 
     await waitFor(() => {
       expect(mockCreateActiveListFromDraft).toHaveBeenCalledWith(
@@ -103,7 +114,8 @@ describe('DesktopDraftView - Desktop Layout Item Selection', () => {
         [
           expect.objectContaining({ id: 'draft-1' }),
           expect.objectContaining({ id: 'draft-2' })
-        ]
+        ],
+        false
       )
     })
 
@@ -124,8 +136,8 @@ describe('DesktopDraftView - Desktop Layout Item Selection', () => {
       expect(cb).toHaveAttribute('data-state', 'unchecked')
     })
 
-    const generateBtn = screen.getByRole('button', { name: /Wybierz co najmniej 1 pozycję/i })
-    expect(generateBtn).toBeDisabled()
+    const transferBtn = screen.getByRole('button', { name: /Wybierz co najmniej 1 pozycję/i })
+    expect(transferBtn).toBeDisabled()
 
     const selectAllBtn = screen.getByRole('button', { name: /Zaznacz wszystkie/i })
     fireEvent.click(selectAllBtn)
@@ -133,6 +145,6 @@ describe('DesktopDraftView - Desktop Layout Item Selection', () => {
     checkboxes.forEach((cb) => {
       expect(cb).toHaveAttribute('data-state', 'checked')
     })
-    expect(screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Przenieś do Listy Zakupów/i })).toBeEnabled()
   })
 })

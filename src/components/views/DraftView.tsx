@@ -2,13 +2,13 @@ import React, { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
-import { shoppingListService } from '@/services/shoppingListService'
 import { SwipeToDismiss } from '@/components/ui/SwipeToDismiss'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { TransferToActiveListSheet } from '@/components/dialogs/TransferToActiveListSheet'
 import { Trash2, Play, Plus, Minus, ShoppingBag } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
 
@@ -25,10 +25,10 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     updateDraftQuantity,
     clearDraft
   } = useShoppingStore()
-  const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
+  const { t, formatUnit, formatQuantity } = useTranslation()
   const [unselectedIds, setUnselectedIds] = useState<Set<string>>(new Set())
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [isTransferSheetOpen, setIsTransferSheetOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -101,37 +101,21 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     }
   }
 
-  const handleGenerateActiveList = async () => {
+  const handleOpenTransferSheet = () => {
     if (!household || selectedItems.length === 0) return
-    setIsGenerating(true)
+    setIsTransferSheetOpen(true)
+  }
 
-    const newList = await shoppingListService.createActiveListFromDraft(
-      household.id,
-      `${t('activeList.title')} ${formatDate(new Date())}`,
-      selectedItems
-    )
+  const handleTransferSuccess = (_targetListId: string) => {
+    if (selectedItems.length === draftItems.length) {
+      clearDraft()
+    } else {
+      removeMultipleFromDraft(selectedItems.map((i) => i.id))
+    }
+    setUnselectedIds(new Set())
 
-    setIsGenerating(false)
-
-    if (newList) {
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate([40, 60, 40])
-        } catch {
-          // Ignore
-        }
-      }
-
-      if (selectedItems.length === draftItems.length) {
-        clearDraft()
-      } else {
-        removeMultipleFromDraft(selectedItems.map((i) => i.id))
-      }
-      setUnselectedIds(new Set())
-
-      if (onActiveListCreated) {
-        onActiveListCreated()
-      }
+    if (onActiveListCreated) {
+      onActiveListCreated()
     }
   }
 
@@ -342,31 +326,34 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
       )}
 
       {/* Generate Active List CTA */}
+      {/* Transfer to Active List CTA */}
       {draftItems.length > 0 && (
         <Button
-          onClick={handleGenerateActiveList}
-          disabled={isGenerating || selectedItems.length === 0}
+          onClick={handleOpenTransferSheet}
+          disabled={selectedItems.length === 0}
           className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
         >
-          {isGenerating ? (
-            <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              <Play className="w-4 h-4 fill-current" />
-              <span>
-                {selectedItems.length === 0
-                  ? t('draft.noItemsSelected')
-                  : selectedItems.length === draftItems.length
-                  ? t('draft.generateActiveList')
-                  : `${t('draft.generateActiveList')} (${selectedItems.length})`}
-              </span>
-            </>
-          )}
+          <Play className="w-4 h-4 fill-current" />
+          <span>
+            {selectedItems.length === 0
+              ? t('draft.noItemsSelected')
+              : selectedItems.length === draftItems.length
+              ? t('draft.generateActiveList')
+              : `${t('draft.generateActiveList')} (${selectedItems.length})`}
+          </span>
         </Button>
       )}
 
       {/* Add Ad-hoc Sheet */}
       <AddAdHocSheet open={isAdHocOpen} onOpenChange={setIsAdHocOpen} />
+
+      {/* Transfer to Active List Sheet */}
+      <TransferToActiveListSheet
+        open={isTransferSheetOpen}
+        onOpenChange={setIsTransferSheetOpen}
+        selectedItems={selectedItems}
+        onSuccess={handleTransferSuccess}
+      />
 
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog

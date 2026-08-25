@@ -2,13 +2,13 @@ import React, { useState } from 'react'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
-import { shoppingListService } from '@/services/shoppingListService'
 import type { DraftItem } from '@/store/useShoppingStore'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { TransferToActiveListDialog } from '@/components/dialogs/TransferToActiveListDialog'
 import {
   ShoppingBag,
   Plus,
@@ -41,7 +41,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
 
   const [unselectedIds, setUnselectedIds] = useState<Set<string>>(new Set())
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -115,30 +115,21 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
     }
   }
 
-  const handleGenerateActiveList = async () => {
+  const handleOpenTransferDialog = () => {
     if (!household || selectedItems.length === 0) return
-    setIsGenerating(true)
+    setIsTransferDialogOpen(true)
+  }
 
-    const listName = `${t('activeList.title')} - ${new Date().toLocaleDateString()}`
-    const result = await shoppingListService.createActiveListFromDraft(
-      household.id,
-      listName,
-      selectedItems
-    )
+  const handleTransferSuccess = (_targetListId: string) => {
+    if (selectedItems.length === draftItems.length) {
+      clearDraft()
+    } else {
+      removeMultipleFromDraft(selectedItems.map((i) => i.id))
+    }
+    setUnselectedIds(new Set())
 
-    setIsGenerating(false)
-
-    if (result) {
-      if (selectedItems.length === draftItems.length) {
-        clearDraft()
-      } else {
-        removeMultipleFromDraft(selectedItems.map((i) => i.id))
-      }
-      setUnselectedIds(new Set())
-
-      if (onActiveListCreated) {
-        onActiveListCreated()
-      }
+    if (onActiveListCreated) {
+      onActiveListCreated()
     }
   }
 
@@ -418,24 +409,18 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
 
               {/* Big Launch Button */}
               <Button
-                onClick={handleGenerateActiveList}
-                disabled={isGenerating || selectedItems.length === 0}
+                onClick={handleOpenTransferDialog}
+                disabled={selectedItems.length === 0}
                 className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm rounded-2xl flex items-center justify-center gap-2.5 shadow-xl disabled:opacity-50 cursor-pointer transition-all active:scale-[0.98]"
               >
-                {isGenerating ? (
-                  <div className="w-6 h-6 border-3 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <Play className="w-5 h-5 fill-current" />
-                    <span>
-                      {selectedItems.length === 0
-                        ? t('draft.noItemsSelected')
-                        : selectedItems.length === draftItems.length
-                        ? t('draft.generateActiveList')
-                        : `${t('draft.generateActiveList')} (${selectedItems.length})`}
-                    </span>
-                  </>
-                )}
+                <Play className="w-5 h-5 fill-current" />
+                <span>
+                  {selectedItems.length === 0
+                    ? t('draft.noItemsSelected')
+                    : selectedItems.length === draftItems.length
+                    ? t('draft.generateActiveList')
+                    : `${t('draft.generateActiveList')} (${selectedItems.length})`}
+                </span>
               </Button>
             </div>
           </div>
@@ -444,6 +429,14 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
 
       {/* Add Ad-hoc Sheet */}
       <AddAdHocSheet open={isAdHocOpen} onOpenChange={setIsAdHocOpen} />
+
+      {/* Transfer to Active List Dialog */}
+      <TransferToActiveListDialog
+        open={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        selectedItems={selectedItems}
+        onSuccess={handleTransferSuccess}
+      />
 
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog

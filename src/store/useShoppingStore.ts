@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Database, UnitEnum } from '@/types/supabase'
+import type { ShoppingListSummary } from '@/services/shoppingListService'
 
 export type Product = Database['public']['Tables']['products']['Row']
 export type ProductCategory = Database['public']['Tables']['product_categories']['Row']
@@ -58,9 +59,14 @@ interface ShoppingStoreState {
   activeHouseholdId: string | null
   draftsByHousehold: Record<string, DraftItem[]>
   draftItems: DraftItem[]
+  selectedActiveListId: string | null
+  selectedActiveListIdByHousehold: Record<string, string | null>
+  activeListsSummary: ShoppingListSummary[]
   
   // Actions
   setActiveHousehold: (householdId: string | null) => void
+  setSelectedActiveListId: (id: string | null) => void
+  setActiveListsSummary: (lists: ShoppingListSummary[]) => void
   addMealToDraft: (meal: MealWithIngredients, targetKcal?: number) => void
   addAdHocToDraft: (item: {
     name: string
@@ -85,15 +91,37 @@ export const useShoppingStore = create<ShoppingStoreState>()(
       activeHouseholdId: null,
       draftsByHousehold: {},
       draftItems: [],
+      selectedActiveListId: null,
+      selectedActiveListIdByHousehold: {},
+      activeListsSummary: [],
 
       setActiveHousehold: (householdId) => {
         const drafts = get().draftsByHousehold || {}
+        const listIds = get().selectedActiveListIdByHousehold || {}
         const key = householdId || 'default'
         const currentHouseholdItems = drafts[key] || []
+        const currentSelectedListId = listIds[key] || null
         set({
           activeHouseholdId: householdId,
-          draftItems: currentHouseholdItems
+          draftItems: currentHouseholdItems,
+          selectedActiveListId: currentSelectedListId
         })
+      },
+
+      setSelectedActiveListId: (id) => {
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        set({
+          selectedActiveListId: id,
+          selectedActiveListIdByHousehold: {
+            ...state.selectedActiveListIdByHousehold,
+            [key]: id
+          }
+        })
+      },
+
+      setActiveListsSummary: (lists) => {
+        set({ activeListsSummary: lists })
       },
 
       addMealToDraft: (meal, targetKcal) => {

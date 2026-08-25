@@ -45,3 +45,5 @@ Before finalizing any ADR, the agent and contributor must rigorously probe:
 | [ADR-002](../../docs/adr/ADR-002-state-and-realtime-architecture.md) | State Management, Services & Realtime Optimistic UI | Accepted |
 | [ADR-003](../../docs/adr/ADR-003-internationalization-i18n.md) | Internationalization (i18n) Strategy, Codebase English Purity & Multi-Tier Persistence | Accepted |
 | [ADR-004](../../docs/adr/ADR-004-theme-system-and-visual-styling.md) | Theme System, Semantic Design Tokens & Multi-Tier Visual Customization | Accepted |
+| [ADR-005](../../docs/adr/ADR-005-multiple-active-shopping-lists.md) | Multiple Concurrent Active Shopping Lists & Smart Cart Transfer Architecture | Accepted |
+

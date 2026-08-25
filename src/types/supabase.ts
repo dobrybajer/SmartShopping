@@ -319,8 +319,10 @@ export interface Database {
           household_id: string | null
           name: string | null
           status: ListStatusEnum | null
+          is_default: boolean
           target_date: string | null
           created_at: string | null
+          updated_at: string | null
           preset_tags: string[] | null
         }
         Insert: {
@@ -328,8 +330,10 @@ export interface Database {
           household_id?: string | null
           name?: string | null
           status?: ListStatusEnum | null
+          is_default?: boolean
           target_date?: string | null
           created_at?: string | null
+          updated_at?: string | null
           preset_tags?: string[] | null
         }
         Update: {
@@ -337,8 +341,10 @@ export interface Database {
           household_id?: string | null
           name?: string | null
           status?: ListStatusEnum | null
+          is_default?: boolean
           target_date?: string | null
           created_at?: string | null
+          updated_at?: string | null
           preset_tags?: string[] | null
         }
         Relationships: [

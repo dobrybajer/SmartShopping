@@ -91,8 +91,10 @@ CREATE TABLE shopping_lists (
   household_id UUID REFERENCES households(id),
   name TEXT,
   status list_status_enum DEFAULT 'draft',
+  is_default BOOLEAN DEFAULT FALSE,
   target_date DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
   preset_tags TEXT[]
 );
 
@@ -109,14 +111,20 @@ CREATE TABLE shopping_list_items (
 ## 5. Opis Biznesowy Funkcjonalności
 *   **Baza Potraw (CRUD):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw.
 *   **Zarządzanie Makro i Skalowanie:** Produkty definiują makro na 100g/100ml lub 1 sztukę. Przy dodawaniu posiłku użytkownik określa docelową kaloryczność, co automatycznie wylicza mnożnik dla proporcjonalnej ilości składników.
-*   **Cykl Życia Listy i Presety:** 
-    *   `Draft` (Koszyk roboczy, z możliwością całkowitego **wyczyszczenia/opróżnienia** jednym kliknięciem).
-    *   `Active` (Jednorazowa lista z datą. Aktywacja presetu tworzy nową listę `Active`).
-    *   `Archived` (Historia). Elementy, których nie udało się kupić, wpadają do nowego `Draftu`.
-*   **Agregacja i Układ Sklepowy:** Frontend sumuje takie same produkty ze wszystkich potraw (np. pomidor do śniadania i kolacji to jedna pozycja). Na widoku listy `Active`, produkty są obligatoryjnie grupowane i sortowane według `product_categories.sort_order`, co odzwierciedla fizyczny układ alejek sklepowych.
+*   **Wiele Aktywnych List Zakupowych i Elastyczny Transfer z Koszyka (ADR-005):**
+    *   Gospodarstwo domowe może posiadać jednocześnie wiele aktywnych list zakupowych (np. *"Bieżące spożywcze"*, *"Dom / Majsterkowanie"*, *"Apteka"*).
+    *   W Koszyku (Draft) użytkownik może przenieść zaznaczone pozycje do istniejącej aktywnej listy (z automatycznym sumowaniem ilości i resetem stanu odhaczenia) LUB utworzyć zupełnie nową aktywną listę bez archiwizowania pozostałych.
+    *   Na ekranie Aktywnej Listy użytkownik błyskawicznie przełącza się między listami za pomocą horyzontalnych pigułek/chipsów z licznikami nieodhaczonych pozycji (Mobile PWA) lub Segmented Tabs (Desktop).
+    *   Możliwość oznaczania listy domyślnej, zmiany nazwy, archiwizacji pojedynczej listy oraz usuwania. Zobacz [ADR-005: Multiple Active Shopping Lists Architecture](./adr/ADR-005-multiple-active-shopping-lists.md).
+*   **Cykl Życia Listy i Historia:** 
+    *   `Draft` (Koszyk roboczy, z możliwością całkowitego **wyczyszczenia/opróżnienia** jednym kliknięciem lub selektywnego transferu).
+    *   `Active` (Równorzędne aktywne listy gospodarstwa domowego z licznikami nieodhaczonych pozycji i synchronizacją Realtime).
+    *   `Archived` (Historia). Elementy, których nie udało się kupić na pojedynczej zarchiwizowanej liście, mogą pozostać w historii lub opcjonalnie wrócić do nowego Draftu.
+*   **Agregacja i Układ Sklepowy:** Frontend sumuje takie same produkty ze wszystkich potraw (np. pomidor do śniadania i kolacji to jedna pozycja). Na widoku wybranej listy `Active`, produkty są obligatoryjnie grupowane i sortowane według `product_categories.sort_order`, co odzwierciedla fizyczny układ alejek sklepowych.
 *   **Produkty Ad-hoc:** Możliwość szybkiego wrzucenia na listę produktów spoza przepisów (np. chemia domowa, wpisy z palca bez bazy makro).
-*   **Realtime Sync (Współdzielenie):** Odsłuch WebSocket na tabeli `shopping_list_items`. Odhaczenie produktu natychmiast synchronizuje stan na urządzeniach innych domowników (household).
+*   **Realtime Sync (Współdzielenie):** Odsłuch WebSocket na tabeli `shopping_list_items` i `shopping_lists`. Odhaczenie produktu lub zmiana listy natychmiast synchronizuje stan na urządzeniach innych domowników (household).
 *   **Eksport na e-mail:** Możliwość wygenerowania i wysłania aktywnej/zarchwizowanej listy zakupowej na połączony z kontem adres Gmail.
+
 
 ## 6. PWA, UX & Interfejs (Dual Layout)
 *   **Równorzędny Dual Layout (Mobile PWA & Desktop):** 

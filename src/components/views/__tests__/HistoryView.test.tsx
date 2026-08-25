@@ -18,8 +18,10 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     household_id: 'household-123',
     name: 'Zakupy Weekendowe',
     status: 'archived',
+    is_default: false,
     target_date: '2026-08-25',
     created_at: '2026-08-25T14:30:00Z',
+    updated_at: '2026-08-25T14:30:00Z',
     preset_tags: null,
     items: [
       { id: 'item-1', is_checked: true },
@@ -31,8 +33,10 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     household_id: 'household-123',
     name: null,
     status: 'archived',
+    is_default: false,
     target_date: '2026-08-20',
     created_at: '2026-08-20T09:15:00Z',
+    updated_at: '2026-08-20T09:15:00Z',
     preset_tags: null,
     items: [
       { id: 'item-3', is_checked: true },
@@ -44,8 +48,10 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     household_id: 'household-123',
     name: 'Niekupione Zakupy',
     status: 'archived',
+    is_default: false,
     target_date: '2026-08-18',
     created_at: '2026-08-18T16:00:00Z',
+    updated_at: '2026-08-18T16:00:00Z',
     preset_tags: null,
     items: [
       { id: 'item-5', is_checked: false },

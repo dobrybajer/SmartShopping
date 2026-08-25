@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { vi } from 'vitest';
 
 // Mock window.matchMedia for responsive layout tests
 Object.defineProperty(window, 'matchMedia', {
@@ -20,3 +21,18 @@ Object.defineProperty(navigator, 'vibrate', {
   writable: true,
   value: () => true,
 });
+
+// Mock ResizeObserver for Radix UI dialogs/sheets in jsdom
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+window.ResizeObserver = MockResizeObserver;
+globalThis.ResizeObserver = MockResizeObserver;
+
+// Global mock for realtime hook to prevent hanging WebSocket intervals in tests
+vi.mock('@/hooks/useActiveListRealtime', () => ({
+  useActiveListRealtime: vi.fn(),
+}));

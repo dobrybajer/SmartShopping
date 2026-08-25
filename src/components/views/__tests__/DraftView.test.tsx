@@ -12,6 +12,11 @@ vi.mock('@/context/AuthContext', () => ({
   })
 }))
 
+const mockGetActiveListsSummary = vi.spyOn(
+  shoppingListService,
+  'getActiveListsSummary'
+).mockResolvedValue([])
+
 const mockCreateActiveListFromDraft = vi.spyOn(
   shoppingListService,
   'createActiveListFromDraft'
@@ -20,13 +25,14 @@ const mockCreateActiveListFromDraft = vi.spyOn(
   household_id: 'household-123',
   name: 'Aktywna Lista',
   status: 'active',
+  is_default: true,
   target_date: '2026-08-25',
   created_at: '2026-08-25T20:00:00Z',
   updated_at: '2026-08-25T20:00:00Z',
   items: []
 } as any)
 
-describe('DraftView - Selective Item Checkout User Flows', () => {
+describe('DraftView - Selective Item Checkout & Multi-List Transfer Flows', () => {
   const sampleItems: DraftItem[] = [
     {
       id: 'draft-1',
@@ -58,13 +64,14 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
       draftItems: sampleItems
     })
     vi.clearAllMocks()
+    mockGetActiveListsSummary.mockResolvedValue([])
   })
 
   it('Flow 01: renders all items in draft, all selected by default', () => {
     render(<DraftView />)
 
-    expect(screen.getByText('Mleko 3.2%')).toBeInTheDocument();
-    expect(screen.getByText('Chleb Żytni')).toBeInTheDocument();
+    expect(screen.getByText('Mleko 3.2%')).toBeInTheDocument()
+    expect(screen.getByText('Chleb Żytni')).toBeInTheDocument()
 
     // Checkboxes should all be in checked state
     const checkboxes = screen.getAllByRole('checkbox')
@@ -77,11 +84,11 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
     })
 
     // Active list button should be enabled
-    const generateBtn = screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów/i })
+    const generateBtn = screen.getByRole('button', { name: /Przenieś do Listy Zakupów/i })
     expect(generateBtn).toBeEnabled()
   })
 
-  it('Flow 02: unchecking a single item updates selected count and keeps item in draft on creation', async () => {
+  it('Flow 02: unchecking a single item updates selected count and opens transfer sheet with remaining item in draft', async () => {
     render(<DraftView />)
 
     const itemCheckboxes = screen.getAllByRole('checkbox')
@@ -91,15 +98,20 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
     expect(itemCheckboxes[2]).toHaveAttribute('data-state', 'unchecked')
     expect(screen.getByText('1 z 2 zaznaczonych')).toBeInTheDocument()
 
-    // Click generate active list
-    const generateBtn = screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów/i })
-    fireEvent.click(generateBtn)
+    // Click transfer CTA to open sheet
+    const transferBtn = screen.getByRole('button', { name: /Przenieś do Listy Zakupów/i })
+    fireEvent.click(transferBtn)
+
+    // In sheet, click confirm creation
+    const confirmBtn = await screen.findByRole('button', { name: /Utwórz Listę/i })
+    fireEvent.click(confirmBtn)
 
     await waitFor(() => {
       expect(mockCreateActiveListFromDraft).toHaveBeenCalledWith(
         'household-123',
         expect.any(String),
-        [expect.objectContaining({ id: 'draft-1', name: 'Mleko 3.2%' })]
+        [expect.objectContaining({ id: 'draft-1', name: 'Mleko 3.2%' })],
+        false
       )
     })
 
@@ -109,7 +121,7 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
     expect(remainingInStore[0].id).toBe('draft-2')
   })
 
-  it('Flow 03: Deselect all unchecks all items and disables generate CTA; Select all re-checks all', () => {
+  it('Flow 03: Deselect all unchecks all items and disables transfer CTA; Select all re-checks all', () => {
     render(<DraftView />)
 
     // Header button is "Odznacz wszystkie" when all are selected
@@ -123,8 +135,8 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
 
     // CTA button becomes disabled with noItemsSelected prompt
     expect(screen.getByText('Wybierz co najmniej 1 pozycję')).toBeInTheDocument()
-    const generateBtn = screen.getByRole('button', { name: /Wybierz co najmniej 1 pozycję/i })
-    expect(generateBtn).toBeDisabled()
+    const transferBtn = screen.getByRole('button', { name: /Wybierz co najmniej 1 pozycję/i })
+    expect(transferBtn).toBeDisabled()
 
     // Now header button says "Zaznacz wszystkie"
     const selectAllBtn = screen.getByText('Zaznacz wszystkie')
@@ -133,6 +145,6 @@ describe('DraftView - Selective Item Checkout User Flows', () => {
     // All items checked again
     expect(checkboxes[1]).toHaveAttribute('data-state', 'checked')
     expect(checkboxes[2]).toHaveAttribute('data-state', 'checked')
-    expect(screen.getByRole('button', { name: /Utwórz Aktywną Listę Zakupów/i })).toBeEnabled()
+    expect(screen.getByRole('button', { name: /Przenieś do Listy Zakupów/i })).toBeEnabled()
   })
 })

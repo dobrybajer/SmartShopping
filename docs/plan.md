@@ -97,6 +97,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * [ADR-002: State & Realtime Optimistic UI](./adr/ADR-002-state-and-realtime-architecture.md)
    * [ADR-003: Internationalization (i18n) Strategy](./adr/ADR-003-internationalization-i18n.md)
    * [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md)
+   * [ADR-005: Multiple Concurrent Active Shopping Lists & Smart Cart Transfer](./adr/ADR-005-multiple-active-shopping-lists.md)
 3. **Automatyczne Testy Jednostkowe & User Flow:**
    * Konfiguracja Vitest + React Testing Library (`jsdom`).
    * Testy czystych kalkulacji (`src/lib/calculations/__tests__/`).
@@ -137,4 +138,26 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Refaktoryzacja klas Tailwind w komponentach ze sztywnych `zinc-*` / `emerald-*` na semantyczne tokeny (`bg-background`, `bg-card`, `border-border`, `bg-primary`, `text-primary`).
 4. **Testy i Weryfikacja:**
    * Testy jednostkowe walidatora motywów i tokenów (`src/theme/__tests__/theme.test.ts`).
-   * Testy integracyjne RTL dla Desktop i Mobile PWA (`AccountDetailsTheme.test.tsx`).
+   * Testy integracyjne RTL dla Desktop i Mobile PWA (`AccountDetailsTheme.test.tsx`).
+
+## Faza 10: Wielolistowość i Elastyczny Transfer z Koszyka (Zaplanowana / Do Wdrożenia)
+**Cel:** Wsparcie wielu równorzędnych aktywnych list zakupowych (np. spożywcze vs dom), inteligentny transfer z koszyka oraz szybkie przełączanie. Zobacz [ADR-005](./adr/ADR-005-multiple-active-shopping-lists.md).
+
+1. **Baza Danych & Schemat:**
+   * Migracja PostgreSQL: dodanie kolumn `is_default BOOLEAN DEFAULT FALSE` i `updated_at TIMESTAMPTZ DEFAULT NOW()` do `shopping_lists`.
+   * Indeksy wydajnościowe: `idx_shopping_lists_household_status` i `idx_shopping_list_items_list_checked`.
+   * Backfill: oznaczenie istniejących aktywnych list jako `is_default = TRUE`.
+2. **Warstwa Kalkulacji & Serwisów:**
+   * Czysta funkcja agregacji i scalania `mergeDraftItemsIntoActiveList` z sumowaniem ilości i resetem `is_checked = false`.
+   * Rozbudowa `shoppingListService` o `getActiveListsSummary`, `addItemsToActiveList`, `setDefaultActiveList`, `deleteShoppingList` bez mimowolnej archiwizacji.
+3. **Zarządzanie Stanem (Zustand):**
+   * Rozszerzenie `useShoppingStore` o `selectedActiveListId`, `activeListsSummary` z synchronizacją `localStorage`.
+   * Podpięcie odsłuchu Realtime na poziomie gospodarstwa domowego.
+4. **Komponenty i Dual Layout:**
+   * Komponent modalu transferu: `TransferToActiveListSheet` (Mobile) oraz `TransferToActiveListDialog` (Desktop).
+   * Nawigacja i przełączanie: poziome chipsy z badge'ami nieodhaczonych pozycji na Mobile (`ActiveListView`) oraz Segmented Tabs na Desktopie (`DesktopActiveListView`).
+   * Zarządzanie listami: tworzenie nowej listy z palca, zmiana nazwy, oznaczanie jako domyślna, archiwizacja pojedynczej listy, usuwanie.
+5. **Testy i Weryfikacja Jakości:**
+   * Testy jednostkowe czystych funkcji kalkulacji i scalania (`mergeDraftItems.test.ts`).
+   * Testy User Flow w Vitest i React Testing Library dla modalu transferu i przełączania list.
+
