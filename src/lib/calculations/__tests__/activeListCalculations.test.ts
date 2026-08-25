@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   sortActiveLists,
   calculateActiveListMetrics,
-  findDefaultOrFirstListId
+  findDefaultOrFirstListId,
+  findTargetTransferListId
 } from '../activeListCalculations'
 import type { ShoppingListSummary } from '@/services/shoppingListService'
 
@@ -137,6 +138,107 @@ describe('activeListCalculations', () => {
 
     it('returns null for empty lists', () => {
       expect(findDefaultOrFirstListId([])).toBeNull()
+    })
+  })
+
+  describe('findTargetTransferListId - Transfer Priority (Default > Last Selected > First)', () => {
+    it('priority 1: selects default list even if another list was actively selected', () => {
+      const lists: ShoppingListSummary[] = [
+        {
+          id: 'list-selected',
+          household_id: 'h1',
+          name: 'Last Viewed List',
+          status: 'active',
+          is_default: false,
+          target_date: null,
+          created_at: '2026-08-20T10:00:00Z',
+          updated_at: '2026-08-25T10:00:00Z',
+          total_items: 2,
+          unchecked_items: 2
+        },
+        {
+          id: 'list-default',
+          household_id: 'h1',
+          name: 'Default Groceries',
+          status: 'active',
+          is_default: true,
+          target_date: null,
+          created_at: '2026-08-10T10:00:00Z',
+          updated_at: '2026-08-10T10:00:00Z',
+          total_items: 5,
+          unchecked_items: 3
+        }
+      ]
+
+      // Even though 'list-selected' is passed as selectedActiveListId, default list must win
+      expect(findTargetTransferListId(lists, 'list-selected')).toBe('list-default')
+    })
+
+    it('priority 2: selects last selected list if no default list exists', () => {
+      const lists: ShoppingListSummary[] = [
+        {
+          id: 'list-1',
+          household_id: 'h1',
+          name: 'List 1',
+          status: 'active',
+          is_default: false,
+          target_date: null,
+          created_at: '2026-08-20T10:00:00Z',
+          updated_at: '2026-08-20T10:00:00Z',
+          total_items: 0,
+          unchecked_items: 0
+        },
+        {
+          id: 'list-selected',
+          household_id: 'h1',
+          name: 'List Selected',
+          status: 'active',
+          is_default: false,
+          target_date: null,
+          created_at: '2026-08-22T10:00:00Z',
+          updated_at: '2026-08-22T10:00:00Z',
+          total_items: 0,
+          unchecked_items: 0
+        }
+      ]
+
+      expect(findTargetTransferListId(lists, 'list-selected')).toBe('list-selected')
+    })
+
+    it('priority 3: selects first list if no default exists and selected id is null or not found', () => {
+      const lists: ShoppingListSummary[] = [
+        {
+          id: 'list-recent',
+          household_id: 'h1',
+          name: 'Recent List',
+          status: 'active',
+          is_default: false,
+          target_date: null,
+          created_at: '2026-08-20T10:00:00Z',
+          updated_at: '2026-08-26T10:00:00Z',
+          total_items: 0,
+          unchecked_items: 0
+        },
+        {
+          id: 'list-old',
+          household_id: 'h1',
+          name: 'Old List',
+          status: 'active',
+          is_default: false,
+          target_date: null,
+          created_at: '2026-08-10T10:00:00Z',
+          updated_at: '2026-08-10T10:00:00Z',
+          total_items: 0,
+          unchecked_items: 0
+        }
+      ]
+
+      expect(findTargetTransferListId(lists, null)).toBe('list-recent')
+      expect(findTargetTransferListId(lists, 'non-existing-id')).toBe('list-recent')
+    })
+
+    it('returns null for empty lists', () => {
+      expect(findTargetTransferListId([], 'list-1')).toBeNull()
     })
   })
 })

@@ -525,9 +525,14 @@ export const DesktopActiveListView: React.FC = () => {
           <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
         </div>
       ) : activeList.items.length === 0 ? (
-        <div className="py-16 px-4 bg-card/60 border border-dashed border-border rounded-2xl text-center flex flex-col items-center">
-          <p className="text-sm font-semibold text-muted-foreground">{t('activeList.emptyTitle')}</p>
-          <p className="text-xs text-muted-foreground mt-1">{t('activeList.emptySubtitle')}</p>
+        <div className="py-16 px-6 bg-card/60 border border-dashed border-border rounded-3xl text-center flex flex-col items-center justify-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-muted/80 border border-border flex items-center justify-center text-muted-foreground mb-3">
+            <Package className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">{t('activeList.emptyTitle')}</h3>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
+            {t('activeList.emptySubtitle')}
+          </p>
         </div>
       ) : (
         /* Multi-Column Category Groups */

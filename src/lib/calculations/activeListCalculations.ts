@@ -65,3 +65,31 @@ export function findDefaultOrFirstListId(lists: ShoppingListSummary[]): string |
   const sorted = sortActiveLists(lists)
   return sorted[0]?.id || null
 }
+
+/**
+ * Determines the target list ID for cart transfer.
+ * Priority:
+ * 1. Default active list (if any list is marked as is_default = true)
+ * 2. Last selected active list from store (if valid and present in lists)
+ * 3. First list in the sorted lists array
+ */
+export function findTargetTransferListId(
+  lists: ShoppingListSummary[],
+  selectedActiveListId?: string | null
+): string | null {
+  if (!lists || lists.length === 0) return null
+
+  // 1. Any list marked as default has top priority
+  const defaultList = lists.find((l) => l.is_default)
+  if (defaultList) return defaultList.id
+
+  // 2. If no default exists, check last selected active list
+  if (selectedActiveListId) {
+    const selected = lists.find((l) => l.id === selectedActiveListId)
+    if (selected) return selected.id
+  }
+
+  // 3. Fallback to first available list in sorted order
+  const sorted = sortActiveLists(lists)
+  return sorted[0]?.id || null
+}

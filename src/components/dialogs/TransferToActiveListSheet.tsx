@@ -28,7 +28,10 @@ import {
   type ShoppingListSummary
 } from '@/services/shoppingListService'
 import { formatDate } from '@/lib/utils'
-import { sortActiveLists } from '@/lib/calculations/activeListCalculations'
+import {
+  sortActiveLists,
+  findTargetTransferListId
+} from '@/lib/calculations/activeListCalculations'
 
 interface TransferToActiveListSheetProps {
   open: boolean
@@ -54,11 +57,13 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
   const [isDefault, setIsDefault] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const householdId = household?.id
+
   useEffect(() => {
-    if (!open || !household) return
+    if (!open || !householdId) return
 
     let isMounted = true
-    shoppingListService.getActiveListsSummary(household.id).then((lists) => {
+    shoppingListService.getActiveListsSummary(householdId).then((lists) => {
       if (!isMounted) return
       const sorted = sortActiveLists(lists)
       setActiveLists(sorted)
@@ -67,11 +72,10 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
         setMode('new')
         setNewListName(`${t('activeList.title')} ${formatDate(new Date())}`)
       } else {
-        const preselected =
-          sorted.find((l) => l.id === selectedActiveListId) ||
-          sorted.find((l) => l.is_default) ||
-          sorted[0]
-        setTargetListId(preselected.id)
+        const targetId = findTargetTransferListId(sorted, selectedActiveListId)
+        if (targetId) {
+          setTargetListId(targetId)
+        }
         setMode('existing')
         setNewListName(`${t('activeList.title')} ${formatDate(new Date())}`)
       }
@@ -80,7 +84,7 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
     return () => {
       isMounted = false
     }
-  }, [open, household?.id])
+  }, [open, householdId, selectedActiveListId, t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -99,13 +103,6 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
 
         if (created) {
           setSelectedActiveListId(created.id)
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            try {
-              navigator.vibrate([40, 60, 40])
-            } catch {
-              // Ignore
-            }
-          }
           onSuccess(created.id)
           onOpenChange(false)
         }
@@ -119,13 +116,6 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
 
         if (updated) {
           setSelectedActiveListId(updated.id)
-          if (typeof navigator !== 'undefined' && navigator.vibrate) {
-            try {
-              navigator.vibrate([40, 60, 40])
-            } catch {
-              // Ignore
-            }
-          }
           onSuccess(updated.id)
           onOpenChange(false)
         }
@@ -143,14 +133,14 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="bg-card border-border text-foreground rounded-t-3xl max-h-[85vh] overflow-y-auto px-5 py-6 flex flex-col gap-5"
+        className="bg-card border-t border-border text-foreground rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto custom-scrollbar max-w-lg mx-auto"
       >
-        <SheetHeader className="text-left space-y-1">
+        <SheetHeader className="text-left space-y-1.5 pb-2 min-w-0">
           <div className="flex items-center gap-2 text-primary font-semibold text-xs tracking-wider uppercase">
-            <ShoppingBag className="w-4 h-4" />
-            <span>{t('draft.transferToActive')}</span>
+            <ShoppingBag className="w-4 h-4 shrink-0" />
+            <span className="truncate">{t('draft.transferToActive')}</span>
           </div>
-          <SheetTitle className="text-lg font-bold text-foreground">
+          <SheetTitle className="text-lg font-bold text-foreground truncate">
             {t('draft.transferAction', { count: selectedItems.length })}
           </SheetTitle>
           <SheetDescription className="text-xs text-muted-foreground">
@@ -158,47 +148,47 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-w-0">
           {/* Mode Switcher Tabs */}
           {activeLists.length > 0 && (
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted rounded-xl border border-border">
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted rounded-xl border border-border min-w-0">
               <button
                 type="button"
                 onClick={() => setMode('existing')}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-w-0 ${
                   mode === 'existing'
-                    ? 'bg-card text-foreground shadow-sm'
+                    ? 'bg-card text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <ListOrdered className="w-3.5 h-3.5" />
-                <span>{t('draft.addToExisting')}</span>
+                <ListOrdered className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{t('draft.addToExisting')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setMode('new')}
-                className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-w-0 ${
                   mode === 'new'
-                    ? 'bg-card text-foreground shadow-sm'
+                    ? 'bg-card text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{t('draft.createNewList')}</span>
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{t('draft.createNewList')}</span>
               </button>
             </div>
           )}
 
           {/* Existing List Selection */}
           {mode === 'existing' && activeLists.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {t('draft.selectTargetList')}
               </Label>
               <RadioGroup
                 value={targetListId}
                 onValueChange={setTargetListId}
-                className="space-y-2 max-h-48 overflow-y-auto pr-1"
+                className="space-y-2 max-h-48 overflow-y-auto pr-1.5 custom-scrollbar"
               >
                 {activeLists.map((list) => {
                   const isChecked = targetListId === list.id
@@ -206,29 +196,29 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
                     <label
                       key={list.id}
                       htmlFor={`list-option-${list.id}`}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer gap-3 min-w-0 ${
                         isChecked
                           ? 'border-primary bg-primary/10 text-foreground'
                           : 'border-border bg-background hover:bg-muted text-muted-foreground'
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <RadioGroupItem
                           value={list.id}
                           id={`list-option-${list.id}`}
                           className="border-border text-primary shrink-0"
                         />
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-semibold text-foreground">
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-sm font-semibold text-foreground truncate">
                               {list.name}
                             </span>
                             {list.is_default && (
                               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
                             )}
                           </div>
-                          <span className="text-[11px] text-muted-foreground">
-                            {list.unchecked_items} {t('activeList.itemsLeft.other', { count: list.unchecked_items })}
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {t('activeList.itemsLeft', { count: list.unchecked_items })}
                           </span>
                         </div>
                       </div>
@@ -248,8 +238,8 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
 
           {/* New List Form */}
           {mode === 'new' && (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
+            <div className="space-y-3 min-w-0">
+              <div className="space-y-1.5 min-w-0">
                 <Label htmlFor="new-list-name" className="text-xs font-semibold text-foreground">
                   {t('draft.newListName')}
                 </Label>
@@ -282,27 +272,29 @@ export const TransferToActiveListSheet: React.FC<TransferToActiveListSheetProps>
           )}
 
           {/* Items Summary Pill */}
-          <div className="p-3 bg-muted/60 rounded-xl border border-border/80 flex items-center justify-between text-xs">
+          <div className="p-3 bg-muted/60 rounded-xl border border-border/80 flex items-center justify-between text-xs min-w-0">
             <span className="text-muted-foreground">{t('draft.selectedItems')}:</span>
             <span className="font-semibold text-foreground">
               {formatQuantity(selectedItems.length, 'pcs')}
             </span>
           </div>
 
-          <SheetFooter className="mt-2 flex flex-col gap-2 sm:space-x-0">
+          <SheetFooter className="mt-2 flex flex-col gap-2 sm:space-x-0 w-full min-w-0">
             <Button
               type="submit"
               disabled={isSubmitting || (mode === 'existing' && !targetListId) || (mode === 'new' && !newListName.trim())}
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer"
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer min-w-0"
             >
               {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin shrink-0" />
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">
                     {mode === 'existing'
-                      ? `${t('common.confirm')} (${selectedListObj?.name || ''})`
+                      ? selectedListObj?.name
+                        ? `${t('common.confirm')} (${selectedListObj.name})`
+                        : t('common.confirm')
                       : `${t('activeList.createList')} (${selectedItems.length})`}
                   </span>
                 </>
