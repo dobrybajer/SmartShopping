@@ -8,11 +8,20 @@ import { AppLayoutRouter } from '@/components/layout/AppLayoutRouter'
 export default function App() {
   const { user, loading, household } = useAuth()
   const { setActiveHousehold } = useShoppingStore()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
 
   useEffect(() => {
     setActiveHousehold(household?.id ?? null)
   }, [household?.id, setActiveHousehold])
+
+  useEffect(() => {
+    document.title = t('meta.title')
+    document.documentElement.lang = language
+    const metaDescription = document.querySelector('meta[name="description"]')
+    if (metaDescription) {
+      metaDescription.setAttribute('content', t('meta.description'))
+    }
+  }, [language, t])
 
   if (loading) {
     return (

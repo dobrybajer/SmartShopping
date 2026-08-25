@@ -384,4 +384,8 @@ export const pl: TranslationSchema = {
     listArchived: 'Lista zakupowa została zarchiwizowana.',
     draftCleared: 'Koszyk roboczy został wyczyszczony.',
   },
+  meta: {
+    title: 'Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe',
+    description: 'Inteligentna aplikacja do przeliczania makroskładników, skalowania posiłków i błyskawicznego odhaczania wspólnych zakupów w czasie rzeczywistym.',
+  },
 }

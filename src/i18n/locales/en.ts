@@ -376,4 +376,8 @@ export const en = {
     listArchived: 'Shopping list archived.',
     draftCleared: 'Draft list cleared.',
   },
+  meta: {
+    title: 'Smart Shopping - Meal Planning & Shared Grocery Lists',
+    description: 'Smart household meal planning, macro tracking, and real-time synchronized grocery shopping.',
+  },
 }

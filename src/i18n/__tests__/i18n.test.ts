@@ -189,4 +189,22 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
 
     expect(result.current.t).not.toBe(initialT)
   })
+
+  it('should provide dynamic localized document meta title and description', () => {
+    const { result } = renderHook(() => useTranslation())
+
+    expect(result.current.t('meta.title')).toBe(
+      'Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe'
+    )
+    expect(result.current.t('meta.description')).toContain('Inteligentna aplikacja')
+
+    act(() => {
+      result.current.setLanguage('en')
+    })
+
+    expect(result.current.t('meta.title')).toBe(
+      'Smart Shopping - Meal Planning & Shared Grocery Lists'
+    )
+    expect(result.current.t('meta.description')).toContain('Smart household meal planning')
+  })
 })

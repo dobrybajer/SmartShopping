@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pl" class="bg-background">
+<html lang="en" class="bg-background">
 
 <head>
   <meta charset="UTF-8" />
@@ -15,10 +15,10 @@
   <link rel="apple-touch-icon" href="/icon-192.png" />
 
   <!-- SEO Meta Tags -->
-  <title>Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe</title>
+  <title>Smart Shopping - Meal Planning & Shared Grocery Lists</title>
   <meta name="description"
-    content="Inteligentna aplikacja do przeliczania makroskładników, skalowania posiłków i błyskawicznego odhaczania wspólnych zakupów w czasie rzeczywistym." />
-  <!-- Anti-FOUC Theme Pre-Hydration Script -->
+    content="Smart household meal planning, macro tracking, and real-time synchronized grocery shopping." />
+  <!-- Anti-FOUC Theme & Locale Pre-Hydration Script -->
   <script>
     (function() {
       try {
@@ -28,6 +28,14 @@
           savedTheme = 'oled-black';
         }
         document.documentElement.setAttribute('data-theme', savedTheme);
+
+        var savedLang = localStorage.getItem('smartshopping_language') || (navigator.language && navigator.language.toLowerCase().startsWith('pl') ? 'pl' : 'en');
+        document.documentElement.setAttribute('lang', savedLang);
+        if (savedLang === 'pl') {
+          document.title = 'Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe';
+        } else {
+          document.title = 'Smart Shopping - Meal Planning & Shared Grocery Lists';
+        }
       } catch (e) {
         document.documentElement.setAttribute('data-theme', 'oled-black');
       }

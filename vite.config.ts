@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: "Smart Shopping",
         short_name: "Smart Shopping",
-        description: "Inteligentne planowanie posiłków i wspólne listy zakupowe w czasie rzeczywistym",
+        description: "Smart household meal planning, macro tracking, and real-time synchronized grocery shopping",
         theme_color: "#000000",
         background_color: "#000000",
         display: "standalone",
