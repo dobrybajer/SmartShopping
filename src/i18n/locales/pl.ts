@@ -92,6 +92,11 @@ export const pl: TranslationSchema = {
     fromMeal: 'Z przepisu',
     readyBadge: 'Gotowa',
     swipeToDeleteHint: 'Przesuń w lewo, aby usunąć',
+    selectAll: 'Zaznacz wszystkie',
+    deselectAll: 'Odznacz wszystkie',
+    selectedItems: 'Zaznaczone pozycje',
+    selectedCount: '{selected} z {total} zaznaczonych',
+    noItemsSelected: 'Wybierz co najmniej 1 pozycję',
   },
   activeList: {
     title: 'Aktywna Lista Zakupów',

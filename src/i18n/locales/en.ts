@@ -90,6 +90,11 @@ export const en = {
     fromMeal: 'From meal',
     readyBadge: 'Ready',
     swipeToDeleteHint: 'Swipe left to remove item',
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    selectedItems: 'Selected items',
+    selectedCount: '{selected} of {total} selected',
+    noItemsSelected: 'Select at least 1 item',
   },
   activeList: {
     title: 'Active Shopping List',

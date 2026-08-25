@@ -4,12 +4,13 @@ import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import { SwipeToDismiss } from '@/components/ui/SwipeToDismiss'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { Trash2, Play, Plus, Minus, ShoppingBag } from 'lucide-react'
-import { getNextQuantity } from '@/lib/utils'
+import { cn, getNextQuantity } from '@/lib/utils'
 
 interface DraftViewProps {
   onActiveListCreated?: () => void
@@ -17,14 +18,45 @@ interface DraftViewProps {
 
 export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => {
   const { household } = useAuth()
-  const { draftItems, removeFromDraft, updateDraftQuantity, clearDraft } = useShoppingStore()
+  const {
+    draftItems,
+    removeFromDraft,
+    removeMultipleFromDraft,
+    updateDraftQuantity,
+    clearDraft
+  } = useShoppingStore()
   const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
+  const [unselectedIds, setUnselectedIds] = useState<Set<string>>(new Set())
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<DraftItem | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+
+  const selectedItems = draftItems.filter((i) => !unselectedIds.has(i.id))
+  const allSelected = draftItems.length > 0 && selectedItems.length === draftItems.length
+  const noneSelected = selectedItems.length === 0
+
+  const toggleItemSelection = (id: string) => {
+    setUnselectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setUnselectedIds(new Set(draftItems.map((i) => i.id)))
+    } else {
+      setUnselectedIds(new Set())
+    }
+  }
 
   const handleIncrease = (item: DraftItem) => {
     const newQty = getNextQuantity(item.quantity, item.unit_type, 'increase')
@@ -70,13 +102,13 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
   }
 
   const handleGenerateActiveList = async () => {
-    if (!household || draftItems.length === 0) return
+    if (!household || selectedItems.length === 0) return
     setIsGenerating(true)
 
     const newList = await shoppingListService.createActiveListFromDraft(
       household.id,
       `${t('activeList.title')} ${formatDate(new Date())}`,
-      draftItems
+      selectedItems
     )
 
     setIsGenerating(false)
@@ -90,7 +122,13 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         }
       }
 
-      clearDraft()
+      if (selectedItems.length === draftItems.length) {
+        clearDraft()
+      } else {
+        removeMultipleFromDraft(selectedItems.map((i) => i.id))
+      }
+      setUnselectedIds(new Set())
+
       if (onActiveListCreated) {
         onActiveListCreated()
       }
@@ -149,101 +187,157 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold px-1">
-            {t('draft.swipeToDeleteHint')}
-          </p>
+          {/* Select All & Swipe Hint Header */}
+          <div className="flex items-center justify-between px-1">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={handleToggleSelectAll}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleToggleSelectAll()
+                }
+              }}
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground font-semibold transition-colors cursor-pointer py-1 px-1 rounded-md hover:bg-muted/40 select-none"
+            >
+              <Checkbox
+                checked={allSelected ? true : noneSelected ? false : 'indeterminate'}
+                onCheckedChange={handleToggleSelectAll}
+                enableHaptics
+                className="w-4 h-4 rounded pointer-events-none"
+              />
+              <span>
+                {allSelected ? t('draft.deselectAll') : t('draft.selectAll')}
+              </span>
+            </div>
 
-          {draftItems.map((item) => (
-            <SwipeToDismiss key={item.id} onDismiss={() => removeFromDraft(item.id)}>
-              <div className="p-3.5 flex items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm text-foreground">{item.name}</span>
-                    {item.is_ad_hoc ? (
-                      <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
-                        {t('draft.adHocItem')}
-                      </Badge>
-                    ) : item.meal_source ? (
-                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-muted-foreground">
-                        {item.meal_source}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{getCategoryLabel(item.category_name)}</p>
-                </div>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {t('draft.selectedCount', {
+                selected: selectedItems.length,
+                total: draftItems.length
+              })}
+            </span>
+          </div>
 
+          {draftItems.map((item) => {
+            const isSelected = !unselectedIds.has(item.id)
+
+            return (
+              <SwipeToDismiss key={item.id} onDismiss={() => removeFromDraft(item.id)}>
                 <div
-                  className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={() => toggleItemSelection(item.id)}
+                  className={cn(
+                    "p-3.5 flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.99]",
+                    !isSelected && "opacity-50 bg-card/40"
+                  )}
                 >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDecrease(item)
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
-                    title={t('common.decrease')}
-                    aria-label={t('common.decrease')}
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-
-                  {editingId === item.id ? (
-                    <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        autoFocus
-                        value={editValue}
-                        onChange={(e) => handleInputChange(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            handleCommitEdit(item.id)
-                          } else if (e.key === 'Escape') {
-                            setEditingId(null)
-                            setEditValue('')
-                          }
-                        }}
-                        onBlur={() => handleCommitEdit(item.id)}
-                        className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleItemSelection(item.id)}
+                        enableHaptics
                       />
-                      <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
-                        {formatUnit(item.unit_type)}
-                      </span>
                     </div>
-                  ) : (
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={cn(
+                            "font-semibold text-sm transition-colors",
+                            isSelected ? "text-foreground" : "text-muted-foreground line-through decoration-border"
+                          )}
+                        >
+                          {item.name}
+                        </span>
+                        {item.is_ad_hoc ? (
+                          <Badge variant="destructive" className="text-[9px] px-1.5 py-0">
+                            {t('draft.adHocItem')}
+                          </Badge>
+                        ) : item.meal_source ? (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 text-muted-foreground">
+                            {item.meal_source}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{getCategoryLabel(item.category_name)}</p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        startEditing(item.id, item.quantity)
+                        handleDecrease(item)
                       }}
-                      className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-primary hover:bg-muted rounded transition-colors cursor-text select-none"
-                      title={t('common.edit')}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
+                      title={t('common.decrease')}
+                      aria-label={t('common.decrease')}
                     >
-                      {formatQuantity(item.quantity, item.unit_type)}
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                  )}
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleIncrease(item)
-                    }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
-                    title={t('common.increase')}
-                    aria-label={t('common.increase')}
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                    {editingId === item.id ? (
+                      <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => handleInputChange(e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleCommitEdit(item.id)
+                            } else if (e.key === 'Escape') {
+                              setEditingId(null)
+                              setEditValue('')
+                            }
+                          }}
+                          onBlur={() => handleCommitEdit(item.id)}
+                          className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
+                        />
+                        <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
+                          {formatUnit(item.unit_type)}
+                        </span>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          startEditing(item.id, item.quantity)
+                        }}
+                        className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-primary hover:bg-muted rounded transition-colors cursor-text select-none"
+                        title={t('common.edit')}
+                      >
+                        {formatQuantity(item.quantity, item.unit_type)}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleIncrease(item)
+                      }}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
+                      title={t('common.increase')}
+                      aria-label={t('common.increase')}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </SwipeToDismiss>
-          ))}
+              </SwipeToDismiss>
+            )
+          })}
         </div>
       )}
 
@@ -251,7 +345,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
       {draftItems.length > 0 && (
         <Button
           onClick={handleGenerateActiveList}
-          disabled={isGenerating}
+          disabled={isGenerating || selectedItems.length === 0}
           className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl mt-4 flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 cursor-pointer"
         >
           {isGenerating ? (
@@ -259,7 +353,13 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
           ) : (
             <>
               <Play className="w-4 h-4 fill-current" />
-              <span>{t('draft.generateActiveList')}</span>
+              <span>
+                {selectedItems.length === 0
+                  ? t('draft.noItemsSelected')
+                  : selectedItems.length === draftItems.length
+                  ? t('draft.generateActiveList')
+                  : `${t('draft.generateActiveList')} (${selectedItems.length})`}
+              </span>
             </>
           )}
         </Button>
@@ -278,3 +378,4 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     </div>
   )
 }
+

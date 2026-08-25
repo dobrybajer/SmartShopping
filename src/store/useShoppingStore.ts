@@ -73,6 +73,7 @@ interface ShoppingStoreState {
   addItemToDraft: (item: AddToDraftPayload) => void
   addMultipleToDraft: (items: AddToDraftPayload[]) => void
   removeFromDraft: (id: string) => void
+  removeMultipleFromDraft: (ids: string[]) => void
   updateDraftQuantity: (id: string, quantity: number) => void
   clearDraft: () => void
   setDraftItems: (items: DraftItem[]) => void
@@ -322,6 +323,22 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const key = state.activeHouseholdId || 'default'
         const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
         const updatedDraft = currentDraft.filter((i) => i.id !== id)
+
+        set({
+          draftsByHousehold: {
+            ...state.draftsByHousehold,
+            [key]: updatedDraft
+          },
+          draftItems: updatedDraft
+        })
+      },
+
+      removeMultipleFromDraft: (ids) => {
+        const state = get()
+        const key = state.activeHouseholdId || 'default'
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const idSet = new Set(ids)
+        const updatedDraft = currentDraft.filter((i) => !idSet.has(i.id))
 
         set({
           draftsByHousehold: {
