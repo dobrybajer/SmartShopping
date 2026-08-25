@@ -25,7 +25,8 @@ import {
   ShoppingCart,
   Plus,
   PackageCheck,
-  CircleAlert
+  CircleAlert,
+  Clock
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -45,7 +46,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   onListDeleted
 }) => {
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
-  const { t, formatQuantity, formatDate } = useTranslation()
+  const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)
   const [loading, setLoading] = useState(false)
@@ -206,7 +207,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     (a, b) => a.sort_order - b.sort_order
   )
 
-  const formattedDate = formatDate(list.target_date || list.created_at || new Date())
+    const formattedDate = formatDate(list.created_at || list.target_date || new Date())
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -268,9 +269,17 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
             {/* Date & Status */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>{formattedDate}</span>
+              <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span>{formattedDate}</span>
+                </span>
+                {list.created_at && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>{formatTime(list.created_at)}</span>
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5">

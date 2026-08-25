@@ -19,14 +19,15 @@ import {
   X,
   CircleAlert,
   ChevronRight,
-  PackageCheck
+  PackageCheck,
+  Clock
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const DesktopHistoryView: React.FC = () => {
   const { household } = useAuth()
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
-  const { t, formatQuantity, formatDate } = useTranslation()
+  const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
   const [historyLists, setHistoryLists] = useState<ShoppingList[]>([])
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
@@ -211,7 +212,8 @@ export const DesktopHistoryView: React.FC = () => {
             </div>
           ) : historyLists.map((list) => {
             const isSelected = selectedListId === list.id
-            const displayDate = formatDate(list.target_date || list.created_at || new Date())
+            const displayDate = formatDate(list.created_at || list.target_date || new Date())
+            const displayTime = list.created_at ? formatTime(list.created_at) : ''
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
 
             return (
@@ -230,8 +232,16 @@ export const DesktopHistoryView: React.FC = () => {
                     {listTitle}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{displayDate}</span>
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{displayDate}</span>
+                    </span>
+                    {displayTime && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{displayTime}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -329,10 +339,18 @@ export const DesktopHistoryView: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>{formatDate(listDetails.target_date || listDetails.created_at || new Date())}</span>
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>{formatDate(listDetails.created_at || listDetails.target_date || new Date())}</span>
+                  </span>
+                  {listDetails.created_at && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{formatTime(listDetails.created_at)}</span>
+                    </span>
+                  )}
+                </div>
                 <span>
                   {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
                 </span>

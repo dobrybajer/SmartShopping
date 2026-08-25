@@ -32,6 +32,25 @@ export function formatDate(dateInput: string | Date | null | undefined): string 
 }
 
 /**
+ * Formats a date string, ISO timestamp, or Date object into HH:mm format (24h)
+ */
+export function formatTime(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return ''
+
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+    if (isNaN(date.getTime())) return ''
+
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+
+    return `${hours}:${minutes}`
+  } catch {
+    return ''
+  }
+}
+
+/**
  * Returns the step for incrementing/decrementing a quantity based on the unit type.
  * For 'pcs' or unknown: step is 1.
  * For 'g' and 'ml': step is 100.

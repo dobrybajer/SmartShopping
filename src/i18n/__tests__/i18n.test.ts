@@ -169,6 +169,7 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
     const initialFormatUnit = result.current.formatUnit
     const initialFormatQuantity = result.current.formatQuantity
     const initialFormatDate = result.current.formatDate
+    const initialFormatTime = result.current.formatTime
     const initialFormatNumber = result.current.formatNumber
 
     // Trigger re-render of the hook consumer
@@ -178,6 +179,7 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
     expect(result.current.formatUnit).toBe(initialFormatUnit)
     expect(result.current.formatQuantity).toBe(initialFormatQuantity)
     expect(result.current.formatDate).toBe(initialFormatDate)
+    expect(result.current.formatTime).toBe(initialFormatTime)
     expect(result.current.formatNumber).toBe(initialFormatNumber)
 
     // When language changes, new stable instances should be produced

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, getUnitStep, getNextQuantity, getLocalDateISOString } from '../utils';
+import { formatDate, formatTime, getUnitStep, getNextQuantity, getLocalDateISOString } from '../utils';
 
 describe('Utility Functions - Formatting & Step Logic Flows', () => {
   describe('formatDate', () => {
@@ -12,6 +12,23 @@ describe('Utility Functions - Formatting & Step Logic Flows', () => {
       expect(formatDate('')).toBe('');
       expect(formatDate(null)).toBe('');
       expect(formatDate(undefined)).toBe('');
+    });
+  });
+
+  describe('formatTime', () => {
+    it('Flow 02b: formats Date and ISO timestamps into HH:mm format', () => {
+      const fixedDate = new Date(2026, 7, 25, 14, 5, 0); // 14:05
+      expect(formatTime(fixedDate)).toBe('14:05');
+
+      const fixedDateMorning = new Date(2026, 7, 25, 9, 3, 0); // 09:03
+      expect(formatTime(fixedDateMorning)).toBe('09:03');
+    });
+
+    it('Flow 02c: returns empty string for empty, null or invalid inputs', () => {
+      expect(formatTime('')).toBe('');
+      expect(formatTime(null)).toBe('');
+      expect(formatTime(undefined)).toBe('');
+      expect(formatTime('invalid-date')).toBe('');
     });
   });
 

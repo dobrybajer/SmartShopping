@@ -154,6 +154,22 @@ export const useTranslation = () => {
     [language]
   )
 
+  const formatTime = useCallback(
+    (date: string | Date | null | undefined): string => {
+      if (!date) return ''
+      try {
+        const d = typeof date === 'string' ? new Date(date) : date
+        if (isNaN(d.getTime())) return ''
+        const hours = String(d.getHours()).padStart(2, '0')
+        const minutes = String(d.getMinutes()).padStart(2, '0')
+        return `${hours}:${minutes}`
+      } catch {
+        return ''
+      }
+    },
+    []
+  )
+
   return {
     t,
     language,
@@ -162,5 +178,6 @@ export const useTranslation = () => {
     formatQuantity,
     formatNumber,
     formatDate,
+    formatTime,
   }
 }

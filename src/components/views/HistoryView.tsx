@@ -5,11 +5,11 @@ import { shoppingListService } from '@/services/shoppingListService'
 import type { ShoppingList } from '@/services/shoppingListService'
 import { HistoryListDetailsSheet } from '@/components/dialogs/HistoryListDetailsSheet'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, CheckCircle2, History, ChevronRight } from 'lucide-react'
+import { Calendar, CheckCircle2, History, ChevronRight, Clock } from 'lucide-react'
 
 export const HistoryView: React.FC = () => {
   const { household } = useAuth()
-  const { t, formatDate } = useTranslation()
+  const { t, formatDate, formatTime } = useTranslation()
   const [historyLists, setHistoryLists] = useState<ShoppingList[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -65,7 +65,8 @@ export const HistoryView: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-3">
           {historyLists.map((list) => {
-            const displayDate = formatDate(list.target_date || list.created_at || new Date())
+            const displayDate = formatDate(list.created_at || list.target_date || new Date())
+            const displayTime = list.created_at ? formatTime(list.created_at) : ''
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
 
             return (
@@ -79,8 +80,16 @@ export const HistoryView: React.FC = () => {
                     {listTitle}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>{displayDate}</span>
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{displayDate}</span>
+                    </span>
+                    {displayTime && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                        <span>{displayTime}</span>
+                      </span>
+                    )}
                   </div>
                 </div>
 
