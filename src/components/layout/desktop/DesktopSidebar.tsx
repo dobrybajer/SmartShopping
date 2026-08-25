@@ -122,12 +122,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               <AppLogo size={32} />
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-foreground">Smart Shopping</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                  Pro
-                </span>
-              </div>
+              <span className="font-extrabold text-base tracking-tight text-foreground">Smart Shopping</span>
               <span className="text-[11px] text-muted-foreground">{t('common.brandTagline')}</span>
             </div>
           </div>
