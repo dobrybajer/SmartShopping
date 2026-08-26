@@ -6,11 +6,14 @@ export type Product = Database['public']['Tables']['products']['Row']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
 
 export const productService = {
-  async getCategories(): Promise<ProductCategory[]> {
-    const { data, error } = await supabase
-      .from('product_categories')
-      .select('*')
-      .order('sort_order', { ascending: true })
+  async getCategories(householdId?: string | null): Promise<ProductCategory[]> {
+    let query = supabase.from('product_categories').select('*')
+
+    if (householdId) {
+      query = query.or(`household_id.is.null,household_id.eq.${householdId}`)
+    }
+
+    const { data, error } = await query.order('sort_order', { ascending: true })
 
     if (error) {
       console.error('Error fetching product categories:', error)

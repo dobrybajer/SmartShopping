@@ -98,6 +98,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * [ADR-003: Internationalization (i18n) Strategy](./adr/ADR-003-internationalization-i18n.md)
    * [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md)
    * [ADR-005: Multiple Concurrent Active Shopping Lists & Smart Cart Transfer](./adr/ADR-005-multiple-active-shopping-lists.md)
+   * [ADR-006: Custom Product Categories & Store Aisle Sorting](./adr/ADR-006-custom-product-categories-and-aisle-sorting.md)
 3. **Automatyczne Testy Jednostkowe & User Flow:**
    * Konfiguracja Vitest + React Testing Library (`jsdom`).
    * Testy czystych kalkulacji (`src/lib/calculations/__tests__/`).
@@ -160,4 +161,30 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 5. **Testy i Weryfikacja Jakości:**
    * Testy jednostkowe czystych funkcji kalkulacji i scalania (`mergeDraftItems.test.ts`).
    * Testy User Flow w Vitest i React Testing Library dla modalu transferu i przełączania list.
+
+## Faza 11: Własne Kategorie Produktów, Nadpisywanie Ustawień i Układ Alejek Sklepowych (Zaplanowana / Do Wdrożenia)
+**Cel:** Elastyczne zarządzanie kategoriami produktów per gospodarstwo domowe (tworzenie, edycja, usuwanie, ukrywanie) oraz personalizacja fizycznej kolejności alejek w sklepie (Store Aisle Sorting) z zachowaniem domyślnych kategorii globalnych. Zobacz [ADR-006](./adr/ADR-006-custom-product-categories-and-aisle-sorting.md).
+
+1. **Baza Danych & RLS (Supabase):**
+   * Migracja PostgreSQL: dodanie kolumny `household_id UUID NULL REFERENCES households(id)` do `product_categories`.
+   * Nowa tabela `household_category_settings` (`household_id`, `category_id`, `custom_sort_order`, `is_hidden`, `custom_name`, `store_profile_id`).
+   * Indeksy B-tree pod zapytania relacyjne i sortowanie.
+   * Polityki RLS: kategorie globalne są niemodyfikowalne i nieusuwalne przez użytkowników (`household_id IS NULL`), własne kategorie i ustawienia są w pełni izolowane per gospodarstwo.
+   * Włączenie replikacji Supabase Realtime dla `household_category_settings`.
+2. **Czysta Warstwa Kalkulacji & Serwisów:**
+   * Czysta funkcja `resolveCategoryList` i `calculateReorderedIntervals` w `src/lib/calculations/categorySorting.ts`.
+   * Obsługa krytycznego fallbacku: ukryte kategorie z przypisanymi produktami na aktywnej liście pozostają widoczne w trybie bezpiecznym w markecie.
+   * Dedykowany serwis `src/services/categoryService.ts` obsługujący pobieranie hybrydowe, CRUD własnych kategorii oraz debounced batch upsert kolejności.
+3. **Zarządzanie Stanem (Zustand):**
+   * Utworzenie `src/store/useCategoryStore.ts` z optymistycznym auto-save, natychmiastowym renderem nowej kolejności i rollbackiem przy błędzie sieci.
+   * Subskrypcja Realtime synchronizująca kolejność alejek na żywo między domownikami.
+4. **Komponenty i Dual Layout:**
+   * Modale zarządzania kategoriami: `CategoryManagerSheet` (Mobile PWA) ze wsparciem Drag & Drop, przyciskami góra/dół (strefa kciuka min. 44x44px) i wibracją haptic (`navigator.vibrate(40)`) oraz `CategoryManagerDialog` (Desktop) z obsługą klawiatury.
+   * Punkt wejścia: ikona konfiguracji w filtrze kategorii w widoku `ProductsView` oraz w oknie ustawień gospodarstwa `HouseholdsDialog`.
+   * Widok `ActiveListView` / `DesktopActiveListView`: grupowanie i numerowanie alejek według resolved `custom_sort_order`.
+5. **Testy Automatyczne i Weryfikacja:**
+   * 100% pokrycia czystych funkcji kalkulacji `categorySorting.test.ts`.
+   * Testy integracyjne serwisu i store'a (w tym obsługa błędów sieci i rollbacku).
+   * Testy User Flow w Vitest i React Testing Library dla Mobile i Desktop.
+
 

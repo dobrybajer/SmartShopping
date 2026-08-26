@@ -60,11 +60,11 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   // Load product categories
   useEffect(() => {
     async function loadCategories() {
-      const data = await productService.getCategories()
+      const data = await productService.getCategories(household?.id)
       setCategories(data)
     }
     loadCategories()
-  }, [])
+  }, [household?.id])
 
   // Sync form state when productToEdit changes or sheet opens
   useEffect(() => {

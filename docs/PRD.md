@@ -45,8 +45,22 @@ CREATE TABLE users (
 
 CREATE TABLE product_categories (
   id SERIAL PRIMARY KEY,
+  household_id UUID REFERENCES households(id) ON DELETE CASCADE, -- NULL dla kategorii globalnych
   name TEXT NOT NULL,
-  sort_order INT NOT NULL -- ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
+  sort_order INT NOT NULL -- domyślne ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
+);
+
+CREATE TABLE household_category_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  category_id INT NOT NULL REFERENCES product_categories(id) ON DELETE CASCADE,
+  custom_sort_order INT NOT NULL,
+  is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
+  custom_name TEXT,
+  store_profile_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT uq_household_category UNIQUE (household_id, category_id)
 );
 
 CREATE TABLE products (
@@ -120,8 +134,14 @@ CREATE TABLE shopping_list_items (
     *   `Draft` (Koszyk roboczy, z możliwością całkowitego **wyczyszczenia/opróżnienia** jednym kliknięciem lub selektywnego transferu).
     *   `Active` (Równorzędne aktywne listy gospodarstwa domowego z licznikami nieodhaczonych pozycji i synchronizacją Realtime).
     *   `Archived` (Historia). Elementy, których nie udało się kupić na pojedynczej zarchiwizowanej liście, mogą pozostać w historii lub opcjonalnie wrócić do nowego Draftu.
-*   **Agregacja i Układ Sklepowy:** Frontend sumuje takie same produkty ze wszystkich potraw (np. pomidor do śniadania i kolacji to jedna pozycja). Na widoku wybranej listy `Active`, produkty są obligatoryjnie grupowane i sortowane według `product_categories.sort_order`, co odzwierciedla fizyczny układ alejek sklepowych.
+*   **Agregacja, Własne Kategorie i Układ Alejek Sklepowych (ADR-006):** 
+    *   Frontend sumuje takie same produkty ze wszystkich potraw (np. pomidor do śniadania i kolacji to jedna pozycja). 
+    *   Na widoku listy `Active`, produkty są obligatoryjnie grupowane i sortowane według zdefiniowanego układu alejek gospodarstwa.
+    *   **Model Hybrydowy:** Domyślne kategorie systemowe (globalne) są wspólne, przetłumaczone i chronione przed modyfikacją/usunięciem (użytkownik może je wyłącznie ukryć lub zmienić ich kolejność).
+    *   Gospodarstwo może swobodnie tworzyć własne kategorie (`household_id`), edytować je, usuwać oraz ustalać własną kolejność alejek sklepowych w dedykowanej tabeli `household_category_settings`.
+    *   Zarządzanie kategoriami odbywa się w modalach dopasowanych do Dual Layout (`CategoryManagerSheet` na Mobile PWA ze strefą kciuka i wibracją haptic, `CategoryManagerDialog` na Desktopie). Zobacz [ADR-006: Custom Product Categories & Aisle Sorting](./adr/ADR-006-custom-product-categories-and-aisle-sorting.md).
 *   **Produkty Ad-hoc:** Możliwość szybkiego wrzucenia na listę produktów spoza przepisów (np. chemia domowa, wpisy z palca bez bazy makro).
+
 *   **Realtime Sync (Współdzielenie):** Odsłuch WebSocket na tabeli `shopping_list_items` i `shopping_lists`. Odhaczenie produktu lub zmiana listy natychmiast synchronizuje stan na urządzeniach innych domowników (household).
 *   **Eksport na e-mail:** Możliwość wygenerowania i wysłania aktywnej/zarchwizowanej listy zakupowej na połączony z kontem adres Gmail.
 

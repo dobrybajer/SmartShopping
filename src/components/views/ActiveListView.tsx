@@ -29,6 +29,8 @@ import {
 } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
+import { useCategoryStore } from '@/store/useCategoryStore'
+import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import {
   sortActiveLists,
   findDefaultOrFirstListId
@@ -36,6 +38,7 @@ import {
 
 export const ActiveListView: React.FC = () => {
   const { household } = useAuth()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore()
   const {
     setDraftItems,
     draftItems,
@@ -95,6 +98,10 @@ export const ActiveListView: React.FC = () => {
   useEffect(() => {
     loadActiveLists()
   }, [loadActiveLists])
+
+  useEffect(() => {
+    loadCategories(householdId)
+  }, [householdId, loadCategories])
 
   // 3. Switch list details when selectedActiveListId changes
   const switchActiveList = async (listId: string) => {
@@ -334,26 +341,17 @@ export const ActiveListView: React.FC = () => {
     )
   }
 
+  const householdKey = household?.id || 'global'
+  const resolvedCategories = categoriesByHousehold[householdKey] || []
+
   const checkedCount = activeList.items.filter((i) => i.is_checked).length
   const totalCount = activeList.items.length
 
-  // Group by category sort_order
-  const categoryMap = new Map<string, { name: string; sort_order: number; items: typeof activeList.items }>()
-
-  activeList.items.forEach((item) => {
-    const catName = item.product?.category?.name || 'other'
-    const sortOrder = item.product?.category?.sort_order ?? 99
-
-    const existing = categoryMap.get(catName)
-    if (existing) {
-      existing.items.push(item)
-    } else {
-      categoryMap.set(catName, { name: catName, sort_order: sortOrder, items: [item] })
-    }
-  })
-
-  const sortedCategories = Array.from(categoryMap.values()).sort(
-    (a, b) => a.sort_order - b.sort_order
+  // Group by custom category aisle sort_order
+  const sortedCategories = groupItemsByAisle(
+    activeList.items,
+    resolvedCategories,
+    'other'
   )
 
   return (
@@ -528,13 +526,23 @@ export const ActiveListView: React.FC = () => {
       ) : (
         /* Sorted Category Groups */
         <div className="flex flex-col gap-5 mt-1">
-          {sortedCategories.map((group) => (
-            <div key={group.name} className="flex flex-col gap-2">
+          {sortedCategories.map((group, index) => (
+            <div key={group.categoryId ?? `group_${group.name}`} className="flex flex-col gap-2">
               <h4 className="text-xs font-bold text-primary uppercase tracking-wider px-1 flex items-center justify-between">
-                <span>
-                  {group.sort_order !== 99
-                    ? `${group.sort_order}. ${getCategoryLabel(group.name)}`
-                    : getCategoryLabel(group.name)}
+                <span className="flex items-center gap-1.5">
+                  <span>
+                    {group.sort_order !== 99999
+                      ? `${index + 1}. ${getCategoryLabel(group.name)}`
+                      : getCategoryLabel(group.name)}
+                  </span>
+                  {group.has_fallback_items && (
+                    <span
+                      className="text-[9px] px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-400 font-normal normal-case border border-amber-500/20"
+                      title={t('categoryManager.hiddenCategoryWithActiveItemsBanner')}
+                    >
+                      {t('common.hidden')}
+                    </span>
+                  )}
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
                   {group.items.filter((i) => i.is_checked).length}/{group.items.length}

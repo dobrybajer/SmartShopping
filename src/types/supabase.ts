@@ -136,20 +136,82 @@ export interface Database {
       product_categories: {
         Row: {
           id: number
+          household_id: string | null
           name: string
           sort_order: number
         }
         Insert: {
           id?: number
+          household_id?: string | null
           name: string
           sort_order: number
         }
         Update: {
           id?: number
+          household_id?: string | null
           name?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "product_categories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      household_category_settings: {
+        Row: {
+          id: string
+          household_id: string
+          category_id: number
+          custom_sort_order: number
+          is_hidden: boolean
+          custom_name: string | null
+          store_profile_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          category_id: number
+          custom_sort_order: number
+          is_hidden?: boolean
+          custom_name?: string | null
+          store_profile_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          category_id?: number
+          custom_sort_order?: number
+          is_hidden?: boolean
+          custom_name?: string | null
+          store_profile_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_category_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_category_settings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       products: {
         Row: {

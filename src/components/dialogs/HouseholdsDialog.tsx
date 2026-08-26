@@ -12,6 +12,9 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
+import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
+import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
   Home,
   Save,
@@ -22,7 +25,8 @@ import {
   Mail,
   Clock,
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  Layers
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +50,7 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
     getHouseholdMembers
   } = useAuth()
   const { t } = useTranslation()
+  const { isDesktop } = useDeviceLayout()
 
   const [householdName, setHouseholdName] = useState('')
   const [isSavingName, setIsSavingName] = useState(false)
@@ -53,6 +58,8 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
   const [newHouseholdName, setNewHouseholdName] = useState('')
   const [isCreatingHousehold, setIsCreatingHousehold] = useState(false)
+
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
 
   const [members, setMembers] = useState<MemberDetail[]>([])
   const [invites, setInvites] = useState<InviteDetail[]>([])
@@ -317,6 +324,34 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
             </form>
           </div>
 
+          {/* Supermarket Aisles & Categories */}
+          {household && (
+            <div className="p-3.5 rounded-xl bg-background border border-border flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold text-foreground">
+                    {t('categoryManager.manageAisles')}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t('categoryManager.subtitle')}
+                  </span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCategoryManagerOpen(true)}
+                className="text-xs h-8 px-3 shrink-0 cursor-pointer"
+              >
+                {t('common.configure')}
+              </Button>
+            </div>
+          )}
+
           {/* Members & Invites Section */}
           <div className="flex flex-col gap-3 pt-2 border-t border-border">
             <div className="flex items-center justify-between">
@@ -411,11 +446,10 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
 
               {inviteFeedback && (
                 <div
-                  className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200 ${
-                    inviteFeedback.type === 'success'
+                  className={`p-2.5 rounded-lg text-xs font-medium flex items-center gap-2 animate-in fade-in duration-200 ${inviteFeedback.type === 'success'
                       ? 'bg-primary/10 border border-primary/20 text-primary'
                       : 'bg-destructive/10 border border-destructive/20 text-destructive'
-                  }`}
+                    }`}
                 >
                   {inviteFeedback.type === 'success' && <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />}
                   <span>{inviteFeedback.text}</span>
@@ -424,6 +458,23 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
             </form>
           </div>
         </div>
+
+        {/* Category Manager Modal (Desktop Dialog / Mobile Sheet) */}
+        {household?.id && (
+          isDesktop ? (
+            <CategoryManagerDialog
+              open={isCategoryManagerOpen}
+              onOpenChange={setIsCategoryManagerOpen}
+              householdId={household.id}
+            />
+          ) : (
+            <CategoryManagerSheet
+              open={isCategoryManagerOpen}
+              onOpenChange={setIsCategoryManagerOpen}
+              householdId={household.id}
+            />
+          )
+        )}
       </DialogContent>
     </Dialog>
   )

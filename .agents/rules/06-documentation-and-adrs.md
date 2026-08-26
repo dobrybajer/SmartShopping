@@ -46,4 +46,5 @@ Before finalizing any ADR, the agent and contributor must rigorously probe:
 | [ADR-003](../../docs/adr/ADR-003-internationalization-i18n.md) | Internationalization (i18n) Strategy, Codebase English Purity & Multi-Tier Persistence | Accepted |
 | [ADR-004](../../docs/adr/ADR-004-theme-system-and-visual-styling.md) | Theme System, Semantic Design Tokens & Multi-Tier Visual Customization | Accepted |
 | [ADR-005](../../docs/adr/ADR-005-multiple-active-shopping-lists.md) | Multiple Concurrent Active Shopping Lists & Smart Cart Transfer Architecture | Accepted |
-
+| [ADR-006](../../docs/adr/ADR-006-custom-product-categories-and-aisle-sorting.md) | Custom Product Categories, Household Overrides & Store Aisle Sorting | Accepted |
+| [ADR-007](../../docs/adr/ADR-007-multiplatform-web-push-notifications.md) | Multiplatform Web Push Notifications & Extensible Event Registry | Accepted |

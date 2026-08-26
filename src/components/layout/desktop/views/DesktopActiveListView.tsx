@@ -29,6 +29,8 @@ import {
 } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
+import { useCategoryStore } from '@/store/useCategoryStore'
+import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import {
   sortActiveLists,
   findDefaultOrFirstListId
@@ -36,6 +38,7 @@ import {
 
 export const DesktopActiveListView: React.FC = () => {
   const { household } = useAuth()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore()
   const {
     setDraftItems,
     draftItems,
@@ -95,6 +98,10 @@ export const DesktopActiveListView: React.FC = () => {
   useEffect(() => {
     loadActiveLists()
   }, [loadActiveLists])
+
+  useEffect(() => {
+    loadCategories(householdId)
+  }, [householdId, loadCategories])
 
   // 3. Switch list details when tab clicked
   const switchActiveList = async (listId: string) => {
@@ -340,23 +347,14 @@ export const DesktopActiveListView: React.FC = () => {
     return name.includes(searchQuery.toLowerCase())
   })
 
-  // Group by category sort_order
-  const categoryMap = new Map<string, { name: string; sort_order: number; items: typeof activeList.items }>()
+  const householdKey = household?.id || 'global'
+  const resolvedCategories = categoriesByHousehold[householdKey] || []
 
-  filteredItems.forEach((item) => {
-    const catName = item.product?.category?.name || 'other'
-    const sortOrder = item.product?.category?.sort_order ?? 99
-
-    const existing = categoryMap.get(catName)
-    if (existing) {
-      existing.items.push(item)
-    } else {
-      categoryMap.set(catName, { name: catName, sort_order: sortOrder, items: [item] })
-    }
-  })
-
-  const sortedCategories = Array.from(categoryMap.values()).sort(
-    (a, b) => a.sort_order - b.sort_order
+  // Group by custom category aisle sort_order
+  const sortedCategories = groupItemsByAisle(
+    filteredItems,
+    resolvedCategories,
+    'other'
   )
 
   return (
@@ -537,18 +535,28 @@ export const DesktopActiveListView: React.FC = () => {
       ) : (
         /* Multi-Column Category Groups */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sortedCategories.map((group) => (
+          {sortedCategories.map((group, index) => (
             <div
-              key={group.name}
+              key={group.categoryId ?? `group_${group.name}`}
               className="p-5 rounded-2xl bg-card border border-border flex flex-col gap-3 shadow-sm h-fit"
             >
               <div className="flex items-center justify-between pb-2 border-b border-border">
                 <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                   <Package className="w-3.5 h-3.5" />
-                  <span>
-                    {group.sort_order !== 99
-                      ? `${group.sort_order}. ${getCategoryLabel(group.name)}`
-                      : getCategoryLabel(group.name)}
+                  <span className="flex items-center gap-1.5">
+                    <span>
+                      {group.sort_order !== 99999
+                        ? `${index + 1}. ${getCategoryLabel(group.name)}`
+                        : getCategoryLabel(group.name)}
+                    </span>
+                    {group.has_fallback_items && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-400 font-normal normal-case border border-amber-500/20"
+                        title={t('categoryManager.hiddenCategoryWithActiveItemsBanner')}
+                      >
+                        {t('common.hidden')}
+                      </span>
+                    )}
                   </span>
                 </h4>
                 <Badge variant="secondary" className="text-[10px] font-mono">

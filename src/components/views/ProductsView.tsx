@@ -2,9 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
-import type { Product, ProductCategory } from '@/services/productService'
+import type { Product } from '@/services/productService'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
+import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
+import { useCategoryStore } from '@/store/useCategoryStore'
+import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,15 +21,18 @@ import {
   Trash2,
   Edit2,
   Package,
-  Scale
+  Scale,
+  Layers
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const ProductsView: React.FC = () => {
   const { household } = useAuth()
+  const { isDesktop } = useDeviceLayout()
   const { t, formatUnit, formatQuantity } = useTranslation()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore()
+
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(true)
 
   // Filters and search
@@ -35,25 +42,31 @@ export const ProductsView: React.FC = () => {
 
   // Dialogs
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  const householdKey = household?.id || 'global'
+  const categories = useMemo(
+    () => categoriesByHousehold[householdKey] || [],
+    [categoriesByHousehold, householdKey]
+  )
+
   const loadData = React.useCallback(async () => {
     setLoading(true)
     try {
-      const [prodsData, catsData] = await Promise.all([
+      const [prodsData] = await Promise.all([
         productService.getProducts(household?.id),
-        productService.getCategories()
+        loadCategories(household?.id)
       ])
       setProducts(prodsData)
-      setCategories(catsData)
     } catch (err) {
       console.error('Error loading products:', err)
     } finally {
       setLoading(false)
     }
-  }, [household?.id])
+  }, [household?.id, loadCategories])
 
   useEffect(() => {
     loadData()
@@ -219,31 +232,47 @@ export const ProductsView: React.FC = () => {
         </button>
 
         {/* Category separator */}
-        {categories.length > 0 && <span className="h-4 w-px bg-border shrink-0 mx-0.5" />}
+        <span className="h-4 w-px bg-border shrink-0 mx-0.5" />
+
+        {/* Manage Categories & Aisles Button */}
+        {household?.id && (
+          <button
+            type="button"
+            onClick={() => setIsCategoryManagerOpen(true)}
+            className="shrink-0 cursor-pointer flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border border-border/80 bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-all select-none"
+            title={t('categoryManager.manageAisles')}
+          >
+            <Layers className="w-3.5 h-3.5 text-primary" />
+            <span>{t('categoryManager.manageAisles')}</span>
+          </button>
+        )}
 
         {/* Category chips */}
-        {categories.map((cat) => {
-          const isSelected = selectedCategoryId === cat.id
-          return (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
-              className="shrink-0 cursor-pointer"
-            >
-              <Badge
-                variant={isSelected ? 'default' : 'outline'}
-                className={cn(
-                  "px-2.5 py-1.5 text-xs transition-all",
-                  isSelected
-                    ? "bg-muted text-primary border-primary/50 font-bold"
-                    : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
-                )}
+        {categories
+          .filter((cat) => !cat.is_hidden || selectedCategoryId === cat.id)
+          .map((cat) => {
+            const isSelected = selectedCategoryId === cat.id
+            const displayName = cat.custom_name || getCategoryLabel(cat.name)
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategoryId(isSelected ? null : cat.id)}
+                className="shrink-0 cursor-pointer"
               >
-                {getCategoryLabel(cat.name)}
-              </Badge>
-            </button>
-          )
-        })}
+                <Badge
+                  variant={isSelected ? 'default' : 'outline'}
+                  className={cn(
+                    "px-2.5 py-1.5 text-xs transition-all",
+                    isSelected
+                      ? "bg-muted text-primary border-primary/50 font-bold"
+                      : "text-muted-foreground border-border hover:border-border/80 hover:text-foreground"
+                  )}
+                >
+                  {displayName}
+                </Badge>
+              </button>
+            )
+          })}
       </div>
 
       {/* Products list */}
@@ -421,6 +450,23 @@ export const ProductsView: React.FC = () => {
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
       />
+
+      {/* Category Manager Modal (Desktop Dialog / Mobile Sheet) */}
+      {household?.id && (
+        isDesktop ? (
+          <CategoryManagerDialog
+            open={isCategoryManagerOpen}
+            onOpenChange={setIsCategoryManagerOpen}
+            householdId={household.id}
+          />
+        ) : (
+          <CategoryManagerSheet
+            open={isCategoryManagerOpen}
+            onOpenChange={setIsCategoryManagerOpen}
+            householdId={household.id}
+          />
+        )
+      )}
     </div>
   )
 }
