@@ -42,6 +42,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
   const [quantity, setQuantity] = useState<number | ''>(1)
   const [unitType, setUnitType] = useState<UnitEnum>('pcs')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
+  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined)
   
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -51,7 +52,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
   const [isSavingToDb, setIsSavingToDb] = useState(false)
 
   const loadData = React.useCallback(async () => {
-    const cats = await productService.getCategories()
+    const cats = await productService.getCategories(household?.id)
     setCategories(cats)
 
     if (household) {
@@ -73,6 +74,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
   }, [open, loadData])
 
   const handleSelectProduct = (product: Product) => {
+    setSelectedProductId(product.id)
     setName(product.name)
     setUnitType(product.unit_type as UnitEnum)
     if (product.category_id) {
@@ -80,10 +82,12 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
     }
   }
 
-  const commitToDraft = () => {
+  const commitToDraft = (productId?: string) => {
     const categoryObj = categories.find((c) => c.id === selectedCategoryId)
+    const prodId = productId || selectedProductId
 
     addAdHocToDraft({
+      product_id: prodId,
       name: name.trim(),
       unit_type: unitType,
       category_id: selectedCategoryId,
@@ -102,6 +106,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
 
     onOpenChange(false)
     setName('')
+    setSelectedProductId(undefined)
     setQuantity(1)
   }
 
@@ -112,10 +117,10 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
     const trimmed = name.trim().toLowerCase()
     const existingProduct = products.find((p) => p.name.toLowerCase() === trimmed)
 
-    if (!existingProduct) {
+    if (!existingProduct && !selectedProductId) {
       setIsConfirmModalOpen(true)
     } else {
-      commitToDraft()
+      commitToDraft(existingProduct?.id || selectedProductId)
     }
   }
 
@@ -142,7 +147,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
     }
 
     setIsConfirmModalOpen(false)
-    commitToDraft()
+    commitToDraft(newProduct?.id)
   }
 
   const handleAddOnlyToDraft = () => {
@@ -187,7 +192,18 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
         </label>
         <ProductAutocomplete
           value={name}
-          onChange={setName}
+          onChange={(val) => {
+            setName(val)
+            const matched = products.find((p) => p.name.toLowerCase() === val.trim().toLowerCase())
+            if (matched) {
+              setSelectedProductId(matched.id)
+              if (matched.category_id) {
+                setSelectedCategoryId(matched.category_id)
+              }
+            } else {
+              setSelectedProductId(undefined)
+            }
+          }}
           products={products}
           categories={categories}
           onSelectProduct={handleSelectProduct}

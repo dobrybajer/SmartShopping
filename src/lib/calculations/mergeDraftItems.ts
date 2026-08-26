@@ -13,6 +13,7 @@ export interface ItemToInsert {
   is_checked: boolean
   added_ad_hoc: boolean
   name: string
+  category_id?: number | null
 }
 
 export interface MergeCalculationResult {
@@ -29,8 +30,12 @@ export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
   name: string
   quantity: number
   is_ad_hoc: boolean
+  category_id?: number | null
 }> {
-  const aggregatedMap = new Map<string, { product_id?: string; name: string; quantity: number; is_ad_hoc: boolean }>()
+  const aggregatedMap = new Map<
+    string,
+    { product_id?: string; name: string; quantity: number; is_ad_hoc: boolean; category_id?: number | null }
+  >()
 
   for (const item of draftItems) {
     if (item.quantity <= 0) continue
@@ -40,12 +45,16 @@ export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
 
     if (existing) {
       existing.quantity = Math.round((existing.quantity + item.quantity) * 10) / 10
+      if (!existing.category_id && item.category_id) {
+        existing.category_id = item.category_id
+      }
     } else {
       aggregatedMap.set(key, {
         product_id: item.product_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        is_ad_hoc: !!item.is_ad_hoc
+        is_ad_hoc: !!item.is_ad_hoc,
+        category_id: item.category_id ?? null
       })
     }
   }
@@ -103,7 +112,8 @@ export function mergeDraftItemsIntoActiveList(
         total_quantity: draft.quantity,
         is_checked: false,
         added_ad_hoc: draft.is_ad_hoc,
-        name: draft.name
+        name: draft.name,
+        category_id: draft.category_id ?? null
       })
     }
   }

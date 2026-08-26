@@ -4,6 +4,9 @@ import type { DraftItem } from '@/store/useShoppingStore'
 import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { mergeDraftItemsIntoActiveList } from '@/lib/calculations/mergeDraftItems'
 
+const isUuid = (val?: string | null): val is string =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+
 export type ShoppingList = Database['public']['Tables']['shopping_lists']['Row']
 export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
 
@@ -161,10 +164,57 @@ export const shoppingListService = {
       console.error('Error fetching shopping list items:', itemsErr)
     }
 
+    const rawItems = itemsData || []
+
+    // Self-healing: if any item's product is missing category_id,
+    // match against other products in the household that have a category_id!
+    const uncategorizedItems = rawItems.filter(
+      (item: any) => item.product && !item.product.category_id && item.product.name
+    )
+
+    if (uncategorizedItems.length > 0 && isUuid(listData.household_id)) {
+      const names = Array.from(
+        new Set(uncategorizedItems.map((i: any) => (i.product.name as string).trim()))
+      )
+
+      const { data: matchedProds } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          category_id,
+          category:product_categories(*)
+        `)
+        .eq('household_id', listData.household_id)
+        .in('name', names)
+        .not('category_id', 'is', null)
+
+      if (matchedProds && matchedProds.length > 0) {
+        const prodByName = new Map<string, any>()
+        matchedProds.forEach((p) => prodByName.set(p.name.trim().toLowerCase(), p))
+
+        for (const item of rawItems) {
+          if (item.product && !item.product.category_id) {
+            const match = prodByName.get(item.product.name.trim().toLowerCase())
+            if (match) {
+              item.product.category_id = match.category_id
+              item.product.category = match.category
+              // Proactively heal this ad-hoc product row in DB
+              supabase
+                .from('products')
+                .update({ category_id: match.category_id })
+                .eq('id', item.product.id)
+                .then(() => {})
+            }
+          }
+        }
+      }
+    }
+
     return {
       ...listData,
       is_default: !!listData.is_default,
-      items: (itemsData || []).map((item: any) => ({
+      items: rawItems.map((item: any) => ({
         ...item,
         product: item.product
       }))
@@ -299,19 +349,38 @@ export const shoppingListService = {
         let productId = item.product_id
 
         if (!productId && item.added_ad_hoc) {
-          const { data: adHocProduct } = await supabase
+          // Check if product already exists in household by name
+          const { data: existingProd } = await supabase
             .from('products')
-            .insert({
-              household_id: householdId,
-              name: item.name,
-              unit_type: 'pcs',
-              is_ad_hoc: true
-            })
-            .select('id')
-            .single()
+            .select('id, category_id')
+            .eq('household_id', householdId)
+            .ilike('name', item.name.trim())
+            .maybeSingle()
 
-          if (adHocProduct) {
-            productId = adHocProduct.id
+          if (existingProd) {
+            productId = existingProd.id
+            if (!existingProd.category_id && item.category_id) {
+              await supabase
+                .from('products')
+                .update({ category_id: item.category_id })
+                .eq('id', existingProd.id)
+            }
+          } else {
+            const { data: adHocProduct } = await supabase
+              .from('products')
+              .insert({
+                household_id: householdId,
+                name: item.name,
+                unit_type: 'pcs',
+                category_id: item.category_id || null,
+                is_ad_hoc: true
+              })
+              .select('id')
+              .single()
+
+            if (adHocProduct) {
+              productId = adHocProduct.id
+            }
           }
         }
 
@@ -533,7 +602,10 @@ export const shoppingListService = {
    * Internal helper to insert draft items into a shopping list.
    */
   async _insertDraftItemsToList(shoppingListId: string, householdId: string, draftItems: DraftItem[]) {
-    const aggregatedMap = new Map<string, { product_id?: string; total_quantity: number; added_ad_hoc: boolean; name: string }>()
+    const aggregatedMap = new Map<
+      string,
+      { product_id?: string; total_quantity: number; added_ad_hoc: boolean; name: string; category_id?: number | null }
+    >()
 
     for (const item of draftItems) {
       const key = item.product_id ? `prod_${item.product_id}` : `adhoc_${item.name}`
@@ -541,12 +613,16 @@ export const shoppingListService = {
 
       if (existing) {
         existing.total_quantity = Math.round((existing.total_quantity + item.quantity) * 10) / 10
+        if (!existing.category_id && item.category_id) {
+          existing.category_id = item.category_id
+        }
       } else {
         aggregatedMap.set(key, {
           product_id: item.product_id,
           total_quantity: item.quantity,
           added_ad_hoc: !!item.is_ad_hoc,
-          name: item.name
+          name: item.name,
+          category_id: item.category_id || null
         })
       }
     }
@@ -557,19 +633,38 @@ export const shoppingListService = {
       let productId = value.product_id
 
       if (!productId && value.added_ad_hoc) {
-        const { data: adHocProduct } = await supabase
+        // Check if product already exists in household by name
+        const { data: existingProd } = await supabase
           .from('products')
-          .insert({
-            household_id: householdId,
-            name: value.name,
-            unit_type: 'pcs',
-            is_ad_hoc: true
-          })
-          .select('id')
-          .single()
+          .select('id, category_id')
+          .eq('household_id', householdId)
+          .ilike('name', value.name.trim())
+          .maybeSingle()
 
-        if (adHocProduct) {
-          productId = adHocProduct.id
+        if (existingProd) {
+          productId = existingProd.id
+          if (!existingProd.category_id && value.category_id) {
+            await supabase
+              .from('products')
+              .update({ category_id: value.category_id })
+              .eq('id', existingProd.id)
+          }
+        } else {
+          const { data: adHocProduct } = await supabase
+            .from('products')
+            .insert({
+              household_id: householdId,
+              name: value.name,
+              unit_type: 'pcs',
+              category_id: value.category_id || null,
+              is_ad_hoc: true
+            })
+            .select('id')
+            .single()
+
+          if (adHocProduct) {
+            productId = adHocProduct.id
+          }
         }
       }
 

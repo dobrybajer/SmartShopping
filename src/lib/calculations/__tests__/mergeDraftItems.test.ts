@@ -38,7 +38,8 @@ describe('mergeDraftItems calculations', () => {
         product_id: 'prod-123',
         name: 'Milk',
         quantity: 750,
-        is_ad_hoc: false
+        is_ad_hoc: false,
+        category_id: null
       })
     })
 
@@ -128,7 +129,8 @@ describe('mergeDraftItems calculations', () => {
         total_quantity: 3,
         is_checked: false,
         added_ad_hoc: false,
-        name: 'Banana'
+        name: 'Banana',
+        category_id: null
       })
 
       expect(result.mergedTotalCount).toBe(2)
@@ -168,6 +170,33 @@ describe('mergeDraftItems calculations', () => {
         is_checked: false
       })
       expect(result.itemsToInsert).toHaveLength(0)
+    })
+
+    it('preserves category_id on ad-hoc items when inserting new items', () => {
+      const existingItems: ActiveListItemWithProduct[] = []
+      const draftItems: DraftItem[] = [
+        {
+          id: 'draft-garlic-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 105,
+          category_name: 'Test',
+          sort_order: 10,
+          quantity: 1,
+          is_ad_hoc: true
+        }
+      ]
+
+      const result = mergeDraftItemsIntoActiveList(existingItems, draftItems)
+      expect(result.itemsToInsert).toHaveLength(1)
+      expect(result.itemsToInsert[0]).toEqual({
+        product_id: undefined,
+        name: 'Bagietka czosnkowa',
+        total_quantity: 1,
+        is_checked: false,
+        added_ad_hoc: true,
+        category_id: 105
+      })
     })
   })
 })

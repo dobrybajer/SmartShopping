@@ -69,6 +69,7 @@ interface ShoppingStoreState {
   setActiveListsSummary: (lists: ShoppingListSummary[]) => void
   addMealToDraft: (meal: MealWithIngredients, targetKcal?: number) => void
   addAdHocToDraft: (item: {
+    product_id?: string
     name: string
     unit_type: UnitEnum
     category_id?: number
@@ -194,13 +195,14 @@ export const useShoppingStore = create<ShoppingStoreState>()(
 
         const newItem: DraftItem = {
           id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          product_id: item.product_id,
           name: item.name,
           unit_type: item.unit_type,
           category_id: item.category_id,
           category_name: item.category_name || 'other',
           sort_order: item.sort_order ?? 99,
           quantity: item.quantity,
-          is_ad_hoc: true
+          is_ad_hoc: !item.product_id
         }
 
         const updatedDraft = [...currentDraft, newItem]

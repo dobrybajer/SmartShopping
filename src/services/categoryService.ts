@@ -5,6 +5,9 @@ import type {
   CategoryReorderItem
 } from '@/types/category'
 
+const isUuid = (val?: string | null): val is string =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+
 export const categoryService = {
   /**
    * Fetches all global categories and household custom categories,
@@ -17,7 +20,7 @@ export const categoryService = {
     try {
       let catQuery = supabase.from('product_categories').select('*')
 
-      if (householdId) {
+      if (isUuid(householdId)) {
         catQuery = catQuery.or(`household_id.is.null,household_id.eq.${householdId}`)
       } else {
         catQuery = catQuery.is('household_id', null)
@@ -33,11 +36,11 @@ export const categoryService = {
       }
 
       let settings: HouseholdCategorySettingRow[] = []
-      if (householdId) {
+      if (isUuid(householdId)) {
         const { data: settingsData, error: settingsError } = await supabase
           .from('household_category_settings')
           .select('*')
-          .eq('household_id', householdId)
+          .eq('household_id', householdId!)
 
         if (settingsError) {
           console.error(

@@ -5,11 +5,14 @@ export type ProductCategory = Database['public']['Tables']['product_categories']
 export type Product = Database['public']['Tables']['products']['Row']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
 
+const isUuid = (val?: string | null): val is string =>
+  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+
 export const productService = {
   async getCategories(householdId?: string | null): Promise<ProductCategory[]> {
     let query = supabase.from('product_categories').select('*')
 
-    if (householdId) {
+    if (isUuid(householdId)) {
       query = query.or(`household_id.is.null,household_id.eq.${householdId}`)
     }
 
