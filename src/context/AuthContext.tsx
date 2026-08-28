@@ -10,6 +10,7 @@ import {
 } from '@/services/householdService'
 import { useI18nStore } from '@/i18n'
 import type { SupportedLanguage } from '@/i18n/types'
+import { sortHouseholdsWithDefault } from '@/lib/calculations/householdSorting'
 
 interface AuthContextType {
   user: User | null
@@ -26,7 +27,9 @@ interface AuthContextType {
   updateUserTheme: (theme: string) => Promise<boolean>
   updateHouseholdName: (householdId: string, name: string) => Promise<boolean>
   setDefaultHousehold: (householdId: string | null) => Promise<boolean>
+  reorderHouseholds: (orderedHouseholdIds: string[]) => void
   createHousehold: (name: string) => Promise<Household | null>
+  deleteHousehold: (householdId: string) => Promise<boolean>
   addUserToHousehold: (householdId: string, email: string) => Promise<{ success: boolean; message: string }>
   getHouseholdMembers: (householdId: string) => Promise<{ members: MemberDetail[]; invites: InviteDetail[] }>
   refreshData: () => Promise<void>
@@ -100,16 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           // Brand new user without invites - create 1st household
           const householdName = `Household (${defaultName})`
+          const newHousehold = await householdService.createHousehold(householdName, currentUser.id)
 
-          const { data: newHousehold, error: hErr } = await supabase
-            .from('households')
-            .insert({ name: householdName })
-            .select('*')
-            .single()
-
-          if (hErr || !newHousehold) {
-            console.error('Error creating household:', hErr)
-          } else {
+          if (newHousehold) {
             const { data: createdUser, error: uErr } = await supabase
               .from('users')
               .insert({
@@ -124,11 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (uErr) console.error('Error creating user profile:', uErr)
             existingUser = createdUser
-
-            await supabase.from('household_members').upsert({
-              household_id: newHousehold.id,
-              user_id: currentUser.id
-            })
           }
         }
       } else {
@@ -163,9 +154,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         useI18nStore.getState().setLanguage(existingUser.language as SupportedLanguage)
       }
 
-      // 4. Fetch all user households
+      // 4. Fetch all user households and sort with default at top
       const allHouseholds = await householdService.getUserHouseholds(currentUser.id)
-      setUserHouseholds(allHouseholds)
+      const savedOrderRaw = localStorage.getItem(`smartshopping_household_order_${currentUser.id}`)
+      let savedOrderIds: string[] | undefined
+      try {
+        if (savedOrderRaw) savedOrderIds = JSON.parse(savedOrderRaw)
+      } catch {
+        // ignore invalid JSON
+      }
+      const sortedHouseholds = sortHouseholdsWithDefault(
+        allHouseholds,
+        existingUser?.household_id,
+        savedOrderIds
+      )
+      setUserHouseholds(sortedHouseholds)
       userProfileRef.current = existingUser
       setUserProfile(existingUser)
 
@@ -257,14 +260,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Auth state listener
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setSession(newSession)
       const newUser = newSession?.user ?? null
       setUser((prev) => (prev?.id === newUser?.id ? prev : newUser))
 
       if (newUser) {
-        // If event is TOKEN_REFRESHED and user profile is already loaded, skip redundant DB sync
-        if (event === 'TOKEN_REFRESHED' && userProfileRef.current?.id === newUser.id) {
+        // If user profile is already loaded for this user ID, skip redundant DB sync to prevent flicker when switching apps
+        if (userProfileRef.current?.id === newUser.id) {
           setLoading(false)
           return
         }
@@ -362,8 +365,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const success = await householdService.setDefaultHousehold(user.id, householdId)
     if (success) {
       setUserProfile((prev) => (prev ? { ...prev, household_id: householdId } : null))
+      const savedOrderRaw = localStorage.getItem(`smartshopping_household_order_${user.id}`)
+      let savedOrderIds: string[] | undefined
+      try {
+        if (savedOrderRaw) savedOrderIds = JSON.parse(savedOrderRaw)
+      } catch {
+        // ignore
+      }
+      setUserHouseholds((prev) => sortHouseholdsWithDefault(prev, householdId, savedOrderIds))
     }
     return success
+  }
+
+  const reorderHouseholds = (orderedHouseholdIds: string[]) => {
+    if (!user) return
+    localStorage.setItem(`smartshopping_household_order_${user.id}`, JSON.stringify(orderedHouseholdIds))
+    setUserHouseholds((prev) =>
+      sortHouseholdsWithDefault(prev, userProfile?.household_id, orderedHouseholdIds)
+    )
   }
 
   const createHousehold = async (name: string): Promise<Household | null> => {
@@ -374,6 +393,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHousehold(newHousehold)
     }
     return newHousehold
+  }
+
+  const deleteHousehold = async (householdId: string): Promise<boolean> => {
+    if (!user) return false
+    const success = await householdService.deleteHousehold(householdId)
+    if (success) {
+      const remaining = userHouseholds.filter((h) => h.id !== householdId)
+      setUserHouseholds(remaining)
+
+      if (household?.id === householdId) {
+        if (remaining.length > 0) {
+          const nextHousehold =
+            remaining.find((h) => h.id === userProfile?.household_id) || remaining[0]
+          await switchHousehold(nextHousehold.id)
+        } else {
+          // No households left, automatically create a fresh default household
+          const email = user.email?.toLowerCase().trim() || ''
+          const defaultName = email.split('@')[0] || 'User'
+          const householdName = `Household (${defaultName})`
+          const newH = await householdService.createHousehold(householdName, user.id)
+          if (newH) {
+            await householdService.setDefaultHousehold(user.id, newH.id)
+            setUserHouseholds([newH])
+            setHousehold(newH)
+          } else {
+            setHousehold(null)
+          }
+        }
+      } else if (userProfile?.household_id === householdId) {
+        const nextHousehold = remaining[0] || null
+        await householdService.setDefaultHousehold(user.id, nextHousehold ? nextHousehold.id : null)
+      }
+    }
+    return success
   }
 
   const addUserToHousehold = async (
@@ -404,7 +457,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateUserTheme,
         updateHouseholdName,
         setDefaultHousehold,
+        reorderHouseholds,
         createHousehold,
+        deleteHousehold,
         addUserToHousehold,
         getHouseholdMembers,
         refreshData

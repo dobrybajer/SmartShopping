@@ -227,9 +227,14 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           )
 
           if (existingIndex >= 0) {
+            const existing = currentDraft[existingIndex]
+            const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
             currentDraft[existingIndex] = {
-              ...currentDraft[existingIndex],
-              quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+              ...existing,
+              quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
+              category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
+              category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
+              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
             }
           } else {
             currentDraft.push({
@@ -251,9 +256,14 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           )
 
           if (existingIndex >= 0) {
+            const existing = currentDraft[existingIndex]
+            const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
             currentDraft[existingIndex] = {
-              ...currentDraft[existingIndex],
-              quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+              ...existing,
+              quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
+              category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
+              category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
+              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
             }
           } else {
             currentDraft.push({
@@ -294,9 +304,14 @@ export const useShoppingStore = create<ShoppingStoreState>()(
             )
 
             if (existingIndex >= 0) {
+              const existing = currentDraft[existingIndex]
+              const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
               currentDraft[existingIndex] = {
-                ...currentDraft[existingIndex],
-                quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+                ...existing,
+                quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
+                category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
+                category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
+                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
               }
             } else {
               currentDraft.push({
@@ -318,9 +333,14 @@ export const useShoppingStore = create<ShoppingStoreState>()(
             )
 
             if (existingIndex >= 0) {
+              const existing = currentDraft[existingIndex]
+              const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
               currentDraft[existingIndex] = {
-                ...currentDraft[existingIndex],
-                quantity: Math.round((currentDraft[existingIndex].quantity + item.quantity) * 10) / 10
+                ...existing,
+                quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
+                category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
+                category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
+                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
               }
             } else {
               currentDraft.push({

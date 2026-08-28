@@ -1,7 +1,11 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from '@/i18n'
 import { useCategoryStore } from '@/store/useCategoryStore'
-import { validateCategoryName } from '@/lib/calculations/categorySorting'
+import {
+  validateCategoryName,
+  resolveCategoriesWithSettings,
+  DEFAULT_PRODUCT_CATEGORIES
+} from '@/lib/calculations/categorySorting'
 import type { ResolvedCategory } from '@/types/category'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +38,8 @@ export const CategoryManagerContent: React.FC<CategoryManagerContentProps> = ({
   const { t } = useTranslation()
   const {
     categoriesByHousehold,
+    loadCategories,
+    subscribeRealtime,
     reorderCategories,
     toggleVisibility,
     createCustomCategory,
@@ -41,7 +47,27 @@ export const CategoryManagerContent: React.FC<CategoryManagerContentProps> = ({
     deleteCustomCategory
   } = useCategoryStore()
 
-  const categories = categoriesByHousehold[householdId] || []
+  // Load categories and subscribe to realtime changes
+  useEffect(() => {
+    if (householdId && loadCategories) {
+      loadCategories(householdId)
+    }
+  }, [householdId, loadCategories])
+
+  useEffect(() => {
+    if (householdId && subscribeRealtime) {
+      const unsubscribe = subscribeRealtime(householdId)
+      return () => {
+        unsubscribe()
+      }
+    }
+  }, [householdId, subscribeRealtime])
+
+  // Always show default global categories for new or unconfigured households
+  const categories =
+    categoriesByHousehold[householdId] && categoriesByHousehold[householdId].length > 0
+      ? categoriesByHousehold[householdId]
+      : resolveCategoriesWithSettings(DEFAULT_PRODUCT_CATEGORIES, [])
 
   // Add category state
   const [newCategoryName, setNewCategoryName] = useState('')

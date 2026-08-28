@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
+import { useAuth } from '@/context/AuthContext'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ShoppingList, ActiveListWithDetails, ActiveListItemWithProduct } from '@/services/shoppingListService'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import type { AddToDraftPayload } from '@/store/useShoppingStore'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
+import type { AisleGroup } from '@/lib/calculations/categorySorting'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { useTranslation } from '@/i18n'
 import {
@@ -47,6 +49,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   onListUpdated,
   onListDeleted
 }) => {
+  const { household } = useAuth()
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
   const { categoriesByHousehold, loadCategories } = useCategoryStore()
   const { t, formatQuantity, formatDate, formatTime } = useTranslation()
@@ -69,9 +72,8 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
   useEffect(() => {
     if (open && list) {
-      if (list.household_id) {
-        loadCategories(list.household_id)
-      }
+      const targetHh = list.household_id || household?.id || null
+      loadCategories(targetHh)
       const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
       setEditedName(list.name || `${t('history.archivedList')} ${formatDate(completedDate)}`)
       setIsEditingName(false)
@@ -94,7 +96,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     } else {
       setListDetails(null)
     }
-  }, [open, list, t, formatDate, loadCategories])
+  }, [open, list, household?.id, t, formatDate, loadCategories])
 
   if (!list) return null
 
@@ -135,26 +137,63 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     }
   }
 
-  const householdKey = list.household_id || 'global'
-  const resolvedCategories = categoriesByHousehold[householdKey] || []
+  const householdKey = list.household_id || household?.id || 'global'
+  const resolvedCategories =
+    categoriesByHousehold[householdKey] ||
+    (list.household_id ? categoriesByHousehold[list.household_id] : undefined) ||
+    (household?.id ? categoriesByHousehold[household.id] : undefined) ||
+    categoriesByHousehold['global'] ||
+    []
 
-  const mapItemToDraftPayload = (item: ActiveListItemWithProduct): AddToDraftPayload => {
-    const selectedCatId = item.category_id ?? item.category?.id ?? item.product?.category_id
+  const mapItemToDraftPayload = (
+    item: ActiveListItemWithProduct,
+    group?: AisleGroup<ActiveListItemWithProduct>
+  ): AddToDraftPayload => {
+    const selectedCatId =
+      item.category_id ??
+      group?.categoryId ??
+      item.category?.id ??
+      item.product?.category_id ??
+      item.product?.category?.id ??
+      undefined
+
     const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
+
+    const resolvedCatName =
+      resolvedCat?.custom_name ||
+      resolvedCat?.name ||
+      (group?.name && group.name !== 'other' ? group.name : undefined) ||
+      item.category?.name ||
+      item.product?.category?.name ||
+      'other'
+
+    const resolvedSortOrder =
+      resolvedCat?.sort_order ??
+      (group?.sort_order && group.sort_order !== 99999 ? group.sort_order : undefined) ??
+      (item.category?.sort_order ? item.category.sort_order * 10 : undefined) ??
+      (item.product?.category?.sort_order ? item.product.category.sort_order * 10 : undefined) ??
+      99
+
+    const prodId = item.product?.id || item.product_id || undefined
+
     return {
-      product_id: item.product?.id,
+      product_id: prodId,
       name: item.product?.name || item.ad_hoc_name || 'Product',
       unit_type: (item.product?.unit_type as any) || 'pcs',
-      category_id: selectedCatId || undefined,
-      category_name: resolvedCat?.custom_name || resolvedCat?.name || item.category?.name || item.product?.category?.name || 'other',
-      sort_order: resolvedCat?.sort_order ?? item.category?.sort_order ?? item.product?.category?.sort_order ?? 99,
+      category_id: selectedCatId,
+      category_name: resolvedCatName,
+      sort_order: resolvedSortOrder,
       quantity: item.total_quantity,
-      is_ad_hoc: !item.product_id || !!item.added_ad_hoc
+      is_ad_hoc: !prodId || !!item.added_ad_hoc,
+      meal_source: `${t('history.archivedList')}: ${listDetails?.name || list.name || t('navigation.history')}`
     }
   }
 
-  const handleAddSingleItemToDraft = (item: ActiveListItemWithProduct) => {
-    const payload = mapItemToDraftPayload(item)
+  const handleAddSingleItemToDraft = (
+    item: ActiveListItemWithProduct,
+    group?: AisleGroup<ActiveListItemWithProduct>
+  ) => {
+    const payload = mapItemToDraftPayload(item, group)
     addItemToDraft(payload)
 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -171,10 +210,35 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     }, 1500)
   }
 
+  const items = listDetails?.items || []
+  const checkedCount = items.filter((i) => i.is_checked).length
+  const totalCount = items.length
+
+  const getCategoryLabel = (catName: string) => {
+    return t(`categories.${catName}` as any) !== `categories.${catName}`
+      ? t(`categories.${catName}` as any)
+      : catName
+  }
+
+  // Group items by category using aisle hierarchy and item.category_id override
+  const sortedCategories = groupItemsByAisle(items, resolvedCategories, 'other')
+
   const handleAddAllToDraft = () => {
     if (!listDetails || !listDetails.items || listDetails.items.length === 0) return
 
-    const payloads = listDetails.items.map(mapItemToDraftPayload)
+    const payloads: AddToDraftPayload[] = []
+    if (sortedCategories && sortedCategories.length > 0) {
+      for (const group of sortedCategories) {
+        for (const item of group.items) {
+          payloads.push(mapItemToDraftPayload(item, group))
+        }
+      }
+    } else {
+      listDetails.items.forEach((item) => payloads.push(mapItemToDraftPayload(item)))
+    }
+
+    if (payloads.length === 0) return
+
     addMultipleToDraft(payloads)
 
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -192,30 +256,17 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     }, 1000)
   }
 
-  const items = listDetails?.items || []
-  const checkedCount = items.filter((i) => i.is_checked).length
-  const totalCount = items.length
-
-  const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }
-
-  // Group items by category using aisle hierarchy and item.category_id override
-  const sortedCategories = groupItemsByAisle(items, resolvedCategories, 'other')
-
-    const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
-    const formattedCompletedDate = formatDate(completedDate)
-    const formattedCompletedTime = formatTime(completedDate)
-    const formattedCreatedDate = list.created_at ? formatDate(list.created_at) : null
-    const formattedCreatedTime = list.created_at ? formatTime(list.created_at) : null
+  const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+  const formattedCompletedDate = formatDate(completedDate)
+  const formattedCompletedTime = formatTime(completedDate)
+  const formattedCreatedDate = list.created_at ? formatDate(list.created_at) : null
+  const formattedCreatedTime = list.created_at ? formatTime(list.created_at) : null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[92dvh] flex flex-col overflow-hidden p-0 gap-0 bg-card border-t border-border text-foreground">
         {/* Header */}
-        <SheetHeader className="p-4 pb-3 border-b border-border shrink-0">
+        <SheetHeader className="p-4 pb-3 border-b border-border shrink-0 text-left">
           <div className="flex flex-col gap-2">
             {/* Title & Edit */}
             <div className="flex items-center justify-between gap-2 pr-6">
@@ -276,36 +327,36 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               )}
             </div>
 
-            {/* Date & Status */}
+            {/* Meta Details: Dates & Status (Vertical Order) */}
             <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
-                    <Calendar className="w-3.5 h-3.5 text-primary" />
-                    <span>{t('history.completedAt')}: {formattedCompletedDate}</span>
-                    {formattedCompletedTime && (
-                      <span className="text-muted-foreground font-mono">({formattedCompletedTime})</span>
-                    )}
-                  </span>
-                  {formattedCreatedDate && (
-                    <span className="flex items-center gap-1 text-muted-foreground/80" title={t('history.createdAt')}>
-                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>{t('history.createdAt')}: {formattedCreatedDate}</span>
-                      {formattedCreatedTime && (
-                        <span>({formattedCreatedTime})</span>
-                      )}
-                    </span>
-                  )}
-                </div>
+              {/* Completed Date & Time (Non-breaking, always 1 line) */}
+              <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap" title={t('history.completedAt')}>
+                <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span>{t('history.completedAt')}: {formattedCompletedDate}</span>
+                {formattedCompletedTime && (
+                  <span>({formattedCompletedTime})</span>
+                )}
+              </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <HistoryStatusBadge items={items} />
-                  {totalCount > 0 && (
-                    <Badge variant="secondary" className="text-[10px] font-mono py-0.5">
-                      {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
-                    </Badge>
+              {/* Created Date & Time (Non-breaking, always 1 line) */}
+              {formattedCreatedDate && (
+                <div className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground/80 whitespace-nowrap" title={t('history.createdAt')}>
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span>{t('history.createdAt')}: {formattedCreatedDate}</span>
+                  {formattedCreatedTime && (
+                    <span>({formattedCreatedTime})</span>
                   )}
                 </div>
+              )}
+
+              {/* Status & Items Bought Ratio (1 line if fits, wrap if not) */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <HistoryStatusBadge items={items} />
+                {totalCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] font-mono py-0.5 whitespace-nowrap">
+                    {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -378,7 +429,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                             </span>
 
                             <Button
-                              onClick={() => handleAddSingleItemToDraft(item)}
+                              onClick={() => handleAddSingleItemToDraft(item, group)}
                               size="sm"
                               variant="outline"
                               className={cn(
@@ -387,7 +438,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
                                   ? "bg-primary text-primary-foreground border-primary font-bold"
                                   : "bg-card hover:bg-muted text-foreground border-border hover:border-primary/40 hover:text-primary"
                               )}
-                              title={t('draft.addMealsButton')}
+                              title={t('history.restoreToDraft')}
                             >
                               {isItemAdded ? (
                                 <span className="flex items-center gap-1">

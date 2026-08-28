@@ -6,6 +6,8 @@ import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, ActiveListItemWithProduct, HistoryShoppingList } from '@/services/shoppingListService'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
+import type { AisleGroup } from '@/lib/calculations/categorySorting'
+import type { AddToDraftPayload } from '@/store/useShoppingStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
@@ -123,21 +125,56 @@ export const DesktopHistoryView: React.FC = () => {
   const householdKey = household?.id || 'global'
   const resolvedCategories = categoriesByHousehold[householdKey] || []
 
-  const handleAddSingleItemToDraft = (item: ActiveListItemWithProduct) => {
-    const selectedCatId = item.category_id ?? item.category?.id ?? item.product?.category_id
+  const mapItemToDraftPayload = (
+    item: ActiveListItemWithProduct,
+    group?: AisleGroup<ActiveListItemWithProduct>
+  ): AddToDraftPayload => {
+    const selectedCatId =
+      item.category_id ??
+      group?.categoryId ??
+      item.category?.id ??
+      item.product?.category_id ??
+      item.product?.category?.id ??
+      undefined
+
     const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
 
-    addItemToDraft({
-      product_id: item.product_id || undefined,
+    const resolvedCatName =
+      resolvedCat?.custom_name ||
+      resolvedCat?.name ||
+      (group?.name && group.name !== 'other' ? group.name : undefined) ||
+      item.category?.name ||
+      item.product?.category?.name ||
+      'other'
+
+    const resolvedSortOrder =
+      resolvedCat?.sort_order ??
+      (group?.sort_order && group.sort_order !== 99999 ? group.sort_order : undefined) ??
+      (item.category?.sort_order ? item.category.sort_order * 10 : undefined) ??
+      (item.product?.category?.sort_order ? item.product.category.sort_order * 10 : undefined) ??
+      99
+
+    const prodId = item.product?.id || item.product_id || undefined
+
+    return {
+      product_id: prodId,
       name: item.product?.name || item.ad_hoc_name || 'Product',
       quantity: item.total_quantity,
       unit_type: (item.product?.unit_type as any) || 'pcs',
-      category_id: selectedCatId || undefined,
-      category_name: resolvedCat?.custom_name || resolvedCat?.name || item.category?.name || item.product?.category?.name || 'other',
-      sort_order: resolvedCat?.sort_order ?? item.category?.sort_order ?? item.product?.category?.sort_order ?? 99,
+      category_id: selectedCatId,
+      category_name: resolvedCatName,
+      sort_order: resolvedSortOrder,
       meal_source: `${t('history.archivedList')}: ${listDetails?.name || t('navigation.history')}`,
-      is_ad_hoc: !item.product_id
-    })
+      is_ad_hoc: !prodId || !!item.added_ad_hoc
+    }
+  }
+
+  const handleAddSingleItemToDraft = (
+    item: ActiveListItemWithProduct,
+    group?: AisleGroup<ActiveListItemWithProduct>
+  ) => {
+    const payload = mapItemToDraftPayload(item, group)
+    addItemToDraft(payload)
 
     setAddedItemIds((prev) => ({ ...prev, [item.id]: true }))
     setTimeout(() => {
@@ -148,23 +185,20 @@ export const DesktopHistoryView: React.FC = () => {
   const handleAddAllToDraft = () => {
     if (!listDetails || listDetails.items.length === 0) return
 
-    const draftItems = listDetails.items.map((item) => {
-      const selectedCatId = item.category_id ?? item.category?.id ?? item.product?.category_id
-      const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
-      return {
-        product_id: item.product_id || undefined,
-        name: item.product?.name || item.ad_hoc_name || 'Product',
-        quantity: item.total_quantity,
-        unit_type: (item.product?.unit_type as any) || 'pcs',
-        category_id: selectedCatId || undefined,
-        category_name: resolvedCat?.custom_name || resolvedCat?.name || item.category?.name || item.product?.category?.name || 'other',
-        sort_order: resolvedCat?.sort_order ?? item.category?.sort_order ?? item.product?.category?.sort_order ?? 99,
-        meal_source: `${t('history.archivedList')}: ${listDetails.name || t('navigation.history')}`,
-        is_ad_hoc: !item.product_id
+    const payloads: AddToDraftPayload[] = []
+    if (sortedCategories && sortedCategories.length > 0) {
+      for (const group of sortedCategories) {
+        for (const item of group.items) {
+          payloads.push(mapItemToDraftPayload(item, group))
+        }
       }
-    })
+    } else {
+      listDetails.items.forEach((item) => payloads.push(mapItemToDraftPayload(item)))
+    }
 
-    addMultipleToDraft(draftItems)
+    if (payloads.length === 0) return
+
+    addMultipleToDraft(payloads)
     setAllAdded(true)
     setTimeout(() => setAllAdded(false), 2000)
   }
@@ -435,7 +469,7 @@ export const DesktopHistoryView: React.FC = () => {
                             </span>
 
                             <Button
-                              onClick={() => handleAddSingleItemToDraft(item)}
+                              onClick={() => handleAddSingleItemToDraft(item, group)}
                               size="sm"
                               variant="outline"
                               className={cn(
@@ -444,7 +478,7 @@ export const DesktopHistoryView: React.FC = () => {
                                   ? "bg-primary text-primary-foreground border-primary font-bold"
                                   : "bg-card hover:bg-muted text-foreground border-border hover:border-primary/40 hover:text-primary"
                               )}
-                              title={t('draft.addMealsButton')}
+                              title={t('history.restoreToDraft')}
                             >
                               {isItemAdded ? (
                                 <span className="flex items-center gap-1">

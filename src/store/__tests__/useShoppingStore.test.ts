@@ -91,4 +91,36 @@ describe('useShoppingStore - Draft Management', () => {
     useShoppingStore.getState().clearDraft()
     expect(useShoppingStore.getState().draftItems).toHaveLength(0)
   })
+
+  it('Flow 04: adopts category from incoming item when existing draft item was uncategorized or other', () => {
+    // Initial item without category or marked 'other'
+    useShoppingStore.getState().addItemToDraft({
+      product_id: 'prod-456',
+      name: 'Frozen Pizza',
+      unit_type: 'pcs',
+      quantity: 1,
+      category_name: 'other'
+    })
+
+    expect(useShoppingStore.getState().draftItems[0].category_name).toBe('other')
+    expect(useShoppingStore.getState().draftItems[0].category_id).toBeUndefined()
+
+    // Add same product from history with specific category
+    useShoppingStore.getState().addItemToDraft({
+      product_id: 'prod-456',
+      name: 'Frozen Pizza',
+      unit_type: 'pcs',
+      quantity: 2,
+      category_id: 5,
+      category_name: 'Mrożonki',
+      sort_order: 10
+    })
+
+    const items = useShoppingStore.getState().draftItems
+    expect(items).toHaveLength(1)
+    expect(items[0].quantity).toBe(3)
+    expect(items[0].category_id).toBe(5)
+    expect(items[0].category_name).toBe('Mrożonki')
+    expect(items[0].sort_order).toBe(10)
+  })
 })

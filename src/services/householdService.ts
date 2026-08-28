@@ -98,21 +98,26 @@ export const householdService = {
   async createHousehold(name: string, userId: string): Promise<Household | null> {
     try {
       const trimmedName = name.trim() || 'New Household'
-      const { data: newHousehold, error: hError } = await supabase
-        .from('households')
-        .insert({ name: trimmedName })
-        .select('*')
-        .single()
+      const newHouseholdId = crypto.randomUUID()
 
-      if (hError || !newHousehold) {
+      // 1. Insert household without .select() to avoid RLS SELECT rejection before membership exists
+      const { error: hError } = await supabase
+        .from('households')
+        .insert({
+          id: newHouseholdId,
+          name: trimmedName
+        })
+
+      if (hError) {
         console.error('Error creating new household:', hError)
         return null
       }
 
+      // 2. Assign current user to household_members so RLS SELECT policy is satisfied
       const { error: mError } = await supabase
         .from('household_members')
         .insert({
-          household_id: newHousehold.id,
+          household_id: newHouseholdId,
           user_id: userId
         })
 
@@ -120,7 +125,22 @@ export const householdService = {
         console.error('Error assigning member to new household:', mError)
       }
 
-      return newHousehold
+      // 3. Fetch newly created household (RLS SELECT now passes)
+      const { data: createdRow } = await supabase
+        .from('households')
+        .select('*')
+        .eq('id', newHouseholdId)
+        .maybeSingle()
+
+      if (createdRow) {
+        return createdRow
+      }
+
+      return {
+        id: newHouseholdId,
+        name: trimmedName,
+        created_at: new Date().toISOString()
+      }
     } catch (err) {
       console.error('Error in createHousehold:', err)
       return null
@@ -318,6 +338,28 @@ export const householdService = {
       return true
     } catch (err) {
       console.error('Error in updateUserTheme:', err)
+      return false
+    }
+  },
+
+  /**
+   * Deletes a household and relies on database cascading to clean up all related
+   * products, meals, shopping lists, members, invites, and category settings.
+   */
+  async deleteHousehold(householdId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('households')
+        .delete()
+        .eq('id', householdId)
+
+      if (error) {
+        console.error('Error deleting household:', error)
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('Error in deleteHousehold:', err)
       return false
     }
   }

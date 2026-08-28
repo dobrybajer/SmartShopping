@@ -6,6 +6,32 @@ import type {
 } from '@/types/category'
 
 /**
+ * Standard default global product categories with initial 1:1 ID and sort_order matching
+ * the database schema and internationalization slug definitions.
+ */
+export const DEFAULT_PRODUCT_CATEGORIES: RawCategoryRow[] = [
+  { id: 1, name: 'fruits_vegetables', sort_order: 1, household_id: null },
+  { id: 2, name: 'bakery', sort_order: 2, household_id: null },
+  { id: 3, name: 'dairy', sort_order: 3, household_id: null },
+  { id: 4, name: 'meat_fish', sort_order: 4, household_id: null },
+  { id: 5, name: 'pantry', sort_order: 5, household_id: null },
+  { id: 6, name: 'beverages', sort_order: 6, household_id: null },
+  { id: 7, name: 'household', sort_order: 7, household_id: null },
+  { id: 8, name: 'other', sort_order: 8, household_id: null }
+]
+
+/**
+ * Ensures that if a household has no categories (empty array),
+ * the default global categories are returned so they can be managed.
+ */
+export function ensureDefaultGlobalCategories(categories: RawCategoryRow[]): RawCategoryRow[] {
+  if (!categories || categories.length === 0) {
+    return [...DEFAULT_PRODUCT_CATEGORIES]
+  }
+  return categories
+}
+
+/**
  * Resolves a unified, sorted list of categories for a household by merging
  * raw categories (global + household-scoped) with per-household settings.
  */
@@ -17,7 +43,7 @@ export function resolveCategoriesWithSettings(
   const settingsMap = new Map<number, HouseholdCategorySettingRow>()
   settings.forEach((s) => settingsMap.set(s.category_id, s))
 
-  const resolved: ResolvedCategory[] = categories.map((cat) => {
+  const resolved: ResolvedCategory[] = (categories || []).map((cat) => {
     const setting = settingsMap.get(cat.id)
     const isGlobal = !cat.household_id
     const sortOrder = setting ? setting.custom_sort_order : (cat.sort_order ?? 99) * 10

@@ -41,12 +41,17 @@ describe('CategoryManager User Flows (Mobile & Desktop)', () => {
     }
   ]
 
+  const mockLoadCategories = vi.fn()
+  const mockSubscribeRealtime = vi.fn(() => vi.fn())
+
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useCategoryStore).mockReturnValue({
       categoriesByHousehold: {
         'hh-123': mockCategories
       },
+      loadCategories: mockLoadCategories,
+      subscribeRealtime: mockSubscribeRealtime,
       reorderCategories: mockReorder,
       toggleVisibility: mockToggleVisibility,
       createCustomCategory: mockCreateCustom,
@@ -138,5 +143,24 @@ describe('CategoryManager User Flows (Mobile & Desktop)', () => {
       <CategoryManagerSheet open={true} onOpenChange={vi.fn()} householdId="hh-123" />
     )
     expect(screen.getByText(/Supermarket Aisles & Categories|Alejki i Kategorie Sklepowe/i)).toBeInTheDocument()
+  })
+
+  it('Flow 06: Always displays default global categories for new or unconfigured households', () => {
+    // household 'hh-brand-new' has no custom configuration in categoriesByHousehold
+    render(<CategoryManagerContent householdId="hh-brand-new" />)
+
+    // Should load categories and subscribe to realtime on mount
+    expect(mockLoadCategories).toHaveBeenCalledWith('hh-brand-new')
+    expect(mockSubscribeRealtime).toHaveBeenCalledWith('hh-brand-new')
+
+    // Should immediately render default global categories (e.g. Owoce i Warzywa, Pieczywo, Nabiał i Jaja...)
+    expect(screen.getByText(/Owoce i Warzywa|Fruits & Vegetables/i)).toBeInTheDocument()
+    expect(screen.getByText(/Pieczywo|Bakery/i)).toBeInTheDocument()
+    expect(screen.getByText(/Nabiał i Jaja|Dairy & Eggs/i)).toBeInTheDocument()
+    expect(screen.getByText(/Mięso i Ryby|Meat & Fish/i)).toBeInTheDocument()
+
+    // Reorder buttons should be present and enabled for these default categories
+    const moveButtons = screen.getAllByLabelText(/Move aisle|Przesuń alejkę/i)
+    expect(moveButtons.length).toBeGreaterThanOrEqual(14)
   })
 })

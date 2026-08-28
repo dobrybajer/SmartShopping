@@ -166,12 +166,69 @@ describe('HistoryListDetailsSheet - Mobile Details, Category Overrides & Actions
       expect(screen.queryByText(/Pieczywo/i)).not.toBeInTheDocument()
     })
 
-    // Click "Dodaj do koszyka"
+    // Click "Dodaj do koszyka" (restore all)
     fireEvent.click(screen.getByText(/Dodaj do koszyka/i))
 
     // Verify draft item retains category_id: 5
     const draftItems = useShoppingStore.getState().draftItems
     expect(draftItems.length).toBe(1)
+    expect(draftItems[0].category_id).toBe(5)
+    expect(draftItems[0].category_name).toBe('Mrożonki')
+  })
+
+  it('renders header in vertical sequence with non-breaking date lines and wrap-enabled status/summary badges', async () => {
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue(sampleDetails)
+
+    render(
+      <HistoryListDetailsSheet
+        list={sampleListRenamed}
+        open={true}
+        onOpenChange={vi.fn()}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/Zakończono/i)).toBeInTheDocument()
+      expect(screen.getByText(/Utworzono/i)).toBeInTheDocument()
+    })
+
+    // Completed date container must have whitespace-nowrap
+    const completedContainer = screen.getByTitle('Zakończono')
+    expect(completedContainer).toHaveClass('whitespace-nowrap')
+
+    // Created date container must have whitespace-nowrap
+    const createdContainer = screen.getByTitle('Utworzono')
+    expect(createdContainer).toHaveClass('whitespace-nowrap')
+
+    // Status and bought ratio badge wrapper must have flex-wrap
+    const badgeWrapper = document.querySelector('.flex-wrap.items-center')
+    expect(badgeWrapper).toBeInTheDocument()
+    expect(badgeWrapper).toHaveClass('flex-wrap')
+  })
+
+  it('preserves historical category when adding single item via row button', async () => {
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue(sampleDetails)
+
+    render(
+      <HistoryListDetailsSheet
+        list={sampleListRenamed}
+        open={true}
+        onOpenChange={vi.fn()}
+      />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('Pizza Mrożona')).toBeInTheDocument()
+    })
+
+    // Find the single-item add button in the item card (has title "Dodaj do koszyka")
+    const singleAddBtns = screen.getAllByTitle(/Dodaj do koszyka/i)
+    // The first one is the row button
+    fireEvent.click(singleAddBtns[0])
+
+    const draftItems = useShoppingStore.getState().draftItems
+    expect(draftItems.length).toBe(1)
+    expect(draftItems[0].name).toBe('Pizza Mrożona')
     expect(draftItems[0].category_id).toBe(5)
     expect(draftItems[0].category_name).toBe('Mrożonki')
   })

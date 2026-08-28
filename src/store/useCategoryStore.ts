@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { categoryService } from '@/services/categoryService'
 import {
   resolveCategoriesWithSettings,
-  calculateSparseIntervals
+  calculateSparseIntervals,
+  DEFAULT_PRODUCT_CATEGORIES
 } from '@/lib/calculations/categorySorting'
 import type {
   RawCategoryRow,
@@ -80,7 +81,10 @@ export const useCategoryStore = create<CategoryStoreState>()((set, get) => ({
 
   reorderCategories: async (householdId, orderedCategoryIds) => {
     const key = householdId || 'global'
-    const previousCategories = get().categoriesByHousehold[key] || []
+    const previousCategories =
+      get().categoriesByHousehold[key] && get().categoriesByHousehold[key].length > 0
+        ? get().categoriesByHousehold[key]
+        : resolveCategoriesWithSettings(DEFAULT_PRODUCT_CATEGORIES, [])
     const previousSettings = get().settingsByHousehold[key] || []
 
     // 1. Calculate new sparse intervals
@@ -137,7 +141,10 @@ export const useCategoryStore = create<CategoryStoreState>()((set, get) => ({
 
   toggleVisibility: async (householdId, categoryId, isHidden) => {
     const key = householdId || 'global'
-    const previousCategories = get().categoriesByHousehold[key] || []
+    const previousCategories =
+      get().categoriesByHousehold[key] && get().categoriesByHousehold[key].length > 0
+        ? get().categoriesByHousehold[key]
+        : resolveCategoriesWithSettings(DEFAULT_PRODUCT_CATEGORIES, [])
     const previousSettings = get().settingsByHousehold[key] || []
 
     const targetCat = previousCategories.find((c) => c.id === categoryId)

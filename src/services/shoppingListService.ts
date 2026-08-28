@@ -594,11 +594,13 @@ export const shoppingListService = {
       .from('shopping_list_items')
       .select(`
         *,
+        category:product_categories(*),
         product:products(
           id,
           name,
           unit_type,
-          category_id
+          category_id,
+          category:product_categories(*)
         )
       `)
       .eq('shopping_list_id', listId)
@@ -609,14 +611,18 @@ export const shoppingListService = {
     if (uncheckedItems && uncheckedItems.length > 0) {
       uncheckedItems.forEach((item: any) => {
         if (item.product) {
+          const catId = item.category_id ?? item.category?.id ?? item.product.category_id ?? item.product.category?.id ?? undefined
+          const catName = item.category?.name || item.product.category?.name || 'other'
+          const catSortOrder = item.category?.sort_order ?? item.product.category?.sort_order ?? 99
+
           remainingDraftItems.push({
             id: `archived_rem_${item.id}`,
             product_id: item.product.id,
             name: item.product.name,
             unit_type: item.product.unit_type,
-            category_id: item.category_id ?? item.product.category_id,
-            category_name: 'other',
-            sort_order: 99,
+            category_id: catId,
+            category_name: catName,
+            sort_order: catSortOrder,
             quantity: item.total_quantity,
             is_ad_hoc: item.added_ad_hoc
           })
