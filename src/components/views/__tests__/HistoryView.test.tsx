@@ -16,7 +16,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
   {
     id: 'history-1',
     household_id: 'household-123',
-    name: 'Zakupy Weekendowe',
+    name: 'Nowa Nazwa Listy',
+    original_name: 'Zakupy Weekendowe',
     status: 'archived',
     is_default: false,
     target_date: '2026-08-25',
@@ -33,6 +34,7 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     id: 'history-2',
     household_id: 'household-123',
     name: null,
+    original_name: null,
     status: 'archived',
     is_default: false,
     target_date: '2026-08-20',
@@ -49,6 +51,7 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     id: 'history-3',
     household_id: 'household-123',
     name: 'Niekupione Zakupy',
+    original_name: 'Niekupione Zakupy',
     status: 'archived',
     is_default: false,
     target_date: '2026-08-18',
@@ -77,6 +80,7 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
 
     // Wait for history lists to load
     await waitFor(() => {
+      expect(screen.getByText('Nowa Nazwa Listy')).toBeInTheDocument()
       expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
     })
 
@@ -107,11 +111,11 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     render(<HistoryView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
+      expect(screen.getByText('Nowa Nazwa Listy')).toBeInTheDocument()
     })
 
     // Click first item to open sheet
-    fireEvent.click(screen.getByText('Zakupy Weekendowe'))
+    fireEvent.click(screen.getByText('Nowa Nazwa Listy'))
 
     await waitFor(() => {
       // In details sheet, check that dialog/sheet opened and both dates are shown
@@ -137,7 +141,7 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     render(<HistoryView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
+      expect(screen.getByText('Nowa Nazwa Listy')).toBeInTheDocument()
     })
 
     // List 1 (all bought): green badge with "Zrealizowano"
@@ -157,5 +161,21 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     expect(badgeElements.some((el) => el.className.includes('bg-emerald-500'))).toBe(true)
     expect(badgeElements.some((el) => el.className.includes('bg-amber-500'))).toBe(true)
     expect(badgeElements.some((el) => el.className.includes('bg-rose-500'))).toBe(true)
+  })
+
+  it('Flow 05: renders original name when renamed, and omits line when name unchanged', async () => {
+    vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
+
+    render(<HistoryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Nowa Nazwa Listy')).toBeInTheDocument()
+    })
+
+    // List 1 was renamed from 'Zakupy Weekendowe' to 'Nowa Nazwa Listy' -> original name is visible
+    expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
+
+    // List 3 was not renamed (name === original_name === 'Niekupione Zakupy') -> only 1 instance exists
+    expect(screen.getAllByText('Niekupione Zakupy').length).toBe(1)
   })
 })

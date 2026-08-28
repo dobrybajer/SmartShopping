@@ -17,6 +17,7 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     id: 'history-1',
     household_id: 'household-123',
     name: 'Zakupy Poniedziałkowe',
+    original_name: 'Zakupy Poniedziałkowe',
     status: 'archived',
     is_default: false,
     target_date: '2026-08-25',
@@ -31,7 +32,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
   {
     id: 'history-2',
     household_id: 'household-123',
-    name: 'Zakupy z Targu',
+    name: 'Targ Rybny',
+    original_name: 'Zakupy z Targu',
     status: 'archived',
     is_default: false,
     target_date: '2026-08-22',
@@ -48,6 +50,7 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     id: 'history-3',
     household_id: 'household-123',
     name: 'Zakupy Niezrealizowane',
+    original_name: 'Zakupy Niezrealizowane',
     status: 'archived',
     is_default: false,
     target_date: '2026-08-20',
@@ -80,7 +83,7 @@ const sampleDetails: ActiveListWithDetails = {
         category_id: 1,
         category: {
           id: 1,
-          name: 'warzywa',
+          name: 'fruits_vegetables',
           sort_order: 1
         }
       }
@@ -144,11 +147,11 @@ describe('DesktopHistoryView - Desktop History and Dynamic Status Flows', () => 
     render(<DesktopHistoryView />)
 
     await waitFor(() => {
-      expect(screen.getByText('Zakupy z Targu')).toBeInTheDocument()
+      expect(screen.getByText('Targ Rybny')).toBeInTheDocument()
     })
 
     // Click on second list item
-    fireEvent.click(screen.getByText('Zakupy z Targu'))
+    fireEvent.click(screen.getByText('Targ Rybny'))
 
     await waitFor(() => {
       expect(shoppingListService.getListWithDetails).toHaveBeenCalledWith('history-2')
@@ -189,5 +192,109 @@ describe('DesktopHistoryView - Desktop History and Dynamic Status Flows', () => 
     expect(badgeElements.some((el) => el.className.includes('bg-emerald-500'))).toBe(true)
     expect(badgeElements.some((el) => el.className.includes('bg-amber-500'))).toBe(true)
     expect(badgeElements.some((el) => el.className.includes('bg-rose-500'))).toBe(true)
+  })
+
+  it('Flow 05: displays original name below title if renamed, and hides it if name was not changed', async () => {
+    vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockImplementation(async (id: string) => {
+      if (id === 'history-2') {
+        return {
+          ...sampleHistoryLists[1],
+          items: []
+        }
+      }
+      return sampleDetails
+    })
+
+    render(<DesktopHistoryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Targ Rybny')).toBeInTheDocument()
+    })
+
+    // Left column shows original name for renamed list-2, while list-1 (not renamed) has no duplicate/original line
+    expect(screen.getByText('Zakupy z Targu')).toBeInTheDocument()
+
+    // Right details panel also shows the original name when list-2 is selected
+    fireEvent.click(screen.getByText('Targ Rybny'))
+
+    await waitFor(() => {
+      // In both left column and right details panel, Zakupy z Targu appears
+      expect(screen.getAllByText('Zakupy z Targu').length).toBe(2)
+    })
+  })
+
+  it('Flow 06: displays 50/50 action buttons ("Dodaj do koszyka" and "Usuń listę"), and clicking delete shows ConfirmDeleteDialog', async () => {
+    vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue(sampleDetails)
+    const deleteSpy = vi.spyOn(shoppingListService, 'deleteShoppingList').mockResolvedValue(true)
+
+    render(<DesktopHistoryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Dodaj do koszyka/i)).toBeInTheDocument()
+      expect(screen.getByText(/Usuń listę/i)).toBeInTheDocument()
+    })
+
+    // Clicking "Usuń listę" opens the ConfirmDeleteDialog modal
+    fireEvent.click(screen.getByText(/Usuń listę/i))
+
+    await waitFor(() => {
+      // Modal header or description should appear
+      expect(screen.getByText('Usuwanie Listy Zakupów')).toBeInTheDocument()
+    })
+
+    // Confirm deletion inside the dialog
+    const confirmButton = screen.getByRole('button', { name: /Usuń/i })
+    fireEvent.click(confirmButton)
+
+    await waitFor(() => {
+      expect(deleteSpy).toHaveBeenCalledWith('history-1')
+    })
+  })
+
+  it('Flow 07: preserves chosen category override on history items instead of falling back to product default', async () => {
+    const detailsWithCategoryOverride: ActiveListWithDetails = {
+      ...sampleHistoryLists[0],
+      items: [
+        {
+          id: 'item-custom-cat',
+          shopping_list_id: 'history-1',
+          product_id: 'prod-override',
+          ad_hoc_name: undefined,
+          total_quantity: 1,
+          is_checked: true,
+          category_id: 10,
+          category: {
+            id: 10,
+            name: 'Własna Alejka',
+            sort_order: 2
+          },
+          added_ad_hoc: false,
+          product: {
+            id: 'prod-override',
+            name: 'Kawa Ziarnista',
+            unit_type: 'pcs',
+            category_id: 99,
+            category: {
+              id: 99,
+              name: 'Inna Kategoria',
+              sort_order: 99
+            }
+          }
+        }
+      ]
+    }
+
+    vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue(detailsWithCategoryOverride)
+
+    render(<DesktopHistoryView />)
+
+    await waitFor(() => {
+      // Should show 'Własna Alejka' (category_id: 10) instead of 'Inna Kategoria' (category_id: 99)
+      expect(screen.getByText(/Własna Alejka/i)).toBeInTheDocument()
+      expect(screen.queryByText(/Inna Kategoria/i)).not.toBeInTheDocument()
+    })
   })
 })

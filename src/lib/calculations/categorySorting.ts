@@ -134,6 +134,11 @@ export interface AisleGroup<T> {
 export function groupItemsByAisle<
   T extends {
     category_id?: number | null
+    category?: {
+      id: number
+      name: string
+      sort_order?: number
+    } | null
     product_id?: string | null
     product?: {
       id?: string
@@ -157,8 +162,8 @@ export function groupItemsByAisle<
   const aisleMap = new Map<string, AisleGroup<T>>()
 
   items.forEach((item) => {
-    // Check item.category_id first (temporary override from draft / ad-hoc), then fall back to product catalog category
-    const catId = item.category_id ?? item.product?.category_id ?? item.product?.category?.id ?? null
+    // Check item.category_id first (override from item), then item.category, then fall back to product catalog category
+    const catId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? item.product?.category?.id ?? null
     const resolvedCat = catId !== null ? categoryMap.get(catId) : undefined
 
     let key: string
@@ -173,6 +178,10 @@ export function groupItemsByAisle<
       sortOrder = resolvedCat.sort_order
       isHidden = resolvedCat.is_hidden
       hasFallback = resolvedCat.is_hidden
+    } else if (item.category?.name) {
+      key = `cat_${item.category.id || item.category_id || 'unknown'}`
+      name = item.category.name
+      sortOrder = (item.category.sort_order ?? 99) * 10
     } else if (item.product?.category?.name) {
       key = `cat_${item.product.category.id || 'unknown'}`
       name = item.product.category.name

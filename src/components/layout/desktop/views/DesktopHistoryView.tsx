@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useCategoryStore } from '@/store/useCategoryStore'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, ActiveListItemWithProduct, HistoryShoppingList } from '@/services/shoppingListService'
+import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import {
   Calendar,
   History,
@@ -16,7 +19,6 @@ import {
   Trash2,
   Edit2,
   X,
-  CircleAlert,
   ChevronRight,
   PackageCheck,
   Clock
@@ -26,6 +28,7 @@ import { cn } from '@/lib/utils'
 export const DesktopHistoryView: React.FC = () => {
   const { household } = useAuth()
   const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore()
   const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
   const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])
@@ -38,13 +41,17 @@ export const DesktopHistoryView: React.FC = () => {
   const [editedName, setEditedName] = useState('')
   const [isSavingName, setIsSavingName] = useState(false)
 
-  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({})
   const [allAdded, setAllAdded] = useState(false)
 
   const householdId = household?.id
+
+  useEffect(() => {
+    loadCategories(householdId)
+  }, [householdId, loadCategories])
 
   const loadHistoryLists = useCallback(async (isInitial = false) => {
     if (!householdId) return
@@ -70,7 +77,7 @@ export const DesktopHistoryView: React.FC = () => {
     setListDetails(data)
     setEditedName(data?.name || '')
     setIsEditingName(false)
-    setIsConfirmingDelete(false)
+    setIsDeleteModalOpen(false)
     setAddedItemIds({})
     setAllAdded(false)
     setLoadingDetails(false)
@@ -91,9 +98,11 @@ export const DesktopHistoryView: React.FC = () => {
     setIsSavingName(false)
     if (success) {
       setIsEditingName(false)
-      setListDetails((prev) => (prev ? { ...prev, name: editedName.trim() } : null))
+      const currentList = historyLists.find((l) => l.id === selectedListId)
+      const origName = currentList?.original_name || currentList?.name || null
+      setListDetails((prev) => (prev ? { ...prev, name: editedName.trim(), original_name: prev.original_name || origName } : null))
       setHistoryLists((prev) =>
-        prev.map((l) => (l.id === selectedListId ? { ...l, name: editedName.trim() } : l))
+        prev.map((l) => (l.id === selectedListId ? { ...l, name: editedName.trim(), original_name: l.original_name || origName } : l))
       )
     }
   }
@@ -107,18 +116,25 @@ export const DesktopHistoryView: React.FC = () => {
       const remaining = historyLists.filter((l) => l.id !== selectedListId)
       setHistoryLists(remaining)
       setSelectedListId(remaining.length > 0 ? remaining[0].id : null)
-      setIsConfirmingDelete(false)
+      setIsDeleteModalOpen(false)
     }
   }
 
+  const householdKey = household?.id || 'global'
+  const resolvedCategories = categoriesByHousehold[householdKey] || []
+
   const handleAddSingleItemToDraft = (item: ActiveListItemWithProduct) => {
+    const selectedCatId = item.category_id ?? item.category?.id ?? item.product?.category_id
+    const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
+
     addItemToDraft({
       product_id: item.product_id || undefined,
       name: item.product?.name || item.ad_hoc_name || 'Product',
       quantity: item.total_quantity,
       unit_type: (item.product?.unit_type as any) || 'pcs',
-      category_id: item.product?.category_id || undefined,
-      category_name: item.product?.category?.name || 'other',
+      category_id: selectedCatId || undefined,
+      category_name: resolvedCat?.custom_name || resolvedCat?.name || item.category?.name || item.product?.category?.name || 'other',
+      sort_order: resolvedCat?.sort_order ?? item.category?.sort_order ?? item.product?.category?.sort_order ?? 99,
       meal_source: `${t('history.archivedList')}: ${listDetails?.name || t('navigation.history')}`,
       is_ad_hoc: !item.product_id
     })
@@ -132,16 +148,21 @@ export const DesktopHistoryView: React.FC = () => {
   const handleAddAllToDraft = () => {
     if (!listDetails || listDetails.items.length === 0) return
 
-    const draftItems = listDetails.items.map((item) => ({
-      product_id: item.product_id || undefined,
-      name: item.product?.name || item.ad_hoc_name || 'Product',
-      quantity: item.total_quantity,
-      unit_type: (item.product?.unit_type as any) || 'pcs',
-      category_id: item.product?.category_id || undefined,
-      category_name: item.product?.category?.name || 'other',
-      meal_source: `${t('history.archivedList')}: ${listDetails.name || t('navigation.history')}`,
-      is_ad_hoc: !item.product_id
-    }))
+    const draftItems = listDetails.items.map((item) => {
+      const selectedCatId = item.category_id ?? item.category?.id ?? item.product?.category_id
+      const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
+      return {
+        product_id: item.product_id || undefined,
+        name: item.product?.name || item.ad_hoc_name || 'Product',
+        quantity: item.total_quantity,
+        unit_type: (item.product?.unit_type as any) || 'pcs',
+        category_id: selectedCatId || undefined,
+        category_name: resolvedCat?.custom_name || resolvedCat?.name || item.category?.name || item.product?.category?.name || 'other',
+        sort_order: resolvedCat?.sort_order ?? item.category?.sort_order ?? item.product?.category?.sort_order ?? 99,
+        meal_source: `${t('history.archivedList')}: ${listDetails.name || t('navigation.history')}`,
+        is_ad_hoc: !item.product_id
+      }
+    })
 
     addMultipleToDraft(draftItems)
     setAllAdded(true)
@@ -159,23 +180,8 @@ export const DesktopHistoryView: React.FC = () => {
   const checkedCount = items.filter((i) => i.is_checked).length
   const totalCount = items.length
 
-  // Group items by category
-  const categoryMap = new Map<string, { name: string; sort_order: number; items: typeof items }>()
-  items.forEach((item) => {
-    const catName = item.product?.category?.name || 'other'
-    const sortOrder = item.product?.category?.sort_order ?? 99
-
-    const existing = categoryMap.get(catName)
-    if (existing) {
-      existing.items.push(item)
-    } else {
-      categoryMap.set(catName, { name: catName, sort_order: sortOrder, items: [item] })
-    }
-  })
-
-  const sortedCategories = Array.from(categoryMap.values()).sort(
-    (a, b) => a.sort_order - b.sort_order
-  )
+  // Group items by category using aisle hierarchy and item.category_id override
+  const sortedCategories = groupItemsByAisle(items, resolvedCategories, 'other')
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-200">
@@ -220,6 +226,7 @@ export const DesktopHistoryView: React.FC = () => {
             const displayDate = formatDate(completedDate)
             const displayTime = formatTime(completedDate)
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
+            const hasOriginalName = Boolean(list.original_name && list.name && list.original_name.trim() !== list.name.trim())
 
             return (
               <div
@@ -232,11 +239,16 @@ export const DesktopHistoryView: React.FC = () => {
                     : "bg-card border-border hover:border-border/80 hover:bg-muted/60"
                 )}
               >
-                <div className="flex flex-col gap-1 min-w-0 flex-1">
+                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                   <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-primary" : "text-foreground group-hover:text-foreground")}>
                     {listTitle}
                   </h4>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                  {hasOriginalName && (
+                    <span className="text-xs text-muted-foreground font-mono truncate">
+                      {list.original_name}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mt-0.5">
                     <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
                       <Calendar className="w-3.5 h-3.5" />
                       <span>{displayDate}</span>
@@ -283,6 +295,7 @@ export const DesktopHistoryView: React.FC = () => {
               const completedFormattedTime = formatTime(completedDate)
               const createdFormattedDate = listDetails.created_at ? formatDate(listDetails.created_at) : null
               const createdFormattedTime = listDetails.created_at ? formatTime(listDetails.created_at) : null
+              const hasOriginalName = Boolean(listDetails.original_name && listDetails.name && listDetails.original_name.trim() !== listDetails.name.trim())
 
               return (
                 <div className="flex flex-col gap-3 pb-4 border-b border-border">
@@ -319,17 +332,24 @@ export const DesktopHistoryView: React.FC = () => {
                         </Button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2.5">
-                        <h3 className="font-extrabold text-lg text-foreground">
-                          {listDetails.name || `${t('history.archivedList')} ${completedFormattedDate}`}
-                        </h3>
-                        <button
-                          onClick={() => setIsEditingName(true)}
-                          className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                          title={t('common.edit')}
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2.5">
+                          <h3 className="font-extrabold text-lg text-foreground">
+                            {listDetails.name || `${t('history.archivedList')} ${completedFormattedDate}`}
+                          </h3>
+                          <button
+                            onClick={() => setIsEditingName(true)}
+                            className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                            title={t('common.edit')}
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {hasOriginalName && (
+                          <span className="text-xs text-muted-foreground font-mono">
+                            {listDetails.original_name}
+                          </span>
+                        )}
                       </div>
                     )}
 
@@ -368,9 +388,9 @@ export const DesktopHistoryView: React.FC = () => {
             {/* Categorized items container */}
             <div className="flex flex-col gap-5 max-h-[480px] overflow-y-auto pr-1">
               {sortedCategories.map((group) => (
-                <div key={group.name} className="flex flex-col gap-2">
+                <div key={group.categoryId ?? `group_${group.name}`} className="flex flex-col gap-2">
                   <h4 className="text-xs font-bold text-primary uppercase tracking-wider px-1 flex items-center justify-between">
-                    <span>{group.sort_order !== 99 ? `${group.sort_order}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
+                    <span>{group.sort_order !== 99999 ? `${group.sort_order / 10 || 1}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
                     <span className="text-[10px] text-muted-foreground font-mono">
                       {formatQuantity(group.items.length, 'pcs')}
                     </span>
@@ -378,7 +398,7 @@ export const DesktopHistoryView: React.FC = () => {
 
                   <div className="flex flex-col gap-2">
                     {group.items.map((item) => {
-                      const name = item.product?.name || 'Product'
+                      const name = item.product?.name || item.ad_hoc_name || 'Product'
                       const unit = item.product?.unit_type || 'pcs'
                       const isItemAdded = addedItemIds[item.id]
 
@@ -448,60 +468,45 @@ export const DesktopHistoryView: React.FC = () => {
             </div>
 
             {/* Bottom Actions Bar */}
-            <div className="pt-4 border-t border-border flex flex-col gap-3">
-              <Button
-                onClick={handleAddAllToDraft}
-                disabled={items.length === 0 || allAdded}
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all active:scale-[0.98]"
-              >
-                {allAdded ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span>{t('history.restoredSuccess')}</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-4 h-4 fill-current" />
-                    <span>{t('history.restoreToDraft')} ({items.length})</span>
-                  </>
-                )}
-              </Button>
-
-              {isConfirmingDelete ? (
-                <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/30 flex flex-col gap-2.5 animate-in fade-in zoom-in-95 duration-150">
-                  <div className="flex items-center gap-2 text-destructive text-xs font-semibold">
-                    <CircleAlert className="w-4 h-4 shrink-0" />
-                    <span>{t('history.deleteHistoryConfirm')}</span>
-                  </div>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button
-                      onClick={handleDeleteList}
-                      disabled={isDeleting}
-                      size="sm"
-                      className="flex-1 h-9 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-xs cursor-pointer"
-                    >
-                      {isDeleting ? t('common.loading') : t('dialogs.confirmDelete.confirmButton')}
-                    </Button>
-                    <Button
-                      onClick={() => setIsConfirmingDelete(false)}
-                      disabled={isDeleting}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 h-9 text-xs cursor-pointer"
-                    >
-                      {t('common.cancel')}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setIsConfirmingDelete(true)}
-                  className="text-xs text-muted-foreground hover:text-destructive flex items-center justify-center gap-1.5 py-1 transition-colors cursor-pointer self-center"
+            <div className="pt-4 border-t border-border">
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <Button
+                  onClick={handleAddAllToDraft}
+                  disabled={items.length === 0 || allAdded}
+                  className="h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all active:scale-[0.98]"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{t('history.deleteHistoryConfirm')}</span>
-                </button>
-              )}
+                  {allAdded ? (
+                    <>
+                      <Check className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{t('history.restoredSuccess')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4 fill-current shrink-0" />
+                      <span className="truncate">{t('history.restoreToDraft')} ({items.length})</span>
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  disabled={isDeleting}
+                  className="h-12 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-extrabold text-xs sm:text-sm rounded-2xl flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all active:scale-[0.98]"
+                >
+                  <Trash2 className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t('history.deleteList')}</span>
+                </Button>
+              </div>
+
+              <ConfirmDeleteDialog
+                open={isDeleteModalOpen}
+                onOpenChange={setIsDeleteModalOpen}
+                title={t('activeList.deleteListTitle')}
+                itemName={listDetails.name || t('history.archivedList')}
+                onConfirm={handleDeleteList}
+                isDeleting={isDeleting}
+              />
             </div>
           </div>
         )}

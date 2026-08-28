@@ -73,6 +73,7 @@ export const HistoryView: React.FC = () => {
             const displayDate = formatDate(completedDate)
             const displayTime = formatTime(completedDate)
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
+            const hasOriginalName = Boolean(list.original_name && list.name && list.original_name.trim() !== list.name.trim())
 
             return (
               <div
@@ -80,11 +81,16 @@ export const HistoryView: React.FC = () => {
                 onClick={() => handleOpenDetails(list)}
                 className="p-4 rounded-xl bg-card border border-border hover:border-primary/40 transition-all flex items-center justify-between shadow-sm cursor-pointer group active:scale-[0.99]"
               >
-                <div className="flex flex-col gap-1 min-w-0 pr-2">
+                <div className="flex flex-col gap-0.5 min-w-0 pr-2">
                   <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                     {listTitle}
                   </h4>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                  {hasOriginalName && (
+                    <span className="text-xs text-muted-foreground font-mono truncate">
+                      {list.original_name}
+                    </span>
+                  )}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mt-0.5">
                     <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
                       <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>{displayDate}</span>

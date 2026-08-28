@@ -13,6 +13,11 @@ export type ShoppingListItem = Database['public']['Tables']['shopping_list_items
 
 export interface ActiveListItemWithProduct extends Omit<ShoppingListItem, 'category_id'> {
   category_id?: number | null
+  category?: {
+    id: number
+    name: string
+    sort_order: number
+  } | null
   product?: {
     id: string
     name: string
@@ -153,6 +158,7 @@ export const shoppingListService = {
       .from('shopping_list_items')
       .select(`
         *,
+        category:product_categories(*),
         product:products(
           id,
           name,
@@ -220,6 +226,7 @@ export const shoppingListService = {
       items: rawItems.map((item: any) => ({
         ...item,
         category_id: item.category_id ?? null,
+        category: item.category ?? null,
         product: item.product
       }))
     }
@@ -464,12 +471,24 @@ export const shoppingListService = {
   },
 
   async updateListName(listId: string, name: string): Promise<boolean> {
+    const { data: currentList } = await supabase
+      .from('shopping_lists')
+      .select('status, name, original_name')
+      .eq('id', listId)
+      .maybeSingle()
+
+    const updatePayload: Database['public']['Tables']['shopping_lists']['Update'] = {
+      name: name.trim(),
+      updated_at: new Date().toISOString()
+    }
+
+    if (currentList?.status === 'archived' && !currentList?.original_name && currentList?.name) {
+      updatePayload.original_name = currentList.name
+    }
+
     const { error } = await supabase
       .from('shopping_lists')
-      .update({
-        name: name.trim(),
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', listId)
 
     if (error) {
@@ -543,15 +562,25 @@ export const shoppingListService = {
   },
 
   async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
-    // 1. Update status to 'archived' and record completion timestamp
+    // 1. Fetch current list to capture its original name at moment of closing
+    const { data: currentList } = await supabase
+      .from('shopping_lists')
+      .select('name, original_name')
+      .eq('id', listId)
+      .maybeSingle()
+
+    const originalName = currentList?.original_name || currentList?.name || null
+
+    // 2. Update status to 'archived' and record completion timestamp + original_name
     const now = new Date().toISOString()
-    let { error } = await supabase
+    const { error } = await supabase
       .from('shopping_lists')
       .update({
         status: 'archived',
         is_default: false,
         completed_at: now,
-        updated_at: now
+        updated_at: now,
+        original_name: originalName
       })
       .eq('id', listId)
 
@@ -560,7 +589,7 @@ export const shoppingListService = {
       return []
     }
 
-    // 2. Fetch unchecked items (is_checked = false)
+    // 3. Fetch unchecked items (is_checked = false)
     const { data: uncheckedItems } = await supabase
       .from('shopping_list_items')
       .select(`
@@ -585,7 +614,7 @@ export const shoppingListService = {
             product_id: item.product.id,
             name: item.product.name,
             unit_type: item.product.unit_type,
-            category_id: item.product.category_id,
+            category_id: item.category_id ?? item.product.category_id,
             category_name: 'other',
             sort_order: 99,
             quantity: item.total_quantity,

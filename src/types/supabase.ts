@@ -380,6 +380,7 @@ export interface Database {
           id: string
           household_id: string | null
           name: string | null
+          original_name: string | null
           status: ListStatusEnum | null
           is_default: boolean
           target_date: string | null
@@ -392,6 +393,7 @@ export interface Database {
           id?: string
           household_id?: string | null
           name?: string | null
+          original_name?: string | null
           status?: ListStatusEnum | null
           is_default?: boolean
           target_date?: string | null
@@ -404,6 +406,7 @@ export interface Database {
           id?: string
           household_id?: string | null
           name?: string | null
+          original_name?: string | null
           status?: ListStatusEnum | null
           is_default?: boolean
           target_date?: string | null
@@ -451,6 +454,13 @@ export interface Database {
           category_id?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "shopping_list_items_shopping_list_id_fkey"
             columns: ["shopping_list_id"]
