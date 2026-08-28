@@ -198,5 +198,41 @@ describe('mergeDraftItems calculations', () => {
         category_id: 105
       })
     })
+
+    it('keeps items with different temporary category_id separate instead of merging into wrong aisle', () => {
+      const existingItems: ActiveListItemWithProduct[] = [
+        {
+          id: 'item-lemon-produce',
+          shopping_list_id: 'list-1',
+          product_id: 'prod-lemon',
+          total_quantity: 2,
+          is_checked: false,
+          added_ad_hoc: false,
+          category_id: 1, // Produce
+          product: { id: 'prod-lemon', name: 'Lemon', unit_type: 'pcs', category_id: 1 }
+        }
+      ]
+
+      const draftItems: DraftItem[] = [
+        {
+          id: 'draft-lemon-chemical',
+          product_id: 'prod-lemon',
+          name: 'Lemon',
+          unit_type: 'pcs',
+          category_id: 5, // User explicitly selected Household/Chemical category for this trip!
+          category_name: 'household',
+          sort_order: 50,
+          quantity: 1,
+          is_ad_hoc: true
+        }
+      ]
+
+      const result = mergeDraftItemsIntoActiveList(existingItems, draftItems)
+      // Because category_id differs (5 vs 1), it must NOT merge into Produce item, but insert new item in Chemical aisle
+      expect(result.itemsToUpdate).toHaveLength(0)
+      expect(result.itemsToInsert).toHaveLength(1)
+      expect(result.itemsToInsert[0].category_id).toBe(5)
+      expect(result.itemsToInsert[0].product_id).toBe('prod-lemon')
+    })
   })
 })

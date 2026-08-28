@@ -202,7 +202,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
           category_name: item.category_name || 'other',
           sort_order: item.sort_order ?? 99,
           quantity: item.quantity,
-          is_ad_hoc: !item.product_id
+          is_ad_hoc: true
         }
 
         const updatedDraft = [...currentDraft, newItem]

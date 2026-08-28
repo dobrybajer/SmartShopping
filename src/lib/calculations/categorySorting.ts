@@ -133,6 +133,7 @@ export interface AisleGroup<T> {
  */
 export function groupItemsByAisle<
   T extends {
+    category_id?: number | null
     product_id?: string | null
     product?: {
       id?: string
@@ -156,7 +157,8 @@ export function groupItemsByAisle<
   const aisleMap = new Map<string, AisleGroup<T>>()
 
   items.forEach((item) => {
-    const catId = item.product?.category_id ?? item.product?.category?.id ?? null
+    // Check item.category_id first (temporary override from draft / ad-hoc), then fall back to product catalog category
+    const catId = item.category_id ?? item.product?.category_id ?? item.product?.category?.id ?? null
     const resolvedCat = catId !== null ? categoryMap.get(catId) : undefined
 
     let key: string

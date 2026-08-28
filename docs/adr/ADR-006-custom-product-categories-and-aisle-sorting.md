@@ -327,6 +327,7 @@ Decoupled from `useShoppingStore` to avoid monolithic file bloat:
 | 8 | **Custom category creation with empty or whitespace-only name** | Corrupted empty category chip | Trim input, enforce `min(2)` and `max(40)` character validation, and show inline form feedback. |
 | 9 | **Household with 50+ custom categories** | Performance lag in mobile sheet rendering | Virtualized or lightweight list rendering; dense index recalculation avoids heavy relational scans. |
 | 10 | **Switching active households** | Data leakage or displaying previous household's aisle settings | `useCategoryStore` keys category state by `activeHouseholdId`. Household change triggers clean store hydration. |
+| 11 | **Ad-hoc or catalog product added with temporary category override** | When transferred to active list, item reverts to product's catalog category instead of keeping temporary category | Optional `category_id` override column added to `shopping_list_items`. `groupItemsByAisle` checks `item.category_id ?? item.product?.category_id`. Draft aggregation and merge maintain distinct aisle entries. |
 
 ---
 

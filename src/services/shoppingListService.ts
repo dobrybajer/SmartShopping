@@ -10,7 +10,8 @@ const isUuid = (val?: string | null): val is string =>
 export type ShoppingList = Database['public']['Tables']['shopping_lists']['Row']
 export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
 
-export interface ActiveListItemWithProduct extends ShoppingListItem {
+export interface ActiveListItemWithProduct extends Omit<ShoppingListItem, 'category_id'> {
+  category_id?: number | null
   product?: {
     id: string
     name: string
@@ -166,10 +167,10 @@ export const shoppingListService = {
 
     const rawItems = itemsData || []
 
-    // Self-healing: if any item's product is missing category_id,
+    // Self-healing: if any item has neither item.category_id nor item.product.category_id,
     // match against other products in the household that have a category_id!
     const uncategorizedItems = rawItems.filter(
-      (item: any) => item.product && !item.product.category_id && item.product.name
+      (item: any) => !item.category_id && item.product && !item.product.category_id && item.product.name
     )
 
     if (uncategorizedItems.length > 0 && isUuid(listData.household_id)) {
@@ -194,7 +195,7 @@ export const shoppingListService = {
         matchedProds.forEach((p) => prodByName.set(p.name.trim().toLowerCase(), p))
 
         for (const item of rawItems) {
-          if (item.product && !item.product.category_id) {
+          if (!item.category_id && item.product && !item.product.category_id) {
             const match = prodByName.get(item.product.name.trim().toLowerCase())
             if (match) {
               item.product.category_id = match.category_id
@@ -216,6 +217,7 @@ export const shoppingListService = {
       is_default: !!listData.is_default,
       items: rawItems.map((item: any) => ({
         ...item,
+        category_id: item.category_id ?? null,
         product: item.product
       }))
     }
@@ -357,7 +359,10 @@ export const shoppingListService = {
             .ilike('name', item.name.trim())
             .maybeSingle()
 
-          if (existingProd) {
+          // If an existing product has the same category (or no category), reuse it.
+          // If the existing product has a DIFFERENT category, create an ad-hoc product with the temporary category
+          // to preserve the user's intended aisle!
+          if (existingProd && (!item.category_id || !existingProd.category_id || existingProd.category_id === item.category_id)) {
             productId = existingProd.id
             if (!existingProd.category_id && item.category_id) {
               await supabase
@@ -390,7 +395,8 @@ export const shoppingListService = {
             product_id: productId,
             total_quantity: item.total_quantity,
             is_checked: false,
-            added_ad_hoc: item.added_ad_hoc
+            added_ad_hoc: item.added_ad_hoc,
+            category_id: item.category_id || null
           })
         }
       }
@@ -401,7 +407,18 @@ export const shoppingListService = {
           .insert(rowsToInsert)
 
         if (insertErr) {
-          console.error('Error inserting merged items:', insertErr)
+          if (insertErr.code === '42703') {
+            // Column category_id does not exist yet in DB: fallback without category_id
+            const fallbackRows = rowsToInsert.map(({ category_id: _cat, ...rest }) => rest)
+            const { error: retryErr } = await supabase
+              .from('shopping_list_items')
+              .insert(fallbackRows)
+            if (retryErr) {
+              console.error('Error inserting merged items (fallback):', retryErr)
+            }
+          } else {
+            console.error('Error inserting merged items:', insertErr)
+          }
         }
       }
     }
@@ -641,7 +658,10 @@ export const shoppingListService = {
           .ilike('name', value.name.trim())
           .maybeSingle()
 
-        if (existingProd) {
+        // If an existing product has the same category (or no category), reuse it.
+        // If the existing product has a DIFFERENT category, create an ad-hoc product with the temporary category
+        // to preserve the user's intended aisle!
+        if (existingProd && (!value.category_id || !existingProd.category_id || existingProd.category_id === value.category_id)) {
           productId = existingProd.id
           if (!existingProd.category_id && value.category_id) {
             await supabase
@@ -674,7 +694,8 @@ export const shoppingListService = {
           product_id: productId,
           total_quantity: value.total_quantity,
           is_checked: false,
-          added_ad_hoc: value.added_ad_hoc
+          added_ad_hoc: value.added_ad_hoc,
+          category_id: value.category_id || null
         })
       }
     }
@@ -685,7 +706,17 @@ export const shoppingListService = {
         .insert(itemsToInsert)
 
       if (insertItemsErr) {
-        console.error('Error adding shopping list items:', insertItemsErr)
+        if (insertItemsErr.code === '42703') {
+          const fallbackRows = itemsToInsert.map(({ category_id: _cat, ...rest }) => rest)
+          const { error: retryErr } = await supabase
+            .from('shopping_list_items')
+            .insert(fallbackRows)
+          if (retryErr) {
+            console.error('Error adding shopping list items (fallback):', retryErr)
+          }
+        } else {
+          console.error('Error adding shopping list items:', insertItemsErr)
+        }
       }
     }
   }

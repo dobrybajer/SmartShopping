@@ -40,7 +40,8 @@ export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
   for (const item of draftItems) {
     if (item.quantity <= 0) continue
 
-    const key = item.product_id ? `prod_${item.product_id}` : `adhoc_${item.name.trim().toLowerCase()}`
+    const catSuffix = item.category_id ? `_cat_${item.category_id}` : ''
+    const key = item.product_id ? `prod_${item.product_id}${catSuffix}` : `adhoc_${item.name.trim().toLowerCase()}${catSuffix}`
     const existing = aggregatedMap.get(key)
 
     if (existing) {
@@ -76,27 +77,29 @@ export function mergeDraftItemsIntoActiveList(
   const itemsToUpdate: ItemToUpdate[] = []
   const itemsToInsert: ItemToInsert[] = []
 
-  // Create lookup maps for existing items
+  // Create lookup maps for existing items taking category_id into account
   const existingByProductId = new Map<string, ActiveListItemWithProduct>()
   const existingByAdHocName = new Map<string, ActiveListItemWithProduct>()
 
   for (const item of existingItems) {
+    const catSuffix = item.category_id ? `_cat_${item.category_id}` : ''
     if (item.product_id) {
-      existingByProductId.set(item.product_id, item)
+      existingByProductId.set(`${item.product_id}${catSuffix}`, item)
     } else if (item.product?.name) {
-      existingByAdHocName.set(item.product.name.trim().toLowerCase(), item)
+      existingByAdHocName.set(`${item.product.name.trim().toLowerCase()}${catSuffix}`, item)
     } else if (item.ad_hoc_name) {
-      existingByAdHocName.set(item.ad_hoc_name.trim().toLowerCase(), item)
+      existingByAdHocName.set(`${item.ad_hoc_name.trim().toLowerCase()}${catSuffix}`, item)
     }
   }
 
   for (const draft of aggregatedDraft) {
     let matchedItem: ActiveListItemWithProduct | undefined
+    const catSuffix = draft.category_id ? `_cat_${draft.category_id}` : ''
 
-    if (draft.product_id && existingByProductId.has(draft.product_id)) {
-      matchedItem = existingByProductId.get(draft.product_id)
-    } else if (draft.is_ad_hoc && existingByAdHocName.has(draft.name.toLowerCase())) {
-      matchedItem = existingByAdHocName.get(draft.name.toLowerCase())
+    if (draft.product_id && existingByProductId.has(`${draft.product_id}${catSuffix}`)) {
+      matchedItem = existingByProductId.get(`${draft.product_id}${catSuffix}`)
+    } else if (draft.is_ad_hoc && existingByAdHocName.has(`${draft.name.toLowerCase()}${catSuffix}`)) {
+      matchedItem = existingByAdHocName.get(`${draft.name.toLowerCase()}${catSuffix}`)
     }
 
     if (matchedItem) {

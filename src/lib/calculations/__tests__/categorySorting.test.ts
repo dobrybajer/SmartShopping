@@ -247,5 +247,28 @@ describe('categorySorting pure calculations', () => {
       expect(aisles[2].name).toBe('Inne')
       expect(aisles[2].items).toHaveLength(1)
     })
+
+    it('prioritizes item.category_id override over item.product.category_id (temporary aisle override)', () => {
+      const resolvedCategories = [
+        { id: 1, name: 'Produce', is_global: true, household_id: null, sort_order: 10, is_hidden: false },
+        { id: 5, name: 'Household / Chemicals', is_global: true, household_id: null, sort_order: 50, is_hidden: false }
+      ]
+
+      // Lemon has catalog category 1 (Produce), but temporary override category 5 (Household / Chemicals)
+      const items = [
+        {
+          id: 'item-lemon',
+          category_id: 5, // Temporary override from draft / ad-hoc!
+          product: { category_id: 1, name: 'Lemon' }
+        }
+      ]
+
+      const aisles = groupItemsByAisle(items, resolvedCategories, 'Inne')
+
+      expect(aisles).toHaveLength(1)
+      expect(aisles[0].name).toBe('Household / Chemicals')
+      expect(aisles[0].categoryId).toBe(5)
+      expect(aisles[0].items[0].id).toBe('item-lemon')
+    })
   })
 })

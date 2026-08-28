@@ -427,6 +427,7 @@ export interface Database {
           total_quantity: number
           is_checked: boolean | null
           added_ad_hoc: boolean | null
+          category_id?: number | null
         }
         Insert: {
           id?: string
@@ -435,6 +436,7 @@ export interface Database {
           total_quantity: number
           is_checked?: boolean | null
           added_ad_hoc?: boolean | null
+          category_id?: number | null
         }
         Update: {
           id?: string
@@ -443,6 +445,7 @@ export interface Database {
           total_quantity?: number
           is_checked?: boolean | null
           added_ad_hoc?: boolean | null
+          category_id?: number | null
         }
         Relationships: [
           {
