@@ -3,6 +3,7 @@ import type { Database } from '@/types/supabase'
 import type { DraftItem } from '@/store/useShoppingStore'
 import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { mergeDraftItemsIntoActiveList } from '@/lib/calculations/mergeDraftItems'
+import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStatusCalculations'
 
 const isUuid = (val?: string | null): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
@@ -39,6 +40,7 @@ export interface ShoppingListSummary {
   target_date: string | null
   created_at: string | null
   updated_at: string | null
+  completed_at?: string | null
   total_items: number
   unchecked_items: number
 }
@@ -205,7 +207,7 @@ export const shoppingListService = {
                 .from('products')
                 .update({ category_id: match.category_id })
                 .eq('id', item.product.id)
-                .then(() => {})
+                .then(() => { })
             }
           }
         }
@@ -541,13 +543,15 @@ export const shoppingListService = {
   },
 
   async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
-    // 1. Update status to 'archived'
-    const { error } = await supabase
+    // 1. Update status to 'archived' and record completion timestamp
+    const now = new Date().toISOString()
+    let { error } = await supabase
       .from('shopping_lists')
       .update({
         status: 'archived',
         is_default: false,
-        updated_at: new Date().toISOString()
+        completed_at: now,
+        updated_at: now
       })
       .eq('id', listId)
 
@@ -606,13 +610,14 @@ export const shoppingListService = {
       `)
       .eq('household_id', householdId)
       .eq('status', 'archived')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (error) {
       console.error('Error fetching shopping list history:', error)
       return []
     }
-    return (data as any) || []
+    const lists = ((data as any) || []) as HistoryShoppingList[]
+    return sortHistoryListsByCompletionDate(lists)
   },
 
   /**

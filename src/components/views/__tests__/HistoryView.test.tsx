@@ -21,7 +21,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-25',
     created_at: '2026-08-25T14:30:00Z',
-    updated_at: '2026-08-25T14:30:00Z',
+    updated_at: '2026-08-25T19:45:00Z',
+    completed_at: '2026-08-25T19:45:00Z',
     preset_tags: null,
     items: [
       { id: 'item-1', is_checked: true },
@@ -36,7 +37,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-20',
     created_at: '2026-08-20T09:15:00Z',
-    updated_at: '2026-08-20T09:15:00Z',
+    updated_at: '2026-08-20T11:00:00Z',
+    completed_at: '2026-08-20T11:00:00Z',
     preset_tags: null,
     items: [
       { id: 'item-3', is_checked: true },
@@ -51,7 +53,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-18',
     created_at: '2026-08-18T16:00:00Z',
-    updated_at: '2026-08-18T16:00:00Z',
+    updated_at: '2026-08-18T17:20:00Z',
+    completed_at: '2026-08-18T17:20:00Z',
     preset_tags: null,
     items: [
       { id: 'item-5', is_checked: false },
@@ -67,7 +70,7 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     vi.clearAllMocks()
   })
 
-  it('Flow 01: renders archived shopping lists with creation date and creation time (HH:mm)', async () => {
+  it('Flow 01: renders archived shopping lists with completion date and completion time (HH:mm)', async () => {
     vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
 
     render(<HistoryView />)
@@ -77,24 +80,24 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
       expect(screen.getByText('Zakupy Weekendowe')).toBeInTheDocument()
     })
 
-    // Verify time format (HH:mm) is displayed for list 1 (14:30 or local time equivalent)
-    const list1Date = new Date('2026-08-25T14:30:00Z')
-    const list1Hours = String(list1Date.getHours()).padStart(2, '0')
-    const list1Mins = String(list1Date.getMinutes()).padStart(2, '0')
-    const expectedTime1 = `${list1Hours}:${list1Mins}`
+    // Verify completion time format (HH:mm) is displayed for list 1 (19:45)
+    const compDate1 = new Date('2026-08-25T19:45:00Z')
+    const compHours1 = String(compDate1.getHours()).padStart(2, '0')
+    const compMins1 = String(compDate1.getMinutes()).padStart(2, '0')
+    const expectedTime1 = `${compHours1}:${compMins1}`
 
     expect(screen.getByText(expectedTime1)).toBeInTheDocument()
 
-    // Verify time format (HH:mm) for list 2
-    const list2Date = new Date('2026-08-20T09:15:00Z')
-    const list2Hours = String(list2Date.getHours()).padStart(2, '0')
-    const list2Mins = String(list2Date.getMinutes()).padStart(2, '0')
-    const expectedTime2 = `${list2Hours}:${list2Mins}`
+    // Verify completion time format (HH:mm) for list 2 (11:00)
+    const compDate2 = new Date('2026-08-20T11:00:00Z')
+    const compHours2 = String(compDate2.getHours()).padStart(2, '0')
+    const compMins2 = String(compDate2.getMinutes()).padStart(2, '0')
+    const expectedTime2 = `${compHours2}:${compMins2}`
 
     expect(screen.getByText(expectedTime2)).toBeInTheDocument()
   })
 
-  it('Flow 02: opens details sheet when clicking a list item and displays creation time', async () => {
+  it('Flow 02: opens details sheet when clicking a list item and displays both completion and creation time', async () => {
     vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
     vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue({
       ...sampleHistoryLists[0],
@@ -111,8 +114,10 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     fireEvent.click(screen.getByText('Zakupy Weekendowe'))
 
     await waitFor(() => {
-      // In details sheet, check that dialog/sheet opened
+      // In details sheet, check that dialog/sheet opened and both dates are shown
       expect(shoppingListService.getListWithDetails).toHaveBeenCalledWith('history-1')
+      expect(screen.getByText(/Zakończono/i)).toBeInTheDocument()
+      expect(screen.getByText(/Utworzono/i)).toBeInTheDocument()
     })
   })
 

@@ -43,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
 
   const isSyncingRef = useRef(false)
+  const userProfileRef = useRef<UserProfile | null>(null)
 
   const syncUserAndHousehold = async (currentUser: User) => {
     if (isSyncingRef.current) return
@@ -165,6 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 4. Fetch all user households
       const allHouseholds = await householdService.getUserHouseholds(currentUser.id)
       setUserHouseholds(allHouseholds)
+      userProfileRef.current = existingUser
       setUserProfile(existingUser)
 
       // Choose active household: default or first available
@@ -199,7 +201,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      setHousehold(activeH)
+      setHousehold((prev) => {
+        if (!prev && !activeH) return null
+        if (prev && activeH && prev.id === activeH.id && prev.name === activeH.name) {
+          return prev
+        }
+        return activeH
+      })
     } catch (err) {
       console.error('Error during user profile sync:', err)
     } finally {
@@ -216,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .maybeSingle()
 
     if (freshProfile) {
+      userProfileRef.current = freshProfile
       setUserProfile(freshProfile)
     }
 
@@ -227,7 +236,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHousehold(def)
     } else if (household) {
       const updatedCurrent = households.find((h) => h.id === household.id)
-      if (updatedCurrent) setHousehold(updatedCurrent)
+      if (updatedCurrent) {
+        setHousehold((prev) => (prev?.id === updatedCurrent.id && prev?.name === updatedCurrent.name ? prev : updatedCurrent))
+      }
     }
   }
 
@@ -246,12 +257,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Auth state listener
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession)
-      setUser(newSession?.user ?? null)
-      if (newSession?.user) {
-        await syncUserAndHousehold(newSession.user)
+      const newUser = newSession?.user ?? null
+      setUser((prev) => (prev?.id === newUser?.id ? prev : newUser))
+
+      if (newUser) {
+        // If event is TOKEN_REFRESHED and user profile is already loaded, skip redundant DB sync
+        if (event === 'TOKEN_REFRESHED' && userProfileRef.current?.id === newUser.id) {
+          setLoading(false)
+          return
+        }
+        await syncUserAndHousehold(newUser)
       } else {
+        userProfileRef.current = null
         setUserProfile(null)
         setHousehold(null)
         setUserHouseholds([])

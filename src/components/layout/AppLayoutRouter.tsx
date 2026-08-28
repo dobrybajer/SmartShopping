@@ -24,7 +24,26 @@ export const AppLayoutRouter: React.FC = () => {
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
   const { draftItems } = useShoppingStore()
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<TabType>('cookbook')
+  const [activeTab, setActiveTabState] = useState<TabType>(() => {
+    try {
+      const saved = localStorage.getItem('smartshopping_active_tab') as TabType
+      if (saved && ['cookbook', 'products', 'draft', 'active', 'history'].includes(saved)) {
+        return saved
+      }
+    } catch {
+      // Ignore
+    }
+    return 'cookbook'
+  })
+
+  const setActiveTab = (tab: TabType) => {
+    setActiveTabState(tab)
+    try {
+      localStorage.setItem('smartshopping_active_tab', tab)
+    } catch {
+      // Ignore
+    }
+  }
 
   const getHeaderTitle = (tab: TabType): string => {
     switch (tab) {

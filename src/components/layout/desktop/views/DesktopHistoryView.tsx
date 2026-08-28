@@ -44,19 +44,24 @@ export const DesktopHistoryView: React.FC = () => {
   const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({})
   const [allAdded, setAllAdded] = useState(false)
 
-  const loadHistoryLists = useCallback(async () => {
-    if (!household) return
-    setLoadingLists(true)
-    const lists = await shoppingListService.getHistoryLists(household.id)
-    setHistoryLists(lists)
-    if (lists.length > 0 && !selectedListId) {
-      setSelectedListId(lists[0].id)
+  const householdId = household?.id
+
+  const loadHistoryLists = useCallback(async (isInitial = false) => {
+    if (!householdId) return
+    if (isInitial) {
+      setLoadingLists(true)
     }
+    const lists = await shoppingListService.getHistoryLists(householdId)
+    setHistoryLists(lists)
+    setSelectedListId((prev) => {
+      if (prev && lists.some((l) => l.id === prev)) return prev
+      return lists[0]?.id || null
+    })
     setLoadingLists(false)
-  }, [household, selectedListId])
+  }, [householdId])
 
   useEffect(() => {
-    loadHistoryLists()
+    loadHistoryLists(true)
   }, [loadHistoryLists])
 
   const loadDetails = useCallback(async (listId: string) => {
@@ -211,8 +216,9 @@ export const DesktopHistoryView: React.FC = () => {
             </div>
           ) : historyLists.map((list) => {
             const isSelected = selectedListId === list.id
-            const displayDate = formatDate(list.created_at || list.target_date || new Date())
-            const displayTime = list.created_at ? formatTime(list.created_at) : ''
+            const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+            const displayDate = formatDate(completedDate)
+            const displayTime = formatTime(completedDate)
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
 
             return (
@@ -231,12 +237,12 @@ export const DesktopHistoryView: React.FC = () => {
                     {listTitle}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
                       <Calendar className="w-3.5 h-3.5" />
                       <span>{displayDate}</span>
                     </span>
                     {displayTime && (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1" title={t('history.completedAt')}>
                         <Clock className="w-3.5 h-3.5" />
                         <span>{displayTime}</span>
                       </span>
@@ -271,77 +277,93 @@ export const DesktopHistoryView: React.FC = () => {
         ) : (
           <div className="p-6 rounded-3xl bg-card border border-border shadow-2xl flex flex-col gap-6 backdrop-blur-xl">
             {/* Header: Title, Edit, Date & Meta */}
-            <div className="flex flex-col gap-3 pb-4 border-b border-border">
-              <div className="flex items-center justify-between gap-3">
-                {isEditingName ? (
-                  <div className="flex items-center gap-2 flex-1">
-                    <Input
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveName()
-                        if (e.key === 'Escape') setIsEditingName(false)
-                      }}
-                      autoFocus
-                      disabled={isSavingName}
-                      className="h-10 bg-background border-input text-sm font-bold text-foreground"
-                    />
-                    <Button
-                      onClick={handleSaveName}
-                      disabled={isSavingName}
-                      size="sm"
-                      className="h-10 px-3 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 cursor-pointer"
-                    >
-                      <Check className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      onClick={() => setIsEditingName(false)}
-                      disabled={isSavingName}
-                      variant="ghost"
-                      size="sm"
-                      className="h-10 px-3 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="font-extrabold text-lg text-foreground">
-                      {listDetails.name || `${t('history.archivedList')} ${formatDate(listDetails.target_date || listDetails.created_at || new Date())}`}
-                    </h3>
-                    <button
-                      onClick={() => setIsEditingName(true)}
-                      className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                      title={t('common.edit')}
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+            {(() => {
+              const completedDate = listDetails.completed_at || listDetails.updated_at || listDetails.created_at || listDetails.target_date || new Date()
+              const completedFormattedDate = formatDate(completedDate)
+              const completedFormattedTime = formatTime(completedDate)
+              const createdFormattedDate = listDetails.created_at ? formatDate(listDetails.created_at) : null
+              const createdFormattedTime = listDetails.created_at ? formatTime(listDetails.created_at) : null
 
-                <div className="flex items-center gap-2">
-                  <HistoryStatusBadge items={listDetails.items} className="text-xs py-1" />
-                </div>
-              </div>
+              return (
+                <div className="flex flex-col gap-3 pb-4 border-b border-border">
+                  <div className="flex items-center justify-between gap-3">
+                    {isEditingName ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Input
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleSaveName()
+                            if (e.key === 'Escape') setIsEditingName(false)
+                          }}
+                          autoFocus
+                          disabled={isSavingName}
+                          className="h-10 bg-background border-input text-sm font-bold text-foreground"
+                        />
+                        <Button
+                          onClick={handleSaveName}
+                          disabled={isSavingName}
+                          size="sm"
+                          className="h-10 px-3 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 cursor-pointer"
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={() => setIsEditingName(false)}
+                          disabled={isSavingName}
+                          variant="ghost"
+                          size="sm"
+                          className="h-10 px-3 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="font-extrabold text-lg text-foreground">
+                          {listDetails.name || `${t('history.archivedList')} ${completedFormattedDate}`}
+                        </h3>
+                        <button
+                          onClick={() => setIsEditingName(true)}
+                          className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                          title={t('common.edit')}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
 
-              <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>{formatDate(listDetails.created_at || listDetails.target_date || new Date())}</span>
-                  </span>
-                  {listDetails.created_at && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span>{formatTime(listDetails.created_at)}</span>
+                    <div className="flex items-center gap-2">
+                      <HistoryStatusBadge items={listDetails.items} className="text-xs py-1" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground font-mono">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
+                        <Calendar className="w-3.5 h-3.5 text-primary" />
+                        <span>{t('history.completedAt')}: {completedFormattedDate}</span>
+                        {completedFormattedTime && (
+                          <span className="text-muted-foreground">({completedFormattedTime})</span>
+                        )}
+                      </span>
+                      {createdFormattedDate && (
+                        <span className="flex items-center gap-1.5 text-muted-foreground/80" title={t('history.createdAt')}>
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span>{t('history.createdAt')}: {createdFormattedDate}</span>
+                          {createdFormattedTime && (
+                            <span>({createdFormattedTime})</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <span className="shrink-0">
+                      {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
                     </span>
-                  )}
+                  </div>
                 </div>
-                <span>
-                  {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
-                </span>
-              </div>
-            </div>
+              )
+            })()}
 
             {/* Categorized items container */}
             <div className="flex flex-col gap-5 max-h-[480px] overflow-y-auto pr-1">

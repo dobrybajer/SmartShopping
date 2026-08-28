@@ -66,7 +66,8 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
 
   useEffect(() => {
     if (open && list) {
-      setEditedName(list.name || `${t('history.archivedList')} ${formatDate(list.target_date || list.created_at || new Date())}`)
+      const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+      setEditedName(list.name || `${t('history.archivedList')} ${formatDate(completedDate)}`)
       setIsEditingName(false)
       setIsConfirmingDelete(false)
       setAllAdded(false)
@@ -207,7 +208,11 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
     (a, b) => a.sort_order - b.sort_order
   )
 
-    const formattedDate = formatDate(list.created_at || list.target_date || new Date())
+    const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+    const formattedCompletedDate = formatDate(completedDate)
+    const formattedCompletedTime = formatTime(completedDate)
+    const formattedCreatedDate = list.created_at ? formatDate(list.created_at) : null
+    const formattedCreatedTime = list.created_at ? formatTime(list.created_at) : null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -254,7 +259,7 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
               ) : (
                 <div className="flex items-center gap-2 group flex-1 min-w-0">
                   <SheetTitle className="text-base font-bold text-foreground truncate">
-                    {list.name || `${t('history.archivedList')} ${formattedDate}`}
+                    {list.name || `${t('history.archivedList')} ${formattedCompletedDate}`}
                   </SheetTitle>
                   <button
                     onClick={() => setIsEditingName(true)}
@@ -268,27 +273,35 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
             </div>
 
             {/* Date & Status */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>{formattedDate}</span>
-                </span>
-                {list.created_at && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>{formatTime(list.created_at)}</span>
+            <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px] text-muted-foreground">
+                  <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <span>{t('history.completedAt')}: {formattedCompletedDate}</span>
+                    {formattedCompletedTime && (
+                      <span className="text-muted-foreground font-mono">({formattedCompletedTime})</span>
+                    )}
                   </span>
-                )}
-              </div>
+                  {formattedCreatedDate && (
+                    <span className="flex items-center gap-1 text-muted-foreground/80" title={t('history.createdAt')}>
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{t('history.createdAt')}: {formattedCreatedDate}</span>
+                      {formattedCreatedTime && (
+                        <span>({formattedCreatedTime})</span>
+                      )}
+                    </span>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-1.5">
-                <HistoryStatusBadge items={items} />
-                {totalCount > 0 && (
-                  <Badge variant="secondary" className="text-[10px] font-mono py-0.5">
-                    {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <HistoryStatusBadge items={items} />
+                  {totalCount > 0 && (
+                    <Badge variant="secondary" className="text-[10px] font-mono py-0.5">
+                      {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           </div>

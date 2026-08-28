@@ -70,3 +70,32 @@ export function calculateHistoryListStatus(
     isNotCompleted: true
   }
 }
+
+export interface HistoryListDateFields {
+  completed_at?: string | null
+  updated_at?: string | null
+  created_at?: string | null
+  target_date?: string | null
+}
+
+/**
+ * Resolves the primary completion date of a shopping list with fallback order:
+ * completed_at -> updated_at -> created_at -> target_date.
+ */
+export function getHistoryListCompletionDate(list: HistoryListDateFields): Date {
+  const dateStr = list.completed_at || list.updated_at || list.created_at || list.target_date
+  return dateStr ? new Date(dateStr) : new Date()
+}
+
+/**
+ * Sorts shopping lists descending by their resolved completion date.
+ * (Newest completed lists first).
+ */
+export function sortHistoryListsByCompletionDate<T extends HistoryListDateFields>(lists: T[]): T[] {
+  return [...lists].sort((a, b) => {
+    const timeA = getHistoryListCompletionDate(a).getTime()
+    const timeB = getHistoryListCompletionDate(b).getTime()
+    return timeB - timeA
+  })
+}
+

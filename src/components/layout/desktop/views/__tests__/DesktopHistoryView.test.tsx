@@ -21,7 +21,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-25',
     created_at: '2026-08-25T11:45:00Z',
-    updated_at: '2026-08-25T11:45:00Z',
+    updated_at: '2026-08-25T17:30:00Z',
+    completed_at: '2026-08-25T17:30:00Z',
     preset_tags: null,
     items: [
       { id: 'item-1', is_checked: true }
@@ -35,7 +36,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-22',
     created_at: '2026-08-22T08:20:00Z',
-    updated_at: '2026-08-22T08:20:00Z',
+    updated_at: '2026-08-22T13:15:00Z',
+    completed_at: '2026-08-22T13:15:00Z',
     preset_tags: null,
     items: [
       { id: 'item-2', is_checked: true },
@@ -50,7 +52,8 @@ const sampleHistoryLists: HistoryShoppingList[] = [
     is_default: false,
     target_date: '2026-08-20',
     created_at: '2026-08-20T10:00:00Z',
-    updated_at: '2026-08-20T10:00:00Z',
+    updated_at: '2026-08-20T12:00:00Z',
+    completed_at: '2026-08-20T12:00:00Z',
     preset_tags: null,
     items: [
       { id: 'item-4', is_checked: false }
@@ -65,8 +68,10 @@ const sampleDetails: ActiveListWithDetails = {
       id: 'item-1',
       shopping_list_id: 'history-1',
       product_id: 'prod-1',
+      ad_hoc_name: undefined,
       total_quantity: 2,
       is_checked: true,
+      category_id: 1,
       added_ad_hoc: false,
       product: {
         id: 'prod-1',
@@ -90,7 +95,7 @@ describe('DesktopHistoryView - Desktop History and Dynamic Status Flows', () => 
     vi.clearAllMocks()
   })
 
-  it('Flow 01: renders archived shopping lists with creation time (HH:mm) on both left column and right detail panel', async () => {
+  it('Flow 01: renders archived shopping lists with completion time on left column, and both completion and creation dates on right detail panel', async () => {
     vi.spyOn(shoppingListService, 'getHistoryLists').mockResolvedValue(sampleHistoryLists)
     vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValue(sampleDetails)
 
@@ -100,22 +105,28 @@ describe('DesktopHistoryView - Desktop History and Dynamic Status Flows', () => 
       expect(screen.getAllByText('Zakupy Poniedziałkowe').length).toBeGreaterThan(0)
     })
 
-    const list1Date = new Date('2026-08-25T11:45:00Z')
-    const list1Hours = String(list1Date.getHours()).padStart(2, '0')
-    const list1Mins = String(list1Date.getMinutes()).padStart(2, '0')
-    const expectedTime1 = `${list1Hours}:${list1Mins}`
+    const compDate1 = new Date('2026-08-25T17:30:00Z')
+    const compHours1 = String(compDate1.getHours()).padStart(2, '0')
+    const compMins1 = String(compDate1.getMinutes()).padStart(2, '0')
+    const expectedCompTime1 = `${compHours1}:${compMins1}`
 
-    // Should find the time in both the left item and right details header
-    const timeElements = screen.getAllByText(expectedTime1)
+    // Left column shows completion time
+    const timeElements = screen.getAllByText(expectedCompTime1)
     expect(timeElements.length).toBeGreaterThanOrEqual(1)
 
-    // Verify second list time in left column
-    const list2Date = new Date('2026-08-22T08:20:00Z')
-    const list2Hours = String(list2Date.getHours()).padStart(2, '0')
-    const list2Mins = String(list2Date.getMinutes()).padStart(2, '0')
-    const expectedTime2 = `${list2Hours}:${list2Mins}`
+    // Right details header shows both "Zakończono" and "Utworzono" once details load
+    await waitFor(() => {
+      expect(screen.getByText(/Zakończono/i)).toBeInTheDocument()
+      expect(screen.getByText(/Utworzono/i)).toBeInTheDocument()
+    })
 
-    expect(screen.getByText(expectedTime2)).toBeInTheDocument()
+    // Verify second list completion time in left column
+    const compDate2 = new Date('2026-08-22T13:15:00Z')
+    const compHours2 = String(compDate2.getHours()).padStart(2, '0')
+    const compMins2 = String(compDate2.getMinutes()).padStart(2, '0')
+    const expectedCompTime2 = `${compHours2}:${compMins2}`
+
+    expect(screen.getByText(expectedCompTime2)).toBeInTheDocument()
   })
 
   it('Flow 02: selecting a different list updates right detail panel with its items and creation time', async () => {

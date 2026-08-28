@@ -171,6 +171,8 @@ export const pl: TranslationSchema = {
     restoreToDraft: 'Przywróć do Koszyka',
     restoredSuccess: 'Artykuły zostały przywrócone do koszyka roboczego.',
     completedOn: 'Zrealizowano',
+    completedAt: 'Zakończono',
+    createdAt: 'Utworzono',
     notCompleted: 'Niezrealizowano',
     archivedList: 'Zarchiwizowana Lista',
     itemsBoughtRatio: '{bought} z {total} artykułów kupionych',

@@ -165,6 +165,8 @@ export const en = {
     restoreToDraft: 'Restore to Draft',
     restoredSuccess: 'Items restored to draft list.',
     completedOn: 'Completed',
+    completedAt: 'Completed',
+    createdAt: 'Created',
     notCompleted: 'Not completed',
     archivedList: 'Archived List',
     itemsBoughtRatio: '{bought} of {total} items bought',

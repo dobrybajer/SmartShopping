@@ -385,6 +385,7 @@ export interface Database {
           target_date: string | null
           created_at: string | null
           updated_at: string | null
+          completed_at: string | null
           preset_tags: string[] | null
         }
         Insert: {
@@ -396,6 +397,7 @@ export interface Database {
           target_date?: string | null
           created_at?: string | null
           updated_at?: string | null
+          completed_at?: string | null
           preset_tags?: string[] | null
         }
         Update: {
@@ -407,6 +409,7 @@ export interface Database {
           target_date?: string | null
           created_at?: string | null
           updated_at?: string | null
+          completed_at?: string | null
           preset_tags?: string[] | null
         }
         Relationships: [

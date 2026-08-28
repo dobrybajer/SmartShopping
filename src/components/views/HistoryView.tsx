@@ -16,16 +16,20 @@ export const HistoryView: React.FC = () => {
   const [selectedList, setSelectedList] = useState<ShoppingList | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  const loadHistory = React.useCallback(async () => {
-    if (!household) return
-    setLoading(true)
-    const lists = await shoppingListService.getHistoryLists(household.id)
+  const householdId = household?.id
+
+  const loadHistory = React.useCallback(async (isInitial = false) => {
+    if (!householdId) return
+    if (isInitial) {
+      setLoading(true)
+    }
+    const lists = await shoppingListService.getHistoryLists(householdId)
     setHistoryLists(lists)
     setLoading(false)
-  }, [household])
+  }, [householdId])
 
   useEffect(() => {
-    loadHistory()
+    loadHistory(true)
   }, [loadHistory])
 
   const handleOpenDetails = (list: ShoppingList) => {
@@ -65,8 +69,9 @@ export const HistoryView: React.FC = () => {
       ) : (
         <div className="flex flex-col gap-3">
           {historyLists.map((list) => {
-            const displayDate = formatDate(list.created_at || list.target_date || new Date())
-            const displayTime = list.created_at ? formatTime(list.created_at) : ''
+            const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+            const displayDate = formatDate(completedDate)
+            const displayTime = formatTime(completedDate)
             const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
 
             return (
@@ -80,12 +85,12 @@ export const HistoryView: React.FC = () => {
                     {listTitle}
                   </h4>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
                       <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
                       <span>{displayDate}</span>
                     </span>
                     {displayTime && (
-                      <span className="flex items-center gap-1 text-muted-foreground">
+                      <span className="flex items-center gap-1 text-muted-foreground" title={t('history.completedAt')}>
                         <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                         <span>{displayTime}</span>
                       </span>
