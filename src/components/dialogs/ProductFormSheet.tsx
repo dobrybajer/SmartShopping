@@ -28,6 +28,7 @@ interface ProductFormSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   productToEdit?: Product | null
+  initialName?: string
   onProductSaved?: (product: Product) => void
 }
 
@@ -35,6 +36,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   open,
   onOpenChange,
   productToEdit = null,
+  initialName = '',
   onProductSaved
 }) => {
   const { household } = useAuth()
@@ -80,7 +82,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
         setCarbs(productToEdit.carbs_per_100 ?? 0)
         setFat(productToEdit.fat_per_100 ?? 0)
       } else {
-        setName('')
+        setName(initialName ? initialName.trim() : '')
         setCategoryId('')
         setUnitType('pcs')
         setIsFood(true)
@@ -91,7 +93,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
       }
       setErrorMsg('')
     }
-  }, [open, productToEdit])
+  }, [open, productToEdit, initialName])
 
   const getCategoryLabel = (catName: string) => {
     return t(`categories.${catName}` as any) !== `categories.${catName}`

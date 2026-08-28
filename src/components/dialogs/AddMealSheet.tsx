@@ -20,10 +20,10 @@ import {
   SheetDescription
 } from '@/components/ui/sheet'
 import { ProductAutocomplete } from '@/components/ui/ProductAutocomplete'
+import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Trash2, Save, Sparkles, Home, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -65,13 +65,9 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   const [selectedProductName, setSelectedProductName] = useState('')
   const [selectedProductUnit, setSelectedProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
   const [quantityInput, setQuantityInput] = useState<number | ''>(100)
-  const [isPantryInput, setIsPantryInput] = useState(false)
 
-  // Inline quick create state
-  const [isCreatingProduct, setIsCreatingProduct] = useState(false)
-  const [newProductName, setNewProductName] = useState('')
-  const [newProductUnit, setNewProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
-  const [newProductKcal, setNewProductKcal] = useState<number | ''>(0)
+  // Product modal state
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -112,7 +108,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
         product_name: selectedProductName,
         unit_type: selectedProductUnit,
         base_quantity: Number(quantityInput),
-        is_pantry_item: isPantryInput
+        is_pantry_item: false
       }
     ])
 
@@ -120,35 +116,22 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     setSelectedProductId('')
     setSelectedProductName('')
     setQuantityInput(100)
-    setIsPantryInput(false)
   }
 
   const handleRemoveIngredient = (index: number) => {
     setIngredients(ingredients.filter((_, i) => i !== index))
   }
 
-  const handleCreateNewProduct = async () => {
-    if (!newProductName.trim() || !household) return
-    setIsSubmitting(true)
-
-    const created = await productService.createProduct({
-      household_id: mealType === 'Household' ? household.id : null,
-      name: newProductName.trim(),
-      unit_type: newProductUnit,
-      kcal_per_100: typeof newProductKcal === 'number' ? newProductKcal : 0
+  const handleProductSaved = (newProduct: Product) => {
+    setAvailableProducts((prev) => {
+      if (prev.some((p) => p.id === newProduct.id)) return prev
+      return [...prev, newProduct].sort((a, b) => a.name.localeCompare(b.name))
     })
-
-    setIsSubmitting(false)
-
-    if (created) {
-      setAvailableProducts([...availableProducts, created])
-      setSelectedProductId(created.id)
-      setSelectedProductName(created.name)
-      setSelectedProductUnit(created.unit_type)
-      setIsCreatingProduct(false)
-      setNewProductName('')
-      setNewProductKcal(0)
-    }
+    setSelectedProductId(newProduct.id)
+    setSelectedProductName(newProduct.name)
+    setSelectedProductUnit(newProduct.unit_type as any)
+    window.dispatchEvent(new CustomEvent('smartshopping_refresh_products'))
+    setIsAddProductOpen(false)
   }
 
   const handleSubmit = async () => {
@@ -345,127 +328,67 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
         )}
 
         {/* Add ingredient form */}
-        {!isCreatingProduct ? (
-          <div className="flex flex-col gap-2 pt-2 border-t border-border">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground font-medium">{t('dialogs.mealForm.productSelectLabel')}:</span>
-              <button
-                onClick={() => setIsCreatingProduct(true)}
-                className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3 h-3" />
-                <span>{t('products.addProduct')} +</span>
-              </button>
-            </div>
-
-            <ProductAutocomplete
-              value={selectedProductName}
-              onChange={(val) => {
-                setSelectedProductName(val)
-                const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
-                if (match) {
-                  setSelectedProductId(match.id)
-                  setSelectedProductUnit(match.unit_type as any)
-                } else {
-                  setSelectedProductId('')
-                }
-              }}
-              products={availableProducts}
-              categories={categories}
-              onSelectProduct={(p) => {
-                setSelectedProductId(p.id)
-                setSelectedProductName(p.name)
-                setSelectedProductUnit(p.unit_type as any)
-              }}
-              placeholder={t('cookbook.searchPlaceholder')}
-            />
-
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type="number"
-                  placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
-                  value={quantityInput}
-                  onChange={(e) =>
-                    setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
-                  }
-                  className="h-10 font-mono pr-14"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono pointer-events-none">
-                  {formatUnit(selectedProductUnit)}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 px-2 bg-card rounded-xl border border-border h-10 shrink-0">
-                <Checkbox
-                  id="pantry-check"
-                  checked={isPantryInput}
-                  onCheckedChange={(c) => setIsPantryInput(!!c)}
-                />
-                <label htmlFor="pantry-check" className="text-[11px] text-muted-foreground cursor-pointer">
-                  {t('dialogs.mealForm.isPantryLabel')}
-                </label>
-              </div>
-
-              <Button
-                onClick={handleAddIngredient}
-                disabled={!selectedProductId}
-                className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+        <div className="flex flex-col gap-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground font-medium">{t('dialogs.mealForm.productSelectLabel')}:</span>
+            <button
+              type="button"
+              onClick={() => setIsAddProductOpen(true)}
+              className="text-primary hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>{t('products.addProduct')} +</span>
+            </button>
           </div>
-        ) : (
-          /* Inline quick product creation */
-          <div className="p-3 rounded-lg bg-card border border-border flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-primary">{t('dialogs.productForm.addTitle')}</span>
-              <button
-                onClick={() => setIsCreatingProduct(false)}
-                className="text-muted-foreground hover:text-foreground cursor-pointer"
-              >
-                {t('common.cancel')}
-              </button>
-            </div>
 
-            <Input
-              placeholder={t('dialogs.productForm.namePlaceholder')}
-              value={newProductName}
-              onChange={(e) => setNewProductName(e.target.value)}
-            />
+          <ProductAutocomplete
+            value={selectedProductName}
+            onChange={(val) => {
+              setSelectedProductName(val)
+              const match = availableProducts.find((p) => p.name.toLowerCase() === val.toLowerCase())
+              if (match) {
+                setSelectedProductId(match.id)
+                setSelectedProductUnit(match.unit_type as any)
+              } else {
+                setSelectedProductId('')
+              }
+            }}
+            products={availableProducts}
+            categories={categories}
+            onSelectProduct={(p) => {
+              setSelectedProductId(p.id)
+              setSelectedProductName(p.name)
+              setSelectedProductUnit(p.unit_type as any)
+            }}
+            placeholder={t('products.searchPlaceholder')}
+          />
 
-            <div className="flex gap-2">
-              <select
-                value={newProductUnit}
-                onChange={(e) => setNewProductUnit(e.target.value as any)}
-                className="h-10 rounded-xl border border-border bg-background px-3 text-xs text-foreground"
-              >
-                <option value="g" className="bg-card text-foreground">g ({formatUnit('g')})</option>
-                <option value="ml" className="bg-card text-foreground">ml ({formatUnit('ml')})</option>
-                <option value="pcs" className="bg-card text-foreground">pcs ({formatUnit('pcs')})</option>
-              </select>
-
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
               <Input
                 type="number"
-                placeholder="kcal / 100g"
-                value={newProductKcal}
+                placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
+                value={quantityInput}
                 onChange={(e) =>
-                  setNewProductKcal(e.target.value === '' ? '' : Number(e.target.value))
+                  setQuantityInput(e.target.value === '' ? '' : Number(e.target.value))
                 }
-                className="h-10 font-mono"
+                className="h-10 font-mono pr-14"
               />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono pointer-events-none">
+                {formatUnit(selectedProductUnit)}
+              </span>
             </div>
 
             <Button
-              onClick={handleCreateNewProduct}
-              disabled={!newProductName.trim() || isSubmitting}
-              className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1 cursor-pointer"
+              type="button"
+              onClick={handleAddIngredient}
+              disabled={!selectedProductId}
+              className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0 cursor-pointer"
             >
-              {t('common.save')}
+              <Plus className="w-4 h-4" />
             </Button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Preparation steps */}
@@ -504,36 +427,44 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
     </div>
   )
 
-  if (isDesktop) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
-        >
-          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-            <DialogTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</DialogTitle>
-            <DialogDescription className="sr-only">{t('cookbook.subtitle')}</DialogDescription>
-            {headerContent}
-          </DialogHeader>
-          {bodyContent}
-          {footerContent}
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden">
-        <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-          <SheetTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</SheetTitle>
-          <SheetDescription className="sr-only">{t('cookbook.subtitle')}</SheetDescription>
-          {headerContent}
-        </SheetHeader>
-        {bodyContent}
-        {footerContent}
-      </SheetContent>
-    </Sheet>
+    <>
+      {isDesktop ? (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
+          >
+            <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <DialogTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</DialogTitle>
+              <DialogDescription className="sr-only">{t('cookbook.subtitle')}</DialogDescription>
+              {headerContent}
+            </DialogHeader>
+            {bodyContent}
+            {footerContent}
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent side="bottom" className="max-h-[92vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden">
+            <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <SheetTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</SheetTitle>
+              <SheetDescription className="sr-only">{t('cookbook.subtitle')}</SheetDescription>
+              {headerContent}
+            </SheetHeader>
+            {bodyContent}
+            {footerContent}
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Product modal on top */}
+      <ProductFormSheet
+        open={isAddProductOpen}
+        onOpenChange={setIsAddProductOpen}
+        initialName={selectedProductName}
+        onProductSaved={handleProductSaved}
+      />
+    </>
   )
 }
