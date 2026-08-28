@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
 import type { DraftItem } from '@/store/useShoppingStore'
 import { formatDate, getLocalDateISOString } from '@/lib/utils'
-import { mergeDraftItemsIntoActiveList } from '@/lib/calculations/mergeDraftItems'
+import { mergeDraftItemsIntoActiveList, aggregateDraftItems } from '@/lib/calculations/mergeDraftItems'
 import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStatusCalculations'
 
 const isUuid = (val?: string | null): val is string =>
@@ -659,54 +659,30 @@ export const shoppingListService = {
    * Internal helper to insert draft items into a shopping list.
    */
   async _insertDraftItemsToList(shoppingListId: string, householdId: string, draftItems: DraftItem[]) {
-    const aggregatedMap = new Map<
-      string,
-      { product_id?: string; total_quantity: number; added_ad_hoc: boolean; name: string; category_id?: number | null }
-    >()
-
-    for (const item of draftItems) {
-      const key = item.product_id ? `prod_${item.product_id}` : `adhoc_${item.name}`
-      const existing = aggregatedMap.get(key)
-
-      if (existing) {
-        existing.total_quantity = Math.round((existing.total_quantity + item.quantity) * 10) / 10
-        if (!existing.category_id && item.category_id) {
-          existing.category_id = item.category_id
-        }
-      } else {
-        aggregatedMap.set(key, {
-          product_id: item.product_id,
-          total_quantity: item.quantity,
-          added_ad_hoc: !!item.is_ad_hoc,
-          name: item.name,
-          category_id: item.category_id || null
-        })
-      }
-    }
-
+    const aggregated = aggregateDraftItems(draftItems)
     const itemsToInsert = []
 
-    for (const [, value] of aggregatedMap) {
-      let productId = value.product_id
+    for (const item of aggregated) {
+      let productId = item.product_id
 
-      if (!productId && value.added_ad_hoc) {
+      if (!productId && item.is_ad_hoc) {
         // Check if product already exists in household by name
         const { data: existingProd } = await supabase
           .from('products')
           .select('id, category_id')
           .eq('household_id', householdId)
-          .ilike('name', value.name.trim())
+          .ilike('name', item.name.trim())
           .maybeSingle()
 
         // If an existing product has the same category (or no category), reuse it.
         // If the existing product has a DIFFERENT category, create an ad-hoc product with the temporary category
         // to preserve the user's intended aisle!
-        if (existingProd && (!value.category_id || !existingProd.category_id || existingProd.category_id === value.category_id)) {
+        if (existingProd && (!item.category_id || !existingProd.category_id || existingProd.category_id === item.category_id)) {
           productId = existingProd.id
-          if (!existingProd.category_id && value.category_id) {
+          if (!existingProd.category_id && item.category_id) {
             await supabase
               .from('products')
-              .update({ category_id: value.category_id })
+              .update({ category_id: item.category_id })
               .eq('id', existingProd.id)
           }
         } else {
@@ -714,9 +690,9 @@ export const shoppingListService = {
             .from('products')
             .insert({
               household_id: householdId,
-              name: value.name,
+              name: item.name,
               unit_type: 'pcs',
-              category_id: value.category_id || null,
+              category_id: item.category_id || null,
               is_ad_hoc: true
             })
             .select('id')
@@ -732,10 +708,10 @@ export const shoppingListService = {
         itemsToInsert.push({
           shopping_list_id: shoppingListId,
           product_id: productId,
-          total_quantity: value.total_quantity,
+          total_quantity: item.quantity,
           is_checked: false,
-          added_ad_hoc: value.added_ad_hoc,
-          category_id: value.category_id || null
+          added_ad_hoc: item.is_ad_hoc,
+          category_id: item.category_id || null
         })
       }
     }

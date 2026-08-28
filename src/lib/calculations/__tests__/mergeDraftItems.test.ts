@@ -70,6 +70,89 @@ describe('mergeDraftItems calculations', () => {
       expect(result[0].quantity).toBe(5)
       expect(result[0].is_ad_hoc).toBe(true)
     })
+    it('keeps items with the same product_id separate when they belong to different categories (e.g. bakery vs other)', () => {
+      const drafts: DraftItem[] = [
+        {
+          id: 'draft-bread-rolls',
+          product_id: 'prod-rolls',
+          name: 'Bułki do hamburgerów',
+          unit_type: 'pcs',
+          category_id: 2,
+          category_name: 'bakery',
+          sort_order: 20,
+          quantity: 1,
+          is_ad_hoc: false
+        },
+        {
+          id: 'draft-garlic-baguette-bakery',
+          product_id: 'prod-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 2,
+          category_name: 'bakery',
+          sort_order: 20,
+          quantity: 3,
+          is_ad_hoc: false
+        },
+        {
+          id: 'draft-garlic-baguette-adhoc-other',
+          product_id: 'prod-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 8,
+          category_name: 'other',
+          sort_order: 99,
+          quantity: 1,
+          is_ad_hoc: true
+        }
+      ]
+
+      const result = aggregateDraftItems(drafts)
+      // Must return all 3 items: 1 rolls, 1 baguette in bakery (3 pcs), 1 baguette in other (1 pc)
+      expect(result).toHaveLength(3)
+
+      const bakeryBaguette = result.find((r) => r.product_id === 'prod-baguette' && r.category_id === 2)
+      expect(bakeryBaguette).toBeDefined()
+      expect(bakeryBaguette?.quantity).toBe(3)
+      expect(bakeryBaguette?.is_ad_hoc).toBe(false)
+
+      const otherBaguette = result.find((r) => r.product_id === 'prod-baguette' && r.category_id === 8)
+      expect(otherBaguette).toBeDefined()
+      expect(otherBaguette?.quantity).toBe(1)
+      expect(otherBaguette?.is_ad_hoc).toBe(true)
+    })
+
+    it('aggregates same product_id when both have the same category', () => {
+      const drafts: DraftItem[] = [
+        {
+          id: 'draft-baguette-1',
+          product_id: 'prod-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 2,
+          category_name: 'bakery',
+          sort_order: 20,
+          quantity: 3,
+          is_ad_hoc: false
+        },
+        {
+          id: 'draft-baguette-2',
+          product_id: 'prod-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 2,
+          category_name: 'bakery',
+          sort_order: 20,
+          quantity: 1,
+          is_ad_hoc: true
+        }
+      ]
+
+      const result = aggregateDraftItems(drafts)
+      expect(result).toHaveLength(1)
+      expect(result[0].quantity).toBe(4)
+      expect(result[0].category_id).toBe(2)
+    })
   })
 
   describe('mergeDraftItemsIntoActiveList', () => {
@@ -233,6 +316,53 @@ describe('mergeDraftItems calculations', () => {
       expect(result.itemsToInsert).toHaveLength(1)
       expect(result.itemsToInsert[0].category_id).toBe(5)
       expect(result.itemsToInsert[0].product_id).toBe('prod-lemon')
+    })
+
+    it('does not merge ad-hoc item from Other into existing item from Bakery, but inserts new item', () => {
+      const existingItems: ActiveListItemWithProduct[] = [
+        {
+          id: 'item-rolls',
+          shopping_list_id: 'list-1',
+          product_id: 'prod-rolls',
+          total_quantity: 1,
+          is_checked: false,
+          added_ad_hoc: false,
+          category_id: 2,
+          product: { id: 'prod-rolls', name: 'Bułki do hamburgerów', unit_type: 'pcs', category_id: 2 }
+        },
+        {
+          id: 'item-baguette-bakery',
+          shopping_list_id: 'list-1',
+          product_id: 'prod-baguette',
+          total_quantity: 3,
+          is_checked: false,
+          added_ad_hoc: false,
+          category_id: 2,
+          product: { id: 'prod-baguette', name: 'Bagietka czosnkowa', unit_type: 'pcs', category_id: 2 }
+        }
+      ]
+
+      const draftItems: DraftItem[] = [
+        {
+          id: 'draft-baguette-other',
+          product_id: 'prod-baguette',
+          name: 'Bagietka czosnkowa',
+          unit_type: 'pcs',
+          category_id: 8, // Inne / Różne
+          category_name: 'other',
+          sort_order: 99,
+          quantity: 1,
+          is_ad_hoc: true
+        }
+      ]
+
+      const result = mergeDraftItemsIntoActiveList(existingItems, draftItems)
+      expect(result.itemsToUpdate).toHaveLength(0)
+      expect(result.itemsToInsert).toHaveLength(1)
+      expect(result.itemsToInsert[0].product_id).toBe('prod-baguette')
+      expect(result.itemsToInsert[0].category_id).toBe(8)
+      expect(result.itemsToInsert[0].total_quantity).toBe(1)
+      expect(result.mergedTotalCount).toBe(3)
     })
   })
 })

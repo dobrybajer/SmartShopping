@@ -23,7 +23,23 @@ export interface MergeCalculationResult {
 }
 
 /**
- * Aggregates duplicate items within a draft list by product_id or ad-hoc name.
+ * Produces a deterministic category suffix for aggregation and lookup maps.
+ * Ensures items belonging to different aisles (e.g. bakery vs other/miscellaneous)
+ * are never incorrectly merged into the same aisle.
+ */
+export function getCategorySuffix(categoryId?: number | null, categoryName?: string): string {
+  if (categoryId != null) {
+    return `_cat_${categoryId}`
+  }
+  if (categoryName && categoryName.trim().toLowerCase() !== 'other') {
+    return `_catname_${categoryName.trim().toLowerCase()}`
+  }
+  return '_cat_other'
+}
+
+/**
+ * Aggregates duplicate items within a draft list by product_id or ad-hoc name,
+ * strictly keeping items in different categories separate.
  */
 export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
   product_id?: string
@@ -40,8 +56,10 @@ export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
   for (const item of draftItems) {
     if (item.quantity <= 0) continue
 
-    const catSuffix = item.category_id ? `_cat_${item.category_id}` : ''
-    const key = item.product_id ? `prod_${item.product_id}${catSuffix}` : `adhoc_${item.name.trim().toLowerCase()}${catSuffix}`
+    const catSuffix = getCategorySuffix(item.category_id, item.category_name)
+    const key = item.product_id
+      ? `prod_${item.product_id}${catSuffix}`
+      : `adhoc_${item.name.trim().toLowerCase()}${catSuffix}`
     const existing = aggregatedMap.get(key)
 
     if (existing) {
@@ -64,8 +82,73 @@ export function aggregateDraftItems(draftItems: DraftItem[]): Array<{
 }
 
 /**
+ * Finds a matching item in the existing active list for a draft item.
+ * Strictly respects aisle separation: items with different explicit categories
+ * will NOT merge, ensuring separate items for different supermarket aisles.
+ */
+function findMatchingExistingItem(
+  existingItems: ActiveListItemWithProduct[],
+  draft: { product_id?: string; name: string; is_ad_hoc: boolean; category_id?: number | null }
+): ActiveListItemWithProduct | undefined {
+  if (draft.product_id) {
+    const candidates = existingItems.filter((item) => item.product_id === draft.product_id)
+    if (candidates.length === 0) return undefined
+
+    // If draft has an explicit category_id:
+    if (draft.category_id != null) {
+      // 1. Look for candidate with identical effective category_id
+      const exactMatch = candidates.find((item) => {
+        const itemCatId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? null
+        return itemCatId === draft.category_id
+      })
+      if (exactMatch) return exactMatch
+
+      // 2. Or candidate with no category assigned (null)
+      return candidates.find((item) => {
+        const itemCatId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? null
+        return itemCatId === null
+      })
+    }
+
+    // If draft has NO explicit category_id:
+    // Match first available candidate (preferring one without specific category override)
+    const noCatMatch = candidates.find((item) => {
+      const itemCatId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? null
+      return itemCatId === null
+    })
+    return noCatMatch || candidates[0]
+  }
+
+  if (draft.is_ad_hoc) {
+    const normalizedName = draft.name.trim().toLowerCase()
+    const candidates = existingItems.filter((item) => {
+      const existingName = (item.ad_hoc_name || item.product?.name || '').trim().toLowerCase()
+      return existingName === normalizedName
+    })
+    if (candidates.length === 0) return undefined
+
+    if (draft.category_id != null) {
+      const exactMatch = candidates.find((item) => {
+        const itemCatId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? null
+        return itemCatId === draft.category_id
+      })
+      if (exactMatch) return exactMatch
+
+      return candidates.find((item) => {
+        const itemCatId = item.category_id ?? item.category?.id ?? item.product?.category_id ?? null
+        return itemCatId === null
+      })
+    }
+
+    return candidates[0]
+  }
+
+  return undefined
+}
+
+/**
  * Merges incoming draft items into existing active list items.
- * - Sums quantities for items already present on the list.
+ * - Sums quantities for items already present on the list in the same category/aisle.
  * - Resets `is_checked = false` for matched items so the newly added quantity is pending purchase.
  * - Collects unmatched items as new items to insert.
  */
@@ -77,32 +160,17 @@ export function mergeDraftItemsIntoActiveList(
   const itemsToUpdate: ItemToUpdate[] = []
   const itemsToInsert: ItemToInsert[] = []
 
-  // Create lookup maps for existing items taking category_id into account
-  const existingByProductId = new Map<string, ActiveListItemWithProduct>()
-  const existingByAdHocName = new Map<string, ActiveListItemWithProduct>()
-
-  for (const item of existingItems) {
-    const catSuffix = item.category_id ? `_cat_${item.category_id}` : ''
-    if (item.product_id) {
-      existingByProductId.set(`${item.product_id}${catSuffix}`, item)
-    } else if (item.product?.name) {
-      existingByAdHocName.set(`${item.product.name.trim().toLowerCase()}${catSuffix}`, item)
-    } else if (item.ad_hoc_name) {
-      existingByAdHocName.set(`${item.ad_hoc_name.trim().toLowerCase()}${catSuffix}`, item)
-    }
-  }
+  // Keep track of which existing items have already been matched and updated in this batch
+  const updatedExistingIds = new Set<string>()
 
   for (const draft of aggregatedDraft) {
-    let matchedItem: ActiveListItemWithProduct | undefined
-    const catSuffix = draft.category_id ? `_cat_${draft.category_id}` : ''
-
-    if (draft.product_id && existingByProductId.has(`${draft.product_id}${catSuffix}`)) {
-      matchedItem = existingByProductId.get(`${draft.product_id}${catSuffix}`)
-    } else if (draft.is_ad_hoc && existingByAdHocName.has(`${draft.name.toLowerCase()}${catSuffix}`)) {
-      matchedItem = existingByAdHocName.get(`${draft.name.toLowerCase()}${catSuffix}`)
-    }
+    const matchedItem = findMatchingExistingItem(
+      existingItems.filter((item) => !updatedExistingIds.has(item.id)),
+      draft
+    )
 
     if (matchedItem) {
+      updatedExistingIds.add(matchedItem.id)
       const newQuantity = Math.round((matchedItem.total_quantity + draft.quantity) * 10) / 10
       itemsToUpdate.push({
         id: matchedItem.id,
