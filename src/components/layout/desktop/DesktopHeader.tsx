@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
-import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio } from 'lucide-react'
+import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio, FileCode2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
@@ -12,11 +12,13 @@ interface DesktopHeaderProps {
   title: string
   subtitle?: string
   onRefreshData?: () => void
+  onOpenJsonImport?: () => void
 }
 
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   title,
-  subtitle
+  subtitle,
+  onOpenJsonImport
 }) => {
   const { household } = useAuth()
   const { t } = useTranslation()
@@ -90,7 +92,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             </button>
 
             {isQuickAddOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-card border border-border p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1">
+              <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl bg-card border border-border p-2 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1">
                 <button
                   onClick={() => {
                     setIsQuickAddOpen(false)
@@ -138,6 +140,29 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                     <span className="text-[10px] text-muted-foreground font-normal">{t('navigation.draft')}</span>
                   </div>
                 </button>
+
+                {onOpenJsonImport && (
+                  <button
+                    onClick={() => {
+                      setIsQuickAddOpen(false)
+                      onOpenJsonImport()
+                    }}
+                    className="w-full px-3 py-2 rounded-xl text-left text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-between cursor-pointer border-t border-border/50 pt-2 mt-0.5"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <FileCode2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="block text-foreground truncate">{t('dialogs.jsonRecipeImport.title')}</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">JSON Schema</span>
+                      </div>
+                    </div>
+                    <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-background border border-border text-muted-foreground shrink-0">
+                      Ctrl+Alt+P
+                    </kbd>
+                  </button>
+                )}
               </div>
             )}
           </div>

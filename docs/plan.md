@@ -162,7 +162,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Testy jednostkowe czystych funkcji kalkulacji i scalania (`mergeDraftItems.test.ts`).
    * Testy User Flow w Vitest i React Testing Library dla modalu transferu i przełączania list.
 
-## Faza 11: Własne Kategorie Produktów, Nadpisywanie Ustawień i Układ Alejek Sklepowych (Zaplanowana / Do Wdrożenia)
+## Faza 11: Własne Kategorie Produktów, Nadpisywanie Ustawień i Układ Alejek Sklepowych (Zakończona)
 **Cel:** Elastyczne zarządzanie kategoriami produktów per gospodarstwo domowe (tworzenie, edycja, usuwanie, ukrywanie) oraz personalizacja fizycznej kolejności alejek w sklepie (Store Aisle Sorting) z zachowaniem domyślnych kategorii globalnych. Zobacz [ADR-006](./adr/ADR-006-custom-product-categories-and-aisle-sorting.md).
 
 1. **Baza Danych & RLS (Supabase):**
@@ -187,4 +187,67 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Testy integracyjne serwisu i store'a (w tym obsługa błędów sieci i rollbacku).
    * Testy User Flow w Vitest i React Testing Library dla Mobile i Desktop.
 
-
+## Faza 11.1: Udoskonalenia Historii List Zakupowych (Zakończona)
+**Cel:** Pełne zachowanie wybranych kategorii pozycji (`category_id`) w historii, śledzenie i wyświetlanie oryginalnej nazwy listy po jej zmianie oraz symetryczny podział przycisków akcji (50/50) ze spójnym modalem potwierdzenia usunięcia.
+
+1. **Baza Danych:**
+   * Dodanie kolumny `original_name TEXT` do tabeli `shopping_lists` z migracją backfillującą snapshot dla zarchiwizowanych list.
+2. **Warstwa Kalkulacji & Serwisów:**
+   * `groupItemsByAisle`: uwzględnienie relacji `category` na poziomie pozycji listy (`item.category_id`) z wyższym priorytetem niż domyślna kategoria z katalogu produktów.
+   * `shoppingListService`: pobieranie powiązanej kategorii `category:product_categories(*)` w `getListWithDetails`, snapshot oryginalnej nazwy przy archiwizacji i edycji, zachowanie `category_id` przy przywracaniu/przenoszeniu do koszyka (`AddToDraftPayload`).
+3. **Komponenty i Dual Layout:**
+   * Widok `DesktopHistoryView`: prezentacja oryginalnej nazwy (`text-xs text-muted-foreground font-mono`) poniżej zmienionego tytułu (w lewej kolumnie i panelu szczegółów), ukrywanie gdy nazwa nie uległa zmianie. Przyciski dolne w układzie `grid-cols-2`: "Dodaj do koszyka" i czerwony "Usuń listę" wyzwalający `<ConfirmDeleteDialog>`.
+   * Widok mobilny `HistoryView` i arkusz `HistoryListDetailsSheet`: analogiczna prezentacja `original_name` pod tytułem, podział paska akcji na równe 50/50 ("Dodaj do koszyka" + czerwony "Usuń listę") ze spójnym oknem potwierdzenia `<ConfirmDeleteDialog>`.
+4. **Testy Automatyczne:**
+   * Pokrycie przepływów w `DesktopHistoryView.test.tsx`, `HistoryView.test.tsx` oraz dedykowany `HistoryListDetailsSheet.test.tsx`.
+
+## Faza 12: Moduł Powiadomień Multiplatformowych (Web Push) i Rozszerzalny Rejestr Zdarzeń (Zaplanowana / Do Wdrożenia)
+**Cel:** Natywne powiadomienia Web Push (VAPID) działające w tle na urządzeniach Mobile PWA i Desktop, scentralizowany i silnie typowany rejestr zdarzeń (`Notification Registry`) umożliwiający łatwe dodawanie nowych powiadomień oraz architektura przygotowana na bezszwowe dodanie trwałej historii w przyszłości. Zobacz [ADR-007](./adr/ADR-007-multiplatform-web-push-notifications.md).
+
+1. **Baza Danych & RLS (Supabase):**
+   * Migracja PostgreSQL: utworzenie tabeli `push_subscriptions` (`id`, `user_id`, `household_id`, `endpoint`, `p256dh`, `auth`, `user_agent`, `created_at`, `last_used_at`).
+   * Indeksy B-tree na `household_id` i `user_id`.
+   * Polityki RLS: użytkownicy mogą rejestrować i usuwać własne subskrypcje oraz czytać subskrypcje w ramach swojego gospodarstwa (`public.get_user_household_ids(auth.uid())`).
+2. **Supabase Edge Function (Backend Push Dispatch):**
+   * Utworzenie funkcji `send-push-notification` (Deno) korzystającej ze standardu `web-push` i kluczy VAPID.
+   * Pobieranie aktywnych urządzeń domowników z wykluczeniem nadawcy (`self-suppression`).
+   * Automatyczny auto-pruning nieaktywnych lub wyrejestrowanych tokenów (kody 410 Gone / 404 Not Found z bramek push).
+3. **Frontend & Rozszerzalny Rejestr Zdarzeń (Notification Registry):**
+   * Silnie typowana mapa `NotificationPayloadMap` oraz rejestr szablonów w `src/lib/notifications/registry.ts` z obsługą wielojęzyczności (`pl` / `en`).
+   * Początkowe typy zdarzeń: `LIST_ITEM_ADDED`, `LIST_COMPLETED`, `HOUSEHOLD_MEMBER_JOINED`, `LIST_CLEARED_OR_ARCHIVED`.
+   * Uniwersalny serwis `notificationService.notify(type, payload)` z debouncingiem i grupowaniem (`tag` collapsing).
+   * Czysty interfejs adaptera `NotificationStorageChannel` umożliwiający wpięcie tabeli historii w przyszłości bez zmian po stronie wywołującej.
+4. **Service Worker & Integracja PWA:**
+   * Konfiguracja nasłuchu zdarzeń `push` i `notificationclick` w Service Workerze (`vite-plugin-pwa`).
+   * Głębokie linkowanie (Deep Linking): kliknięcie powiadomienia otwiera PWA i przechodzi bezpośrednio do właściwej listy zakupowej.
+   * Wsparcie haptics (`navigator.vibrate([100, 50, 100])`).
+5. **Komponenty i Dual Layout:**
+   * Komponent ustawień powiadomień `NotificationSettings` w oknie konta (`AccountDetailsDialog` na Desktopie) oraz arkuszu ustawień (Mobile PWA) ze stanem uprawnień (Granted / Default / Denied).
+   * Kontekstowy baner Soft-Prompt zachęcający do włączenia powiadomień (po dołączeniu do gospodarstwa lub pierwszej edycji listy).
+   * Asystent i instrukcja dla użytkowników iOS Safari (wymóg dodania PWA do ekranu głównego).
+6. **Testy Automatyczne i Weryfikacja Jakości:**
+   * Testy jednostkowe rejestru, formatowania komunikatów i konwersji kluczy VAPID (`registry.test.ts`, `webPush.test.ts`).
+   * Testy integracyjne komponentu ustawień z mockiem `ServiceWorker` i `PushManager` w Vitest.
+   * Walidacja testów (`npm run test`), lintera (`npm run lint`) oraz kompilacji (`npx tsc -b`).
+
+## Faza 13: Wielkoformatowy Import Przepisów z JSON pod Skrótem CTRL+ALT+P (Zakończona)
+**Cel:** Błyskawiczny import przepisów (pojedynczych lub wsadowych) w widoku Desktop za pomocą globalnego skrótu klawiszowego `Ctrl+Alt+P` (lub `Cmd+Option+P` na macOS), natychmiastowa walidacja składni i schematu encji, inteligentna normalizacja jednostek oraz automatyczne dopasowywanie i tworzenie brakujących produktów w bazie danych.
+
+1. **Czyste Funkcje i Walidator Schemy (`src/lib/recipeJsonImport.ts`):**
+   * Funkcja `validateRecipeJson`: parsowanie JSON w czasie rzeczywistym, weryfikacja wymaganych pól (`name`, `ingredients`), normalizacja kroków przygotowania i tagów.
+   * Funkcja `normalizeUnitAndQuantity`: inteligentne przeliczanie jednostek (`kg` -> 1000 `g`, `dag` -> 10 `g`, `l` -> 1000 `ml`, `szt`/`pcs` -> `pcs`, łyżki/szklanki).
+   * Szablon wzorcowy `EXAMPLE_RECIPE_JSON_TEMPLATE` do natychmiastowego wklejenia lub skopiowania.
+2. **Komponent UI Modalu (`JsonRecipeImportDialog.tsx`):**
+   * Wielkoformatowy dialog `Dialog` (`max-w-4xl`) z edytorem tekstowym o stałej szerokości znaków (`font-mono`).
+   * Dynamiczny panel stanu: błędy składni JSON (czerwony baner), błędy schematu encji z listą brakujących pól (bursztynowy baner) oraz zielony stan gotowości do zapisu.
+   * Akcje: "Kopiuj szablon JSON", "Wyczyść", "Odrzuć" (anulowanie i zamknięcie) oraz "Zapisz przepis(y)".
+   * Logika zapisu: pobranie istniejącego katalogu produktów, automatyczne utworzenie brakujących pozycji w `products` (z zachowaniem makroskładników jeśli podano w JSON), wstawienie posiłku do `meals` i `meal_ingredients`, odświeżenie danych i przekierowanie do Przepiśnika (`cookbook`).
+3. **Integracja z Desktop Layout i Nagłówkiem:**
+   * Globalny nasłuchiwacz `keydown` (`Ctrl+Alt+P` / `Cmd+Option+P`) w `DesktopLayout.tsx`.
+   * Przycisk ze skrótem oraz opcja w menu szybkiego dodawania w `DesktopHeader.tsx`.
+   * Pełna lokalizacja i18n (`pl` i `en`) w `src/i18n/locales/`.
+4. **Testy Jednostkowe i Jakość:**
+   * 14 testów silnika walidacji i normalizacji jednostek w `recipeJsonImport.test.ts`.
+   * 7 testów komponentowych dialogu w `JsonRecipeImportDialog.test.tsx`.
+   * 2 testy integracji skrótu i nagłówka w `DesktopLayoutShortcut.test.tsx`.
+   * Komplet testów zielony (183 passed), zero błędów oxlint i zero błędów `tsc -b`.
