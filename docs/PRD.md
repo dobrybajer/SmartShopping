@@ -121,7 +121,23 @@ CREATE TABLE shopping_list_items (
   category_id INT REFERENCES product_categories(id), -- nadpisana kategoria pozycji
   total_quantity NUMERIC NOT NULL,
   is_checked BOOLEAN DEFAULT FALSE,
+  in_pantry BOOLEAN DEFAULT FALSE, -- oznaczenie 'Mam w spiżarni'
   added_ad_hoc BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE pantry_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  ad_hoc_name TEXT,
+  category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
+  quantity NUMERIC NOT NULL DEFAULT 1,
+  unit_type unit_enum NOT NULL DEFAULT 'pcs',
+  last_purchased_at TIMESTAMPTZ,
+  last_verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_pantry_household_product UNIQUE (household_id, product_id)
 );
 
 CREATE TABLE push_subscriptions (
@@ -168,6 +184,17 @@ CREATE TABLE push_subscriptions (
     *   Architektura z interfejsem adaptera (`NotificationStorageChannel`) przygotowana na bezszwowe podpięcie tabeli historii i Centrum Powiadomień (In-App Bell) w przyszłości. Zobacz [ADR-007: Multiplatform Web Push Notifications](./adr/ADR-007-multiplatform-web-push-notifications.md).
 *   **Realtime Sync (Współdzielenie):** Odsłuch WebSocket na tabeli `shopping_list_items` i `shopping_lists`. Odhaczenie produktu lub zmiana listy natychmiast synchronizuje stan na urządzeniach innych domowników (household).
 *   **Eksport na e-mail:** Możliwość wygenerowania i wysłania aktywnej/zarchwizowanej listy zakupowej na połączony z kontem adres Gmail.
+*   **Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008):**
+    *   Dedykowana, 6. zakładka w nawigacji (`'pantry'`, ikona `Warehouse`) umieszczona bezpośrednio po Historii.
+    *   Prezentacja posiadanego stanu magazynowego gospodarstwa pogrupowanego według alejek sklepowych (`product_categories`), z możliwością edycji ilości steperem (+/-) i wpisywania z klawiatury.
+    *   **Auto-zasilanie przy archiwizacji:** Podczas zamykania listy zakupowej (`archiveActiveList`) wszystkie kupione pozycje (`is_checked = true` oraz `in_pantry = false`) automatycznie zasilają spiżarnię (sumowanie ilości i aktualizacja daty `last_purchased_at`).
+    *   **Wskaźniki świeżości i weryfikacja w Koszyku i na Aktywnej Liście:** Ikona `Warehouse` obok stepera ilości sygnalizuje wiek ostatniego zakupu produktu według kategorii:
+        *   *Spożywcze:* Zielony (<3 dni), Pomarańczowy (3–7 dni), Czerwony (>7 dni).
+        *   *Chemia i inne:* Zielony (<2 tyg), Pomarańczowy (2–4 tyg), Czerwony (>4 tyg).
+    *   **Interaktywny Modal Decyzyjny:** Kliknięcie ikony otwiera modal z datą zakupu i dwoma przyciskami:
+        *   *"Mam produkt":* pozwala skorygować liczbę ze spiżarni, usuwa produkt z Koszyka lub oznacza na Aktywnej Liście jako nieaktywny ze specjalnym przekreśleniem "W spiżarni" (i nie jest on duplikowany przy archiwizacji listy).
+        *   *"Nie mam produktu":* usuwa produkt ze spiżarni i gasi ikonkę na liście.
+    *   **Integracja z Przepisami i Produktami:** Podgląd stanu spiżarni przy planowaniu posiłków w Książce Kucharskiej oraz przycisk szybkiego dodawania do spiżarni z widoku Produktów. Zobacz [ADR-008: Household Pantry Management](./adr/ADR-008-pantry-management-and-inventory-sync.md).
 
 
 ## 6. PWA, UX & Interfejs (Dual Layout)
