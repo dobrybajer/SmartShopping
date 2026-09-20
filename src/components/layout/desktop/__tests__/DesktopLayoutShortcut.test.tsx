@@ -55,7 +55,7 @@ describe('DesktopLayout - Ctrl+Alt+P Shortcut & JSON Import Integration', () => 
     // Dialog should now be open
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /Importuj przepis z formatu JSON|Import Recipe from JSON/i })
+      screen.getByRole('heading', { name: /Importuj przepis|Import Recipe/i })
     ).toBeInTheDocument()
     expect(screen.getAllByText(/CTRL \+ ALT \+ P/i).length).toBeGreaterThanOrEqual(1)
   })
@@ -71,14 +71,20 @@ describe('DesktopLayout - Ctrl+Alt+P Shortcut & JSON Import Integration', () => 
       </DesktopLayout>
     )
 
-    const jsonShortcutBtn = screen.getByTitle(/Importuj przepis z JSON|Import Recipe from JSON/i)
+    // Open quick add menu in header first
+    const quickAddBtn = screen.getByRole('button', { name: /Dodaj|Add/i })
+    await act(async () => {
+      fireEvent.click(quickAddBtn)
+    })
+
+    const jsonShortcutBtn = screen.getByText(/Importuj przepis|Import Recipe/i)
     await act(async () => {
       fireEvent.click(jsonShortcutBtn)
     })
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: /Importuj przepis z formatu JSON|Import Recipe from JSON/i })
+      screen.getByRole('heading', { name: /Importuj przepis|Import Recipe/i })
     ).toBeInTheDocument()
   })
 })

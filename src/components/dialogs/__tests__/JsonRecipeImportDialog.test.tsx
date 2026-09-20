@@ -43,7 +43,7 @@ describe('JsonRecipeImportDialog - Component & Real-Time Flow Tests', () => {
   it('Flow 01: Renders dialog with title, shortcut badge, and empty hint when opened', () => {
     render(<JsonRecipeImportDialog open={true} onOpenChange={vi.fn()} />)
 
-    expect(screen.getByText(/Importuj przepis z formatu JSON|Import Recipe from JSON/i)).toBeInTheDocument()
+    expect(screen.getByText(/Importuj przepis|Import Recipe/i)).toBeInTheDocument()
     expect(screen.getByText(/CTRL \+ ALT \+ P/i)).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/Wklej tutaj kod JSON|Paste recipe JSON/i)).toBeInTheDocument()
     expect(screen.getByText(/Wstaw przykład/i)).toBeInTheDocument()
