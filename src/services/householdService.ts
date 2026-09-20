@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
+import { notificationService } from './notificationService'
 
 export type Household = Database['public']['Tables']['households']['Row']
 export type UserProfile = Database['public']['Tables']['users']['Row']
@@ -198,6 +199,26 @@ export const householdService = {
             .from('users')
             .update({ household_id: householdId })
             .eq('id', existingUser.id)
+        }
+
+        // Notify household of new member
+        try {
+          const { data: hh } = await supabase
+            .from('households')
+            .select('name')
+            .eq('id', householdId)
+            .maybeSingle()
+          await notificationService.notify(
+            'HOUSEHOLD_MEMBER_JOINED',
+            {
+              householdId,
+              householdName: hh?.name || 'Gospodarstwo',
+              memberName: existingUser.name || cleanEmail.split('@')[0]
+            },
+            householdId
+          )
+        } catch (e) {
+          console.warn('[householdService] Failed to dispatch member joined notification:', e)
         }
 
         return {

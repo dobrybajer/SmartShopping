@@ -1,5 +1,6 @@
 import { AppHeader } from './AppHeader'
 import { BottomNavigation } from './BottomNavigation'
+import { NotificationPromptBanner } from '@/components/notifications/NotificationPromptBanner'
 import type { TabType } from './BottomNavigation'
 
 interface MobileLayoutProps {
@@ -29,7 +30,8 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
         {children}
       </main>
 
-      <div className="shrink-0 z-30">
+      <div className="shrink-0 z-30 flex flex-col">
+        <NotificationPromptBanner layout="mobile" />
         <BottomNavigation
           activeTab={activeTab}
           onTabChange={onTabChange}

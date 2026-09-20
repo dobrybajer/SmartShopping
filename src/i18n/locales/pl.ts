@@ -460,4 +460,28 @@ export const pl: TranslationSchema = {
     title: 'Smart Shopping - Planowanie Posiłków & Wspólne Listy Zakupowe',
     description: 'Inteligentna aplikacja do przeliczania makroskładników, skalowania posiłków i błyskawicznego odhaczania wspólnych zakupów w czasie rzeczywistym.',
   },
+  notifications: {
+    title: 'Powiadomienia Web Push',
+    subtitle: 'Błyskawiczne alerty o zmianach na listach zakupów na ekranie blokady',
+    enable: 'Włącz powiadomienia push',
+    disable: 'Wyłącz powiadomienia push',
+    statusGranted: 'Aktywne',
+    statusDefault: 'Wymaga włączenia',
+    statusDenied: 'Zablokowane w przeglądarce',
+    statusUnsupported: 'Nieobsługiwane',
+    deviceRegistered: 'To urządzenie odbiera powiadomienia push.',
+    deviceNotRegistered: 'Włącz powiadomienia, aby odbierać alerty z gospodarstwa domowego na tym urządzeniu.',
+    deniedHint: 'Powiadomienia zostały zablokowane w ustawieniach przeglądarki. Kliknij ikonę kłódki przy pasku adresu, aby je odblokować.',
+    iosPwaHint: 'Na urządzeniach iOS (iPhone/iPad) powiadomienia Web Push wymagają dodania aplikacji do ekranu początkowego (Udostępnij -> Do ekranu początkowego).',
+    sendTest: 'Wyślij testowe powiadomienie',
+    sendingTest: 'Wysyłanie...',
+    testSent: 'Wysłano testowe powiadomienie!',
+    banner: {
+      title: 'Bądź na bieżąco z zakupami domowników',
+      description: 'Włącz powiadomienia push, aby natychmiast wiedzieć, gdy ktoś doda produkt do listy lub skończy zakupy.',
+      enableButton: 'Włącz powiadomienia',
+      dismissButton: 'Później',
+    },
+  },
 }
+

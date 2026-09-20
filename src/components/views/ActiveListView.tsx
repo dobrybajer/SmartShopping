@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
+import { notificationService } from '@/services/notificationService'
 import type {
   ActiveListWithDetails,
   ActiveListItemWithProduct
@@ -37,7 +38,7 @@ import {
 } from '@/lib/calculations/activeListCalculations'
 
 export const ActiveListView: React.FC = () => {
-  const { household } = useAuth()
+  const { household, userProfile, user } = useAuth()
   const { categoriesByHousehold, loadCategories } = useCategoryStore()
   const {
     setDraftItems,
@@ -144,6 +145,23 @@ export const ActiveListView: React.FC = () => {
     } else if (household) {
       // Update summary badge
       shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
+
+      // If all items on active list are completed, notify household members
+      const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
+      if (allDone && !currentStatus) {
+        const completedByName = userProfile?.name || user?.email?.split('@')[0] || 'Domownik'
+        notificationService
+          .notify(
+            'LIST_COMPLETED',
+            {
+              listId: activeList.id,
+              listName: activeList.name || 'Lista zakupów',
+              completedByName
+            },
+            household.id
+          )
+          .catch(() => {})
+      }
     }
   }
 

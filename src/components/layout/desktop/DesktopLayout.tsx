@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { DesktopSidebar } from './DesktopSidebar'
 import { DesktopHeader } from './DesktopHeader'
 import { JsonRecipeImportDialog } from '@/components/dialogs/JsonRecipeImportDialog'
+import { NotificationPromptBanner } from '@/components/notifications/NotificationPromptBanner'
 import type { TabType } from '@/components/layout/BottomNavigation'
 import type { LayoutMode } from '@/hooks/useDeviceLayout'
 
@@ -74,6 +75,7 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
 
         {/* Scrollable Viewport */}
         <main className="flex-1 min-h-0 overflow-y-auto p-8 lg:px-10 max-w-[1600px] w-full mx-auto">
+          <NotificationPromptBanner layout="desktop" />
           {children}
         </main>
       </div>

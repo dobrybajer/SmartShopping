@@ -201,34 +201,42 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 4. **Testy Automatyczne:**
    * Pokrycie przepływów w `DesktopHistoryView.test.tsx`, `HistoryView.test.tsx` oraz dedykowany `HistoryListDetailsSheet.test.tsx`.
 
-## Faza 12: Moduł Powiadomień Multiplatformowych (Web Push) i Rozszerzalny Rejestr Zdarzeń (Zaplanowana / Do Wdrożenia)
+## Faza 12: Moduł Powiadomień Multiplatformowych (Web Push) i Rozszerzalny Rejestr Zdarzeń (Zakończona)
 **Cel:** Natywne powiadomienia Web Push (VAPID) działające w tle na urządzeniach Mobile PWA i Desktop, scentralizowany i silnie typowany rejestr zdarzeń (`Notification Registry`) umożliwiający łatwe dodawanie nowych powiadomień oraz architektura przygotowana na bezszwowe dodanie trwałej historii w przyszłości. Zobacz [ADR-007](./adr/ADR-007-multiplatform-web-push-notifications.md).
 
 1. **Baza Danych & RLS (Supabase):**
-   * Migracja PostgreSQL: utworzenie tabeli `push_subscriptions` (`id`, `user_id`, `household_id`, `endpoint`, `p256dh`, `auth`, `user_agent`, `created_at`, `last_used_at`).
-   * Indeksy B-tree na `household_id` i `user_id`.
-   * Polityki RLS: użytkownicy mogą rejestrować i usuwać własne subskrypcje oraz czytać subskrypcje w ramach swojego gospodarstwa (`public.get_user_household_ids(auth.uid())`).
+   * Migracja PostgreSQL `20260831000000_add_push_subscriptions.sql`: utworzenie tabeli `push_subscriptions` (`id`, `user_id`, `household_id`, `endpoint`, `p256dh`, `auth`, `user_agent`, `created_at`, `last_used_at`).
+   * Indeksy B-tree na `household_id` i `user_id` oraz klucz unikalny `uq_push_subscriptions_endpoint`.
+   * Kompletne polityki RLS (SELECT, INSERT, UPDATE, DELETE) ograniczone do domowników (`public.get_user_household_ids(auth.uid())`) i właściciela sesji (`auth.uid() = user_id`).
+   * Aktualizacja typów TypeScript w `src/types/supabase.ts`.
 2. **Supabase Edge Function (Backend Push Dispatch):**
-   * Utworzenie funkcji `send-push-notification` (Deno) korzystającej ze standardu `web-push` i kluczy VAPID.
-   * Pobieranie aktywnych urządzeń domowników z wykluczeniem nadawcy (`self-suppression`).
-   * Automatyczny auto-pruning nieaktywnych lub wyrejestrowanych tokenów (kody 410 Gone / 404 Not Found z bramek push).
+   * Deno Edge Function `supabase/functions/send-push-notification/index.ts` korzystająca ze standardu RFC 8291/8292 (`esm.sh/web-push@3.6.7`).
+   * Weryfikacja tokena autoryzacyjnego wywołującego (`userClient.auth.getUser()`).
+   * Samotłumienie powiadomień (`.neq('user_id', user.id)`) - brak uciążliwych self-notifications.
+   * Auto-pruning nieaktywnych tokenów (kody 410 Gone / 404 Not Found z bramek push FCM/APNS/Mozilla).
 3. **Frontend & Rozszerzalny Rejestr Zdarzeń (Notification Registry):**
-   * Silnie typowana mapa `NotificationPayloadMap` oraz rejestr szablonów w `src/lib/notifications/registry.ts` z obsługą wielojęzyczności (`pl` / `en`).
-   * Początkowe typy zdarzeń: `LIST_ITEM_ADDED`, `LIST_COMPLETED`, `HOUSEHOLD_MEMBER_JOINED`, `LIST_CLEARED_OR_ARCHIVED`.
-   * Uniwersalny serwis `notificationService.notify(type, payload)` z debouncingiem i grupowaniem (`tag` collapsing).
-   * Czysty interfejs adaptera `NotificationStorageChannel` umożliwiający wpięcie tabeli historii w przyszłości bez zmian po stronie wywołującej.
+   * Silnie typowana mapa `NotificationPayloadMap` oraz katalog `NOTIFICATION_REGISTRY` w `src/lib/notifications/registry.ts` z obsługą wielojęzyczności (`pl` / `en`).
+   * Zdarzenia: `LIST_ITEM_ADDED`, `LIST_COMPLETED`, `HOUSEHOLD_MEMBER_JOINED`, `LIST_CLEARED_OR_ARCHIVED`.
+   * Serwis `notificationService` w `src/services/notificationService.ts` z cichym tłumieniem błędów sieciowych (`fail-safe`) oraz adapterem `NotificationStorageChannel` przygotowanym pod trwałą historię w bazie.
+   * Reaktywny stan Zustand w `src/store/useNotificationStore.ts`.
 4. **Service Worker & Integracja PWA:**
-   * Konfiguracja nasłuchu zdarzeń `push` i `notificationclick` w Service Workerze (`vite-plugin-pwa`).
-   * Głębokie linkowanie (Deep Linking): kliknięcie powiadomienia otwiera PWA i przechodzi bezpośrednio do właściwej listy zakupowej.
-   * Wsparcie haptics (`navigator.vibrate([100, 50, 100])`).
+   * Dedykowany skrypt `public/sw-push.js` obsługujący zdarzenia `push` (zwijanie notyfikacji wg `tag`, wibracja haptic) oraz `notificationclick` (focus otwartej karty lub `openWindow`).
+   * Konfiguracja `workbox: { importScripts: ['sw-push.js'] }` w `vite.config.ts`.
+   * Czyste parsowanie ładunków w `src/lib/notifications/swHandler.ts`.
 5. **Komponenty i Dual Layout:**
-   * Komponent ustawień powiadomień `NotificationSettings` w oknie konta (`AccountDetailsDialog` na Desktopie) oraz arkuszu ustawień (Mobile PWA) ze stanem uprawnień (Granted / Default / Denied).
-   * Kontekstowy baner Soft-Prompt zachęcający do włączenia powiadomień (po dołączeniu do gospodarstwa lub pierwszej edycji listy).
-   * Asystent i instrukcja dla użytkowników iOS Safari (wymóg dodania PWA do ekranu głównego).
-6. **Testy Automatyczne i Weryfikacja Jakości:**
-   * Testy jednostkowe rejestru, formatowania komunikatów i konwersji kluczy VAPID (`registry.test.ts`, `webPush.test.ts`).
-   * Testy integracyjne komponentu ustawień z mockiem `ServiceWorker` i `PushManager` w Vitest.
-   * Walidacja testów (`npm run test`), lintera (`npm run lint`) oraz kompilacji (`npx tsc -b`).
+   * Komponent ustawień `NotificationSettings` osadzony w `AccountDetailsDialog` (dostępny na Desktopie i Mobile) z odznakami stanu (*Aktywne*, *Wymaga włączenia*, *Zablokowane*, *Nieobsługiwane*), przełącznikiem subskrypcji oraz przyciskiem wysyłki powiadomienia testowego.
+   * Kontekstowy baner soft-prompt `NotificationPromptBanner` zintegrowany w `MobileLayout.tsx` i `DesktopLayout.tsx` z trwałym zapamiętywaniem odrzucenia w `localStorage`.
+   * Dedykowany asystent instalacji na ekranie początkowym dla użytkowników iOS Safari (non-PWA).
+6. **Integracja z Przepływami Biznesowymi:**
+   * Zdarzenie `LIST_ITEM_ADDED` przy dodawaniu i transferze produktów do aktywnej listy.
+   * Zdarzenie `LIST_COMPLETED` przy odhaczeniu ostatniego produktu z listy w `ActiveListView` i `DesktopActiveListView`.
+   * Zdarzenie `LIST_CLEARED_OR_ARCHIVED` przy archiwizacji listy.
+   * Zdarzenie `HOUSEHOLD_MEMBER_JOINED` przy dodaniu domownika lub akceptacji zaproszenia.
+7. **Testy Automatyczne i Jakość:**
+   * Mocki `Notification`, `PushManager` i `ServiceWorker` w `src/test/setup.ts`.
+   * 6 nowych pakietów testowych: `registry.test.ts`, `webPush.test.ts`, `notificationService.test.ts`, `useNotificationStore.test.ts`, `NotificationSettings.test.tsx`, `NotificationPromptBanner.test.tsx`.
+   * Wszystkie testy (34 pliki, 215 testów) zakończone wynikiem 100% pass, zero błędów oxlint, czysty build produkcyjny i kompilacja `tsc -b`.
+
 
 ## Faza 13: Wielkoformatowy Import Przepisów z JSON pod Skrótem CTRL+ALT+P (Zakończona)
 **Cel:** Błyskawiczny import przepisów (pojedynczych lub wsadowych) w widoku Desktop za pomocą globalnego skrótu klawiszowego `Ctrl+Alt+P` (lub `Cmd+Option+P` na macOS), natychmiastowa walidacja składni i schematu encji, inteligentna normalizacja jednostek oraz automatyczne dopasowywanie i tworzenie brakujących produktów w bazie danych.

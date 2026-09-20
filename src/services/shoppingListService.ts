@@ -4,6 +4,7 @@ import type { DraftItem } from '@/store/useShoppingStore'
 import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { mergeDraftItemsIntoActiveList, aggregateDraftItems } from '@/lib/calculations/mergeDraftItems'
 import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStatusCalculations'
+import { notificationService } from './notificationService'
 
 const isUuid = (val?: string | null): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
@@ -438,6 +439,31 @@ export const shoppingListService = {
       .update({ updated_at: new Date().toISOString() })
       .eq('id', listId)
 
+    // 4. Notify household members of new items added
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      const addedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Domownik'
+      const itemSummary =
+        draftItems.length === 1
+          ? draftItems[0].name
+          : `${draftItems[0].name} (+${draftItems.length - 1})`
+
+      await notificationService.notify(
+        'LIST_ITEM_ADDED',
+        {
+          listId,
+          listName: existingList.name || 'Lista zakupów',
+          itemName: itemSummary,
+          addedByName
+        },
+        householdId
+      )
+    } catch (e) {
+      console.warn('[shoppingListService] Failed to dispatch push notification:', e)
+    }
+
     return this.getListWithDetails(listId)
   },
 
@@ -587,6 +613,26 @@ export const shoppingListService = {
     if (error) {
       console.error('Error archiving list:', error)
       return []
+    }
+
+    // Notify household members of list archive
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      const clearedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Domownik'
+      await notificationService.notify(
+        'LIST_CLEARED_OR_ARCHIVED',
+        {
+          listId,
+          listName: currentList?.name || 'Lista zakupów',
+          clearedByName,
+          action: 'archived'
+        },
+        _householdId
+      )
+    } catch (e) {
+      console.warn('[shoppingListService] Failed to dispatch archive push notification:', e)
     }
 
     // 3. Fetch unchecked items (is_checked = false)

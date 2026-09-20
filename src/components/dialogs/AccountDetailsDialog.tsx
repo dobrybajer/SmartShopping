@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 import { ThemeSelector } from '@/components/ui/ThemeSelector'
+import { NotificationSettings } from '@/components/settings/NotificationSettings'
 import { User, Mail, Calendar, Check, Save, Lock, Globe, Palette } from 'lucide-react'
 
 interface AccountDetailsDialogProps {
@@ -118,6 +119,9 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
             </label>
             <ThemeSelector variant="grid" />
           </div>
+
+          {/* Web Push Notifications */}
+          <NotificationSettings />
 
           {/* Email (read-only) */}
           <div className="flex flex-col gap-1.5">

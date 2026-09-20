@@ -452,4 +452,28 @@ export const en = {
     title: 'Smart Shopping - Meal Planning & Shared Grocery Lists',
     description: 'Smart household meal planning, macro tracking, and real-time synchronized grocery shopping.',
   },
+  notifications: {
+    title: 'Web Push Notifications',
+    subtitle: 'Instant background lockscreen alerts for grocery updates',
+    enable: 'Enable Push Notifications',
+    disable: 'Disable Push Notifications',
+    statusGranted: 'Active',
+    statusDefault: 'Needs Permission',
+    statusDenied: 'Blocked in Browser',
+    statusUnsupported: 'Unsupported',
+    deviceRegistered: 'This device is registered for push alerts.',
+    deviceNotRegistered: 'Enable push to receive household notifications on this device.',
+    deniedHint: 'Notifications are blocked in your browser settings. Click the lock icon in the address bar to unblock.',
+    iosPwaHint: 'On iOS devices, Web Push requires adding SmartShopping to your Home Screen (Share -> Add to Home Screen).',
+    sendTest: 'Send test push',
+    sendingTest: 'Sending...',
+    testSent: 'Test notification sent!',
+    banner: {
+      title: 'Stay in sync with your household',
+      description: 'Enable push notifications to know immediately when someone adds an item or finishes shopping.',
+      enableButton: 'Enable Notifications',
+      dismissButton: 'Later',
+    },
+  },
 }
+
