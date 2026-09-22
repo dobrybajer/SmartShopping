@@ -148,4 +148,36 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
       expect.objectContaining({ householdId: mockHouseholdId })
     )
   })
+
+  it('Flow 07: notify() defaults includeSender to getNotifySelf() when options.includeSender is omitted', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({
+      data: { sentCount: 2, totalCount: 2 },
+      error: null
+    })
+
+    // Default is false
+    notificationService.setNotifySelf(false)
+    await notificationService.notify(
+      'LIST_ITEM_ADDED',
+      { listId: 'l1', listName: 'Lista', itemName: 'Chleb', addedByName: 'Jan' },
+      mockHouseholdId
+    )
+    expect(supabase.functions.invoke).toHaveBeenLastCalledWith('send-push-notification', {
+      body: expect.objectContaining({ includeSender: false })
+    })
+
+    // When setNotifySelf is true
+    notificationService.setNotifySelf(true)
+    await notificationService.notify(
+      'LIST_ITEM_ADDED',
+      { listId: 'l1', listName: 'Lista', itemName: 'Mleko', addedByName: 'Jan' },
+      mockHouseholdId
+    )
+    expect(supabase.functions.invoke).toHaveBeenLastCalledWith('send-push-notification', {
+      body: expect.objectContaining({ includeSender: true })
+    })
+
+    // Cleanup
+    notificationService.setNotifySelf(false)
+  })
 })

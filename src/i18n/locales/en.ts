@@ -489,6 +489,9 @@ export const en = {
     sendTest: 'Send test push',
     sendingTest: 'Sending...',
     testSent: 'Test notification sent!',
+    testHint: 'Test background notification delivery',
+    notifyMe: 'Notify me as well',
+    notifyMeHint: 'Also receive push notifications for your own actions on this device',
     banner: {
       title: 'Stay in sync with your household',
       description: 'Enable push notifications to know immediately when someone adds an item or finishes shopping.',

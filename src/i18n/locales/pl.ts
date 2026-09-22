@@ -497,6 +497,9 @@ export const pl: TranslationSchema = {
     sendTest: 'Wyślij testowe powiadomienie',
     sendingTest: 'Wysyłanie...',
     testSent: 'Wysłano testowe powiadomienie!',
+    testHint: 'Sprawdź działanie powiadomień w tle',
+    notifyMe: 'Powiadamiaj mnie',
+    notifyMeHint: 'Otrzymuj powiadomienia push także o własnych działaniach na tym urządzeniu',
     banner: {
       title: 'Bądź na bieżąco z zakupami domowników',
       description: 'Włącz powiadomienia push, aby natychmiast wiedzieć, gdy ktoś doda produkt do listy lub skończy zakupy.',

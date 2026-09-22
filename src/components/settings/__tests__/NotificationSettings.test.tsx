@@ -82,4 +82,24 @@ describe('NotificationSettings - Component & User Flow Tests (ADR-007)', () => {
 
     expect(screen.getByText(/ekranu początkowego|Home Screen/i)).toBeInTheDocument()
   })
+
+  it('Flow 06: Renders "Powiadamiaj mnie" checkbox (default unchecked) and clicking it updates notifySelf', async () => {
+    const setNotifySelfSpy = vi.fn()
+    useNotificationStore.setState({
+      notifySelf: false,
+      setNotifySelf: setNotifySelfSpy
+    })
+
+    render(<NotificationSettings />)
+
+    const checkbox = screen.getByRole('checkbox', { name: /Powiadamiaj mnie|Notify me as well/i })
+    expect(checkbox).toBeInTheDocument()
+    expect(checkbox).not.toBeChecked()
+
+    await act(async () => {
+      fireEvent.click(checkbox)
+    })
+
+    expect(setNotifySelfSpy).toHaveBeenCalledWith(true)
+  })
 })

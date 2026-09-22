@@ -8,7 +8,9 @@ vi.mock('@/services/notificationService', () => ({
     subscribe: vi.fn(),
     unsubscribe: vi.fn(),
     notify: vi.fn(),
-    isSupported: vi.fn().mockReturnValue(true)
+    isSupported: vi.fn().mockReturnValue(true),
+    getNotifySelf: vi.fn().mockReturnValue(false),
+    setNotifySelf: vi.fn()
   }
 }))
 
@@ -22,6 +24,7 @@ describe('useNotificationStore - Zustand State & Actions (ADR-007)', () => {
       isSubscribed: false,
       isLoading: false,
       isIosSafariNonPwa: false,
+      notifySelf: false,
       error: null
     })
   })
@@ -95,5 +98,16 @@ describe('useNotificationStore - Zustand State & Actions (ADR-007)', () => {
 
     expect(success).toBe(false)
     expect(useNotificationStore.getState().error).toContain('Nie znaleziono zarejestrowanych urządzeń')
+  })
+
+  it('Flow 06: setNotifySelf() updates store state and calls notificationService.setNotifySelf', () => {
+    useNotificationStore.getState().setNotifySelf(true)
+
+    expect(useNotificationStore.getState().notifySelf).toBe(true)
+    expect(notificationService.setNotifySelf).toHaveBeenCalledWith(true)
+
+    useNotificationStore.getState().setNotifySelf(false)
+    expect(useNotificationStore.getState().notifySelf).toBe(false)
+    expect(notificationService.setNotifySelf).toHaveBeenCalledWith(false)
   })
 })

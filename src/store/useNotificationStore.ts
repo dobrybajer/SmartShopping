@@ -8,6 +8,7 @@ interface NotificationStoreState {
   isSubscribed: boolean
   isLoading: boolean
   isIosSafariNonPwa: boolean
+  notifySelf: boolean
   error: string | null
 
   // Actions
@@ -15,6 +16,7 @@ interface NotificationStoreState {
   subscribe: (householdId: string) => Promise<boolean>
   unsubscribe: () => Promise<boolean>
   sendTestNotification: (householdId: string, currentUserName?: string) => Promise<boolean>
+  setNotifySelf: (value: boolean) => void
   clearError: () => void
 }
 
@@ -23,7 +25,13 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
   isSubscribed: false,
   isLoading: false,
   isIosSafariNonPwa: false,
+  notifySelf: notificationService.getNotifySelf ? notificationService.getNotifySelf() : false,
   error: null,
+
+  setNotifySelf: (value: boolean) => {
+    notificationService.setNotifySelf?.(value)
+    set({ notifySelf: value })
+  },
 
   clearError: () => set({ error: null }),
 

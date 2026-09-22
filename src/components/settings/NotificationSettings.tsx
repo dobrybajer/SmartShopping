@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n'
 import { useNotificationStore } from '@/store/useNotificationStore'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Bell,
   BellRing,
@@ -25,11 +26,13 @@ export const NotificationSettings: React.FC = () => {
     isSubscribed,
     isLoading,
     isIosSafariNonPwa,
+    notifySelf,
     error,
     checkStatus,
     subscribe,
     unsubscribe,
-    sendTestNotification
+    sendTestNotification,
+    setNotifySelf
   } = useNotificationStore()
 
   const [testSuccess, setTestSuccess] = useState(false)
@@ -178,6 +181,27 @@ export const NotificationSettings: React.FC = () => {
         </Button>
       </div>
 
+      {/* "Notify myself" Checkbox Row */}
+      <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-border/40">
+        <div className="flex flex-col gap-0.5 pr-2">
+          <label
+            htmlFor="notify-self-checkbox"
+            className="text-xs font-semibold text-foreground cursor-pointer select-none"
+          >
+            {t('notifications.notifyMe')}
+          </label>
+          <span className="text-[11px] text-muted-foreground leading-tight">
+            {t('notifications.notifyMeHint')}
+          </span>
+        </div>
+        <Checkbox
+          id="notify-self-checkbox"
+          checked={notifySelf}
+          onCheckedChange={(checked) => setNotifySelf(!!checked)}
+          className="h-5 w-5 shrink-0 rounded-md cursor-pointer"
+        />
+      </div>
+
       {/* Test Notification Row (if subscribed) */}
       {isSubscribed && (
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
@@ -188,7 +212,7 @@ export const NotificationSettings: React.FC = () => {
                 {t('notifications.testSent')}
               </span>
             ) : (
-              'Sprawdź działanie powiadomień w tle'
+              t('notifications.testHint')
             )}
           </span>
 

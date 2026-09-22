@@ -57,7 +57,32 @@ async function getActiveRegistration(timeoutMs: number = 6000): Promise<ServiceW
   ])
 }
 
+const NOTIFY_SELF_KEY = 'smartshopping_notify_self'
+let notifySelfMemory = false
+
 export const notificationService = {
+  getNotifySelf(): boolean {
+    if (typeof window !== 'undefined') {
+      try {
+        return localStorage.getItem(NOTIFY_SELF_KEY) === 'true'
+      } catch {
+        return notifySelfMemory
+      }
+    }
+    return notifySelfMemory
+  },
+
+  setNotifySelf(value: boolean): void {
+    notifySelfMemory = value
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(NOTIFY_SELF_KEY, String(value))
+      } catch {
+        // Ignore storage errors in restricted contexts
+      }
+    }
+  },
+
   setStorageChannel(channel: NotificationStorageChannel) {
     activeStorageChannel = channel
   },
@@ -249,7 +274,7 @@ export const notificationService = {
           body: formatted.body,
           tag,
           url,
-          includeSender: options?.includeSender ?? false
+          includeSender: options?.includeSender !== undefined ? options.includeSender : this.getNotifySelf()
         }
       })
 
