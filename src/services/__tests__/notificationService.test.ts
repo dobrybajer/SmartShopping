@@ -81,7 +81,7 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
       error: null
     })
 
-    await notificationService.notify(
+    const result = await notificationService.notify(
       'LIST_ITEM_ADDED',
       {
         listId: 'list-777',
@@ -90,16 +90,20 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
         addedByName: 'Kamil'
       },
       mockHouseholdId,
-      'pl'
+      'pl',
+      { includeSender: true }
     )
 
+    expect(result.success).toBe(true)
+    expect(result.sentCount).toBe(1)
     expect(supabase.functions.invoke).toHaveBeenCalledWith('send-push-notification', {
       body: expect.objectContaining({
         householdId: mockHouseholdId,
         title: expect.stringContaining('Nowy produkt'),
         body: expect.stringContaining('Kawa Ziarnista'),
         tag: 'list-list-777',
-        url: '/?tab=active&listId=list-777'
+        url: '/?tab=active&listId=list-777',
+        includeSender: true
       })
     })
   })
@@ -107,18 +111,19 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
   it('Flow 05: notify() suppresses network push errors silently without throwing to callers', async () => {
     vi.mocked(supabase.functions.invoke).mockRejectedValue(new Error('Network offline or edge error'))
 
-    // Should resolve cleanly without throwing
-    await expect(
-      notificationService.notify(
-        'LIST_COMPLETED',
-        {
-          listId: 'list-888',
-          listName: 'Poranne Zakupy',
-          completedByName: 'Anna'
-        },
-        mockHouseholdId
-      )
-    ).resolves.toBeUndefined()
+    // Should resolve cleanly without throwing and return success: true with sentCount: 0
+    const result = await notificationService.notify(
+      'LIST_COMPLETED',
+      {
+        listId: 'list-888',
+        listName: 'Poranne Zakupy',
+        completedByName: 'Anna'
+      },
+      mockHouseholdId
+    )
+
+    expect(result.success).toBe(true)
+    expect(result.sentCount).toBe(0)
   })
 
   it('Flow 06: delegates to pluggable NotificationStorageChannel for future DB logging', async () => {

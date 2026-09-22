@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { en } from './locales/en'
 import { pl } from './locales/pl'
 import type { SupportedLanguage, TranslationDictionary, PluralForms } from './types'
+export type { SupportedLanguage, TranslationDictionary, PluralForms } from './types'
 
 export const translations: Record<SupportedLanguage, TranslationDictionary> = { en, pl }
 
@@ -48,61 +49,81 @@ export const useI18nStore = create<I18nState>((set) => ({
   },
 }))
 
+export const formatTranslation = (
+  currentDict: any,
+  fallbackDict: any,
+  language: SupportedLanguage,
+  path: string,
+  params?: Record<string, string | number>
+): string => {
+  const keys = path.split('.')
+  let current: any = currentDict
+
+  for (const key of keys) {
+    if (current && typeof current === 'object' && key in current) {
+      current = current[key]
+    } else {
+      // Fallback to English dictionary
+      let fallback: any = fallbackDict
+      for (const fbKey of keys) {
+        if (fallback && typeof fallback === 'object' && fbKey in fallback) {
+          fallback = fallback[fbKey]
+        } else {
+          fallback = path
+          break
+        }
+      }
+      current = fallback
+      break
+    }
+  }
+
+  // Handle Pluralization via native Intl.PluralRules
+  if (current && typeof current === 'object' && ('one' in current || 'other' in current)) {
+    const count = params?.count !== undefined ? Number(params.count) : 0
+    try {
+      const pr = new Intl.PluralRules(language)
+      const rule = pr.select(count) as keyof PluralForms
+      const pluralForms = current as PluralForms
+      current = pluralForms[rule] || pluralForms.other || pluralForms.many || pluralForms.few || pluralForms.one || ''
+    } catch {
+      const pluralForms = current as PluralForms
+      current = count === 1 ? pluralForms.one : pluralForms.other || ''
+    }
+  }
+
+  if (typeof current !== 'string') {
+    return path
+  }
+
+  // Parameter Interpolation ({count}, {name}, etc.)
+  if (params) {
+    return Object.entries(params).reduce(
+      (acc, [k, v]) => acc.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
+      current
+    )
+  }
+
+  return current
+}
+
+export const translate = (
+  path: string,
+  params?: Record<string, string | number>,
+  language?: SupportedLanguage
+): string => {
+  const activeLang = language || useI18nStore.getState().language || 'pl'
+  const currentDict = translations[activeLang] || translations.en
+  return formatTranslation(currentDict, translations.en, activeLang, path, params)
+}
+
 export const useTranslation = () => {
   const { language, setLanguage } = useI18nStore()
   const currentDict = translations[language] || translations.en
 
   const t = useCallback(
     (path: string, params?: Record<string, string | number>): string => {
-      const keys = path.split('.')
-      let current: any = currentDict
-
-      for (const key of keys) {
-        if (current && typeof current === 'object' && key in current) {
-          current = current[key]
-        } else {
-          // Fallback to English dictionary
-          let fallback: any = translations.en
-          for (const fbKey of keys) {
-            if (fallback && typeof fallback === 'object' && fbKey in fallback) {
-              fallback = fallback[fbKey]
-            } else {
-              fallback = path
-              break
-            }
-          }
-          current = fallback
-          break
-        }
-      }
-
-      // Handle Pluralization via native Intl.PluralRules
-      if (current && typeof current === 'object' && ('one' in current || 'other' in current)) {
-        const count = params?.count !== undefined ? Number(params.count) : 0
-        try {
-          const pr = new Intl.PluralRules(language)
-          const rule = pr.select(count) as keyof PluralForms
-          const pluralForms = current as PluralForms
-          current = pluralForms[rule] || pluralForms.other || pluralForms.many || pluralForms.few || pluralForms.one || ''
-        } catch {
-          const pluralForms = current as PluralForms
-          current = count === 1 ? pluralForms.one : pluralForms.other || ''
-        }
-      }
-
-      if (typeof current !== 'string') {
-        return path
-      }
-
-      // Parameter Interpolation ({count}, {name}, etc.)
-      if (params) {
-        return Object.entries(params).reduce(
-          (acc, [k, v]) => acc.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v)),
-          current
-        )
-      }
-
-      return current
+      return formatTranslation(currentDict, translations.en, language, path, params)
     },
     [language, currentDict]
   )

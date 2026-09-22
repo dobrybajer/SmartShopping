@@ -5,6 +5,7 @@ import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { mergeDraftItemsIntoActiveList, aggregateDraftItems } from '@/lib/calculations/mergeDraftItems'
 import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStatusCalculations'
 import { notificationService } from './notificationService'
+import { translate } from '@/i18n'
 
 const isUuid = (val?: string | null): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
@@ -94,7 +95,7 @@ export const shoppingListService = {
       return {
         id: list.id,
         household_id: list.household_id,
-        name: list.name || 'Shopping List',
+        name: list.name || translate('common.shoppingList'),
         status: list.status,
         is_default: !!list.is_default,
         target_date: list.target_date,
@@ -258,7 +259,7 @@ export const shoppingListService = {
       .from('shopping_lists')
       .insert({
         household_id: householdId,
-        name: listName.trim() || `Groceries ${formatDate(new Date())}`,
+        name: listName.trim() || `${translate('common.shoppingList')} ${formatDate(new Date())}`,
         status: 'active',
         is_default: isDefault,
         target_date: getLocalDateISOString(),
@@ -298,7 +299,7 @@ export const shoppingListService = {
       .from('shopping_lists')
       .insert({
         household_id: householdId,
-        name: listName.trim() || `Shopping List ${formatDate(new Date())}`,
+        name: listName.trim() || `${translate('common.shoppingList')} ${formatDate(new Date())}`,
         status: 'active',
         is_default: isDefault,
         target_date: getLocalDateISOString(),
@@ -444,7 +445,7 @@ export const shoppingListService = {
       const {
         data: { user }
       } = await supabase.auth.getUser()
-      const addedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Domownik'
+      const addedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || translate('common.householdMember')
       const itemSummary =
         draftItems.length === 1
           ? draftItems[0].name
@@ -454,7 +455,7 @@ export const shoppingListService = {
         'LIST_ITEM_ADDED',
         {
           listId,
-          listName: existingList.name || 'Lista zakupów',
+          listName: existingList.name || translate('common.shoppingList'),
           itemName: itemSummary,
           addedByName
         },
@@ -620,12 +621,12 @@ export const shoppingListService = {
       const {
         data: { user }
       } = await supabase.auth.getUser()
-      const clearedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Domownik'
+      const clearedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || translate('common.householdMember')
       await notificationService.notify(
         'LIST_CLEARED_OR_ARCHIVED',
         {
           listId,
-          listName: currentList?.name || 'Lista zakupów',
+          listName: currentList?.name || translate('common.shoppingList'),
           clearedByName,
           action: 'archived'
         },

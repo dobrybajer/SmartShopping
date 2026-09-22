@@ -1,3 +1,5 @@
+import { translate, type SupportedLanguage } from '@/i18n'
+
 export type AllowedUnit = 'g' | 'ml' | 'pcs'
 
 export interface ParsedIngredientJson {
@@ -120,7 +122,7 @@ export function normalizeUnitAndQuantity(
 /**
  * Validates raw JSON string representing a recipe or list of recipes.
  */
-export function validateRecipeJson(rawText: string): RecipeJsonValidationResult {
+export function validateRecipeJson(rawJson: string, lang?: SupportedLanguage): RecipeJsonValidationResult {
   const result: RecipeJsonValidationResult = {
     isValid: false,
     isSyntaxValid: false,
@@ -129,7 +131,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
     totalIngredientsCount: 0
   }
 
-  const trimmed = rawText.trim()
+  const trimmed = rawJson ? rawJson.trim() : ''
   if (!trimmed) {
     return result
   }
@@ -139,7 +141,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
     parsed = JSON.parse(trimmed)
     result.isSyntaxValid = true
   } catch (err: any) {
-    result.syntaxError = err?.message || 'Niepoprawny format składni JSON'
+    result.syntaxError = err?.message || translate('dialogs.jsonRecipeImport.validation.invalidSyntax', {}, lang)
     return result
   }
 
@@ -148,7 +150,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
 
   if (items.length === 0) {
     result.validationErrors.push({
-      message: 'Plik JSON zawiera pustą tablicę przepisów.'
+      message: translate('dialogs.jsonRecipeImport.validation.emptyArray', {}, lang)
     })
     return result
   }
@@ -162,7 +164,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
     if (!item || typeof item !== 'object' || Array.isArray(item)) {
       result.validationErrors.push({
         recipeIndex,
-        message: `Element ${index + 1} nie jest poprawnym obiektem przepisu.`
+        message: translate('dialogs.jsonRecipeImport.validation.invalidRecipeObject', { index: index + 1 }, lang)
       })
       return
     }
@@ -175,7 +177,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
       result.validationErrors.push({
         recipeIndex,
         field: 'name',
-        message: 'Brak wymaganej nazwy przepisu (pole "name").'
+        message: translate('dialogs.jsonRecipeImport.validation.missingName', {}, lang)
       })
     }
 
@@ -186,7 +188,11 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
         recipeIndex,
         recipeName: name || undefined,
         field: 'ingredients',
-        message: `Przepis ${name ? `"${name}"` : `#${index + 1}`} musi zawierać co najmniej jeden składnik (tablica "ingredients").`
+        message: translate(
+          'dialogs.jsonRecipeImport.validation.missingIngredients',
+          { name: name ? `"${name}"` : `#${index + 1}` },
+          lang
+        )
       })
     }
 
@@ -199,7 +205,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
             recipeIndex,
             recipeName: name || undefined,
             field: `ingredients[${ingIdx}]`,
-            message: `Składnik nr ${ingIdx + 1} musi być obiektem.`
+            message: translate('dialogs.jsonRecipeImport.validation.ingredientNotObject', { index: ingIdx + 1 }, lang)
           })
           return
         }
@@ -210,7 +216,7 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
             recipeIndex,
             recipeName: name || undefined,
             field: `ingredients[${ingIdx}].name`,
-            message: `Składnik nr ${ingIdx + 1}: brak wymaganej nazwy ("name").`
+            message: translate('dialogs.jsonRecipeImport.validation.ingredientMissingName', { index: ingIdx + 1 }, lang)
           })
         }
 
@@ -225,7 +231,11 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
             recipeIndex,
             recipeName: name || undefined,
             field: `ingredients[${ingIdx}].quantity`,
-            message: `Składnik "${ingName || ingIdx + 1}": ilość ("quantity") musi być liczbą większą od zera.`
+            message: translate(
+              'dialogs.jsonRecipeImport.validation.ingredientInvalidQuantity',
+              { name: ingName || ingIdx + 1 },
+              lang
+            )
           })
         }
 
@@ -237,7 +247,11 @@ export function validateRecipeJson(rawText: string): RecipeJsonValidationResult 
             recipeIndex,
             recipeName: name || undefined,
             field: `ingredients[${ingIdx}].unit`,
-            message: `Składnik "${ingName || ingIdx + 1}": nierozpoznana jednostka "${rawUnit}". Dopuszczalne: g, kg, dag, ml, l, szt / pcs.`
+            message: translate(
+              'dialogs.jsonRecipeImport.validation.ingredientInvalidUnit',
+              { name: ingName || ingIdx + 1, unit: rawUnit },
+              lang
+            )
           })
         }
 

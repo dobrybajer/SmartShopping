@@ -60,6 +60,13 @@ export const mockPushSubscription = {
     if (name === 'auth') return new Uint8Array([5, 6, 7, 8]).buffer;
     return null;
   },
+  toJSON: () => ({
+    endpoint: 'https://fcm.googleapis.com/fcm/send/test-sub-token',
+    keys: {
+      p256dh: 'AQIDBA==',
+      auth: 'BQYHCA=='
+    }
+  }),
   unsubscribe: vi.fn().mockResolvedValue(true),
 };
 

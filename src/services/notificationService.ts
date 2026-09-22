@@ -29,6 +29,34 @@ export const noopStorageChannel: NotificationStorageChannel = {
 
 let activeStorageChannel: NotificationStorageChannel = noopStorageChannel
 
+async function getActiveRegistration(timeoutMs: number = 6000): Promise<ServiceWorkerRegistration> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    throw new Error('Service Worker is not supported in this environment')
+  }
+
+  // If already active registration exists
+  const existing = await navigator.serviceWorker.getRegistration()
+  if (existing?.active) {
+    return existing
+  }
+
+  // Wait for ready with safe timeout
+  return await Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              'Service Worker ready timeout exceeded. Ensure page is loaded via localhost or HTTPS.'
+            )
+          ),
+        timeoutMs
+      )
+    )
+  ])
+}
+
 export const notificationService = {
   setStorageChannel(channel: NotificationStorageChannel) {
     activeStorageChannel = channel
@@ -78,7 +106,7 @@ export const notificationService = {
   async getSubscription(): Promise<PushSubscription | null> {
     if (!isPushSupported()) return null
     try {
-      const registration = await navigator.serviceWorker.ready
+      const registration = await getActiveRegistration(3000)
       if (!registration || !registration.pushManager) return null
       return await registration.pushManager.getSubscription()
     } catch (err) {
@@ -102,8 +130,8 @@ export const notificationService = {
       return null
     }
 
-    // 2. Get SW Registration & Subscribe via PushManager
-    const registration = await navigator.serviceWorker.ready
+    // 2. Get SW Registration & Subscribe via PushManager with timeout guard
+    const registration = await getActiveRegistration(8000)
     const vapidKey = getVapidPublicKey()
     const applicationServerKey = urlBase64ToUint8Array(vapidKey)
 
@@ -117,16 +145,21 @@ export const notificationService = {
       })
     }
 
-    // 3. Extract keys
-    const rawP256dh = subscription.getKey('p256dh')
-    const rawAuth = subscription.getKey('auth')
+    // 3. Extract keys using standard toJSON or raw keys
+    const subJson = typeof subscription.toJSON === 'function' ? subscription.toJSON() : null
+    const rawP256dh = typeof subscription.getKey === 'function' ? subscription.getKey('p256dh') : null
+    const rawAuth = typeof subscription.getKey === 'function' ? subscription.getKey('auth') : null
 
-    if (!rawP256dh || !rawAuth) {
+    const p256dh =
+      subJson?.keys?.p256dh ||
+      (rawP256dh ? btoa(String.fromCharCode(...new Uint8Array(rawP256dh))) : null)
+    const auth =
+      subJson?.keys?.auth ||
+      (rawAuth ? btoa(String.fromCharCode(...new Uint8Array(rawAuth))) : null)
+
+    if (!p256dh || !auth) {
       throw new Error('Push subscription does not contain cryptographic keys')
     }
-
-    const p256dh = btoa(String.fromCharCode(...new Uint8Array(rawP256dh)))
-    const auth = btoa(String.fromCharCode(...new Uint8Array(rawAuth)))
 
     // 4. Save to Supabase push_subscriptions table
     const {
@@ -178,12 +211,13 @@ export const notificationService = {
     type: T,
     payload: NotificationPayloadMap[T],
     householdId?: string,
-    language: 'pl' | 'en' = 'pl'
-  ): Promise<void> {
+    language: 'pl' | 'en' = 'pl',
+    options?: { includeSender?: boolean }
+  ): Promise<{ success: boolean; sentCount: number; totalCount?: number; error?: string }> {
     const definition = NOTIFICATION_REGISTRY[type]
     if (!definition) {
       console.warn(`[NotificationService] Unknown notification type: ${type}`)
-      return
+      return { success: false, sentCount: 0, error: `Unknown notification type: ${type}` }
     }
 
     const formatted = definition.format(payload, language)
@@ -200,20 +234,31 @@ export const notificationService = {
 
     if (!targetHouseholdId) {
       console.warn('[NotificationService] Skipped push: no householdId provided')
-      return
+      return { success: false, sentCount: 0, error: 'No householdId provided' }
     }
+
+    let sentCount = 0
+    let totalCount = 0
 
     // Call Supabase Edge Function to deliver background web push
     try {
-      await supabase.functions.invoke('send-push-notification', {
+      const { data, error: fnError } = await supabase.functions.invoke('send-push-notification', {
         body: {
           householdId: targetHouseholdId,
           title: formatted.title,
           body: formatted.body,
           tag,
-          url
+          url,
+          includeSender: options?.includeSender ?? false
         }
       })
+
+      if (fnError) {
+        console.warn('[NotificationService] Push delivery notice:', fnError)
+      } else if (data) {
+        sentCount = data.sentCount ?? 0
+        totalCount = data.totalCount ?? sentCount
+      }
     } catch (pushErr) {
       // Per ADR-007, failure to deliver push must NEVER block UI actions or throw to callers
       console.warn('[NotificationService] Push delivery notice:', pushErr)
@@ -233,6 +278,12 @@ export const notificationService = {
       }
     } catch (storageErr) {
       console.warn('[NotificationService] Storage channel warning:', storageErr)
+    }
+
+    return {
+      success: true,
+      sentCount,
+      totalCount
     }
   }
 }

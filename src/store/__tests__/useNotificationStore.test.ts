@@ -62,19 +62,38 @@ describe('useNotificationStore - Zustand State & Actions (ADR-007)', () => {
     expect(useNotificationStore.getState().isSubscribed).toBe(false)
   })
 
-  it('Flow 04: sendTestNotification() triggers notificationService.notify with test payload', async () => {
-    vi.mocked(notificationService.notify).mockResolvedValue(undefined)
+  it('Flow 04: sendTestNotification() triggers notificationService.notify with TEST_NOTIFICATION and includeSender: true', async () => {
+    vi.mocked(notificationService.notify).mockResolvedValue({
+      success: true,
+      sentCount: 1,
+      totalCount: 1
+    })
 
     const success = await useNotificationStore.getState().sendTestNotification(mockHouseholdId, 'Kamil')
 
     expect(success).toBe(true)
     expect(notificationService.notify).toHaveBeenCalledWith(
-      'LIST_ITEM_ADDED',
+      'TEST_NOTIFICATION',
       expect.objectContaining({
-        addedByName: 'Kamil',
-        itemName: expect.stringContaining('Test')
+        senderName: 'Kamil'
       }),
-      mockHouseholdId
+      mockHouseholdId,
+      'pl',
+      { includeSender: true }
     )
+    expect(useNotificationStore.getState().error).toBeNull()
+  })
+
+  it('Flow 05: sendTestNotification() sets error and returns false when sentCount is 0', async () => {
+    vi.mocked(notificationService.notify).mockResolvedValue({
+      success: true,
+      sentCount: 0,
+      totalCount: 0
+    })
+
+    const success = await useNotificationStore.getState().sendTestNotification(mockHouseholdId, 'Kamil')
+
+    expect(success).toBe(false)
+    expect(useNotificationStore.getState().error).toContain('Nie znaleziono zarejestrowanych urządzeń')
   })
 })

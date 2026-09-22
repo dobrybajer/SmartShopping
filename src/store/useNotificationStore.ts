@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { PushPermissionState } from '@/types/notification'
 import { notificationService } from '@/services/notificationService'
+import { translate, useI18nStore } from '@/i18n'
 
 interface NotificationStoreState {
   permission: PushPermissionState
@@ -36,7 +37,7 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
         error: null
       })
     } catch (err: any) {
-      set({ error: err?.message || 'Failed to check notification status' })
+      set({ error: err?.message || translate('notifications.errors.statusCheckFailed') })
     }
   },
 
@@ -63,7 +64,7 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
       console.error('[useNotificationStore] Subscribe error:', err)
       set({
         isLoading: false,
-        error: err?.message || 'Failed to subscribe to push notifications'
+        error: err?.message || translate('notifications.errors.subscribeFailed')
       })
       return false
     }
@@ -86,27 +87,45 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
       console.error('[useNotificationStore] Unsubscribe error:', err)
       set({
         isLoading: false,
-        error: err?.message || 'Failed to unsubscribe'
+        error: err?.message || translate('notifications.errors.unsubscribeFailed')
       })
       return false
     }
   },
 
-  sendTestNotification: async (householdId: string, currentUserName: string = 'Ty') => {
+  sendTestNotification: async (householdId: string, currentUserName?: string) => {
+    const lang = useI18nStore.getState().language || 'pl'
+    const senderName = currentUserName || translate('notifications.defaultSender', {}, lang)
+
     try {
-      await notificationService.notify(
-        'LIST_ITEM_ADDED',
+      const result = await notificationService.notify(
+        'TEST_NOTIFICATION',
         {
-          listId: 'test-list',
-          listName: 'Testowa Lista',
-          itemName: 'Mleko Owsiane Barista (Test)',
-          addedByName: currentUserName
+          senderName
         },
-        householdId
+        householdId,
+        lang,
+        { includeSender: true }
       )
+
+      if (result.sentCount === 0) {
+        if (result.totalCount === 0) {
+          set({
+            error: translate('notifications.errors.noDevices', {}, lang)
+          })
+        } else {
+          set({
+            error: translate('notifications.errors.deliveryFailed', {}, lang)
+          })
+        }
+        return false
+      }
+
+      set({ error: null })
       return true
     } catch (err: any) {
       console.error('[useNotificationStore] Test notification error:', err)
+      set({ error: err?.message || translate('notifications.errors.testFailed', {}, lang) })
       return false
     }
   }

@@ -30,7 +30,15 @@ self.addEventListener('push', (event) => {
     vibrate: payload.vibrate || [100, 50, 100],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options).catch((err) => {
+      console.warn('[SW Push] showNotification failed with full options, retrying basic:', err);
+      return self.registration.showNotification(title, {
+        body: options.body || '',
+        icon: '/icon-192.png'
+      });
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

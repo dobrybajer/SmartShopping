@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
 import { notificationService } from './notificationService'
+import { translate } from '@/i18n'
 
 export type Household = Database['public']['Tables']['households']['Row']
 export type UserProfile = Database['public']['Tables']['users']['Row']
@@ -98,7 +99,7 @@ export const householdService = {
    */
   async createHousehold(name: string, userId: string): Promise<Household | null> {
     try {
-      const trimmedName = name.trim() || 'New Household'
+      const trimmedName = name.trim() || translate('common.defaultHouseholdName')
       const newHouseholdId = crypto.randomUUID()
 
       // 1. Insert household without .select() to avoid RLS SELECT rejection before membership exists
@@ -160,7 +161,7 @@ export const householdService = {
     try {
       const cleanEmail = email.trim().toLowerCase()
       if (!cleanEmail || !cleanEmail.includes('@')) {
-        return { success: false, message: 'Please provide a valid email address.' }
+        return { success: false, message: translate('dialogs.households.invalidEmail') }
       }
 
       // 1. Check if user exists in database
@@ -180,7 +181,7 @@ export const householdService = {
           .maybeSingle()
 
         if (existingMember) {
-          return { success: false, message: 'This user is already a member of this household.' }
+          return { success: false, message: translate('dialogs.households.alreadyMember') }
         }
 
         // Add to household_members
@@ -190,7 +191,7 @@ export const householdService = {
         })
 
         if (memberErr) {
-          return { success: false, message: 'Failed to add user to household.' }
+          return { success: false, message: translate('dialogs.households.addMemberError') }
         }
 
         // If user didn't have default household, set this one
@@ -212,7 +213,7 @@ export const householdService = {
             'HOUSEHOLD_MEMBER_JOINED',
             {
               householdId,
-              householdName: hh?.name || 'Gospodarstwo',
+              householdName: hh?.name || translate('common.defaultHouseholdName'),
               memberName: existingUser.name || cleanEmail.split('@')[0]
             },
             householdId
@@ -223,7 +224,7 @@ export const householdService = {
 
         return {
           success: true,
-          message: `User ${cleanEmail} was added to the household.`
+          message: translate('dialogs.households.userAddedMessage', { email: cleanEmail })
         }
       } else {
         // User has not registered yet - create invitation record
@@ -233,17 +234,17 @@ export const householdService = {
         })
 
         if (inviteErr) {
-          return { success: false, message: 'Failed to save invitation.' }
+          return { success: false, message: translate('dialogs.households.saveInviteError') }
         }
 
         return {
           success: true,
-          message: `Invitation for ${cleanEmail} has been recorded.`
+          message: translate('dialogs.households.inviteRecordedMessage', { email: cleanEmail })
         }
       }
     } catch (err) {
       console.error('Error in addUserToHousehold:', err)
-      return { success: false, message: 'An error occurred while adding user.' }
+      return { success: false, message: translate('dialogs.households.genericAddError') }
     }
   },
 
@@ -271,7 +272,7 @@ export const householdService = {
         members.push({
           id: row.id,
           userId: row.user_id,
-          name: u?.name || u?.email?.split('@')[0] || 'User',
+          name: u?.name || u?.email?.split('@')[0] || translate('common.householdMember'),
           email: u?.email || '',
           joinedAt: row.created_at
         })

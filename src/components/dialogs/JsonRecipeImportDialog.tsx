@@ -46,7 +46,7 @@ export const JsonRecipeImportDialog: React.FC<JsonRecipeImportDialogProps> = ({
   onSuccess
 }) => {
   const { household } = useAuth()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
 
   const [jsonText, setJsonText] = useState('')
   const [copied, setCopied] = useState(false)
@@ -55,8 +55,8 @@ export const JsonRecipeImportDialog: React.FC<JsonRecipeImportDialogProps> = ({
 
   // Real-time validation computation
   const validation: RecipeJsonValidationResult = useMemo(() => {
-    return validateRecipeJson(jsonText)
-  }, [jsonText])
+    return validateRecipeJson(jsonText, language)
+  }, [jsonText, language])
 
   // Reset state when closed
   useEffect(() => {

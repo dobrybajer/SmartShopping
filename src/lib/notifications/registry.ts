@@ -2,6 +2,7 @@ import type {
   NotificationType,
   NotificationDefinition
 } from '@/types/notification'
+import { translate } from '@/i18n'
 
 export const NOTIFICATION_REGISTRY: {
   [K in NotificationType]: NotificationDefinition<K>
@@ -10,64 +11,51 @@ export const NOTIFICATION_REGISTRY: {
     type: 'LIST_ITEM_ADDED',
     getTag: (p) => `list-${p.listId}`,
     getUrl: (p) => `/?tab=active&listId=${p.listId}`,
-    format: (p, lang) => {
-      const isPl = lang === 'pl'
-      return {
-        title: isPl ? '🛒 Nowy produkt na liście' : '🛒 New item on shopping list',
-        body: isPl
-          ? `${p.addedByName} dodał(a): "${p.itemName}" do listy "${p.listName}"`
-          : `${p.addedByName} added: "${p.itemName}" to "${p.listName}"`
-      }
-    }
+    format: (p, lang) => ({
+      title: translate('notifications.events.listItemAdded.title', {}, lang),
+      body: translate('notifications.events.listItemAdded.body', p, lang)
+    })
   },
   LIST_COMPLETED: {
     type: 'LIST_COMPLETED',
     getTag: (p) => `list-${p.listId}`,
     getUrl: (p) => `/?tab=active&listId=${p.listId}`,
-    format: (p, lang) => {
-      const isPl = lang === 'pl'
-      return {
-        title: isPl ? '✅ Zakupy zakończone!' : '✅ Shopping completed!',
-        body: isPl
-          ? `${p.completedByName} odhaczył(a) wszystkie produkty z listy "${p.listName}"`
-          : `${p.completedByName} completed all items on "${p.listName}"`
-      }
-    }
+    format: (p, lang) => ({
+      title: translate('notifications.events.listCompleted.title', {}, lang),
+      body: translate('notifications.events.listCompleted.body', p, lang)
+    })
   },
   HOUSEHOLD_MEMBER_JOINED: {
     type: 'HOUSEHOLD_MEMBER_JOINED',
     getTag: (p) => `household-${p.householdId}`,
     getUrl: (_p) => `/?tab=settings`,
-    format: (p, lang) => {
-      const isPl = lang === 'pl'
-      return {
-        title: isPl ? '👋 Nowy domownik' : '👋 New household member',
-        body: isPl
-          ? `${p.memberName} dołączył(a) do gospodarstwa "${p.householdName}"`
-          : `${p.memberName} joined the household "${p.householdName}"`
-      }
-    }
+    format: (p, lang) => ({
+      title: translate('notifications.events.householdMemberJoined.title', {}, lang),
+      body: translate('notifications.events.householdMemberJoined.body', p, lang)
+    })
   },
   LIST_CLEARED_OR_ARCHIVED: {
     type: 'LIST_CLEARED_OR_ARCHIVED',
     getTag: (p) => `list-${p.listId}`,
     getUrl: (_p) => `/?tab=history`,
-    format: (p, lang) => {
-      const isPl = lang === 'pl'
-      const actionText =
+    format: (p, lang) => ({
+      title: translate('notifications.events.listClearedOrArchived.title', {}, lang),
+      body: translate(
         p.action === 'cleared'
-          ? isPl
-            ? 'wyczyścił(a)'
-            : 'cleared'
-          : isPl
-          ? 'zarchiwizował(a)'
-          : 'archived'
-      return {
-        title: isPl ? '📦 Zaktualizowano listę' : '📦 List updated',
-        body: isPl
-          ? `${p.clearedByName} ${actionText} listę "${p.listName}"`
-          : `${p.clearedByName} ${actionText} the list "${p.listName}"`
-      }
-    }
+          ? 'notifications.events.listClearedOrArchived.bodyCleared'
+          : 'notifications.events.listClearedOrArchived.bodyArchived',
+        p,
+        lang
+      )
+    })
+  },
+  TEST_NOTIFICATION: {
+    type: 'TEST_NOTIFICATION',
+    getTag: () => 'test-notification',
+    getUrl: () => '/?tab=settings',
+    format: (_p, lang) => ({
+      title: translate('notifications.events.testNotification.title', {}, lang),
+      body: translate('notifications.events.testNotification.body', {}, lang)
+    })
   }
 }

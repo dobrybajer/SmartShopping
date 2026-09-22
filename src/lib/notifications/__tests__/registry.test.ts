@@ -7,7 +7,8 @@ describe('NOTIFICATION_REGISTRY - Type-Safe Notification Registry (ADR-007)', ()
     'LIST_ITEM_ADDED',
     'LIST_COMPLETED',
     'HOUSEHOLD_MEMBER_JOINED',
-    'LIST_CLEARED_OR_ARCHIVED'
+    'LIST_CLEARED_OR_ARCHIVED',
+    'TEST_NOTIFICATION'
   ]
 
   it('Flow 01: Contains definitions for all NotificationTypes', () => {
@@ -111,5 +112,19 @@ describe('NOTIFICATION_REGISTRY - Type-Safe Notification Registry (ADR-007)', ()
 
     const enCleared = def.format(payloadCleared, 'en')
     expect(enCleared.body).toContain('cleared')
+  })
+
+  it('Flow 06: Formats TEST_NOTIFICATION in both Polish and English', () => {
+    const def = NOTIFICATION_REGISTRY.TEST_NOTIFICATION
+    expect(def.getTag({})).toBe('test-notification')
+    expect(def.getUrl({})).toBe('/?tab=settings')
+
+    const pl = def.format({}, 'pl')
+    expect(pl.title).toContain('Test powiadomień')
+    expect(pl.body).toContain('Gratulacje')
+
+    const en = def.format({}, 'en')
+    expect(en.title).toContain('Test Notification')
+    expect(en.body).toContain('Congratulations')
   })
 })

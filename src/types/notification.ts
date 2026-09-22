@@ -8,6 +8,7 @@ export type NotificationType =
   | 'LIST_COMPLETED'
   | 'HOUSEHOLD_MEMBER_JOINED'
   | 'LIST_CLEARED_OR_ARCHIVED'
+  | 'TEST_NOTIFICATION'
 
 export interface NotificationPayloadMap {
   LIST_ITEM_ADDED: {
@@ -31,6 +32,9 @@ export interface NotificationPayloadMap {
     listName: string
     clearedByName: string
     action: 'cleared' | 'archived'
+  }
+  TEST_NOTIFICATION: {
+    senderName?: string
   }
 }
 
