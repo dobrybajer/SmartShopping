@@ -1,18 +1,23 @@
 import { useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { usePantryStore } from '@/store/usePantryStore'
 import { useTranslation } from '@/i18n'
 import { LoginScreen } from '@/components/LoginScreen'
 import { AppLayoutRouter } from '@/components/layout/AppLayoutRouter'
+import { Toaster } from '@/components/ui/Toast'
 
 export default function App() {
   const { user, loading, household } = useAuth()
   const { setActiveHousehold } = useShoppingStore()
+  const { setActiveHousehold: setPantryHousehold } = usePantryStore()
   const { t, language } = useTranslation()
 
   useEffect(() => {
-    setActiveHousehold(household?.id ?? null)
-  }, [household?.id, setActiveHousehold])
+    const hhId = household?.id ?? null
+    setActiveHousehold(hhId)
+    setPantryHousehold(hhId)
+  }, [household?.id, setActiveHousehold, setPantryHousehold])
 
   useEffect(() => {
     document.title = t('meta.title')
@@ -38,5 +43,10 @@ export default function App() {
     return <LoginScreen />
   }
 
-  return <AppLayoutRouter />
+  return (
+    <>
+      <AppLayoutRouter />
+      <Toaster />
+    </>
+  )
 }

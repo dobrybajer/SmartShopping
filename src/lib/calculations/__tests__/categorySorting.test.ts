@@ -10,15 +10,15 @@ import type { RawCategoryRow, HouseholdCategorySettingRow } from '@/types/catego
 
 describe('categorySorting pure calculations', () => {
   const mockGlobalCategories: RawCategoryRow[] = [
-    { id: 1, name: 'fruits_vegetables', sort_order: 1, household_id: null },
-    { id: 2, name: 'bakery', sort_order: 2, household_id: null },
-    { id: 3, name: 'dairy', sort_order: 3, household_id: null },
-    { id: 4, name: 'meat_fish', sort_order: 4, household_id: null }
+    { id: 1, name: 'fruits_vegetables', sort_order: 1, household_id: null, is_non_food: false },
+    { id: 2, name: 'bakery', sort_order: 2, household_id: null, is_non_food: false },
+    { id: 3, name: 'dairy', sort_order: 3, household_id: null, is_non_food: false },
+    { id: 4, name: 'meat_fish', sort_order: 4, household_id: null, is_non_food: false }
   ]
 
   const mockCustomCategories: RawCategoryRow[] = [
-    { id: 101, name: 'Asian Market', sort_order: 99, household_id: 'hh-123' },
-    { id: 102, name: 'Pet Supplies', sort_order: 99, household_id: 'hh-123' }
+    { id: 101, name: 'Asian Market', sort_order: 99, household_id: 'hh-123', is_non_food: false },
+    { id: 102, name: 'Pet Supplies', sort_order: 99, household_id: 'hh-123', is_non_food: true }
   ]
 
   describe('resolveCategoriesWithSettings', () => {

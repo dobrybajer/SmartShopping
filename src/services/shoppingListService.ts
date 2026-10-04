@@ -5,6 +5,7 @@ import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { mergeDraftItemsIntoActiveList, aggregateDraftItems } from '@/lib/calculations/mergeDraftItems'
 import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStatusCalculations'
 import { notificationService } from './notificationService'
+import { pantryService } from './pantryService'
 import { translate } from '@/i18n'
 
 const isUuid = (val?: string | null): val is string =>
@@ -13,12 +14,14 @@ const isUuid = (val?: string | null): val is string =>
 export type ShoppingList = Database['public']['Tables']['shopping_lists']['Row']
 export type ShoppingListItem = Database['public']['Tables']['shopping_list_items']['Row']
 
-export interface ActiveListItemWithProduct extends Omit<ShoppingListItem, 'category_id'> {
+export interface ActiveListItemWithProduct extends Omit<ShoppingListItem, 'category_id' | 'in_pantry'> {
   category_id?: number | null
+  in_pantry?: boolean | null
   category?: {
     id: number
     name: string
     sort_order: number
+    is_non_food?: boolean
   } | null
   product?: {
     id: string
@@ -29,6 +32,7 @@ export interface ActiveListItemWithProduct extends Omit<ShoppingListItem, 'categ
       id: number
       name: string
       sort_order: number
+      is_non_food?: boolean
     }
   }
   ad_hoc_name?: string
@@ -228,6 +232,7 @@ export const shoppingListService = {
       items: rawItems.map((item: any) => ({
         ...item,
         category_id: item.category_id ?? null,
+        in_pantry: !!item.in_pantry,
         category: item.category ?? null,
         product: item.product
       }))
@@ -562,6 +567,19 @@ export const shoppingListService = {
     return true
   },
 
+  async toggleItemInPantry(itemId: string, inPantry: boolean): Promise<boolean> {
+    const { error } = await supabase
+      .from('shopping_list_items')
+      .update({ in_pantry: inPantry })
+      .eq('id', itemId)
+
+    if (error) {
+      console.error('Error updating item in_pantry status:', error)
+      return false
+    }
+    return true
+  },
+
   async updateItemQuantity(itemId: string, totalQuantity: number): Promise<boolean> {
     const { error } = await supabase
       .from('shopping_list_items')
@@ -636,7 +654,49 @@ export const shoppingListService = {
       console.warn('[shoppingListService] Failed to dispatch archive push notification:', e)
     }
 
-    // 3. Fetch unchecked items (is_checked = false)
+    // 2.5 Auto-ingest actually purchased items into pantry (ADR-008 §5.4.3)
+    try {
+      const { data: checkedItems } = await supabase
+        .from('shopping_list_items')
+        .select(`
+          id,
+          product_id,
+          total_quantity,
+          is_checked,
+          in_pantry,
+          added_ad_hoc,
+          category_id,
+          product:products(
+            id,
+            name,
+            unit_type,
+            category_id
+          )
+        `)
+        .eq('shopping_list_id', listId)
+        .eq('is_checked', true)
+
+      if (checkedItems && checkedItems.length > 0) {
+        // Items with in_pantry = true are excluded from auto-ingestion
+        const itemsToIngest = checkedItems
+          .filter((item: any) => !item.in_pantry)
+          .map((item: any) => ({
+            product_id: item.product_id || item.product?.id || null,
+            ad_hoc_name: !item.product_id && item.product?.name ? item.product.name : null,
+            quantity: item.total_quantity,
+            unit_type: item.product?.unit_type || 'pcs',
+            category_id: item.category_id || item.product?.category_id || null
+          }))
+
+        if (itemsToIngest.length > 0) {
+          await pantryService.batchIngestPurchasedItems(_householdId, itemsToIngest)
+        }
+      }
+    } catch (ingestErr) {
+      console.warn('[shoppingListService.archiveActiveList] Failed auto-ingesting into pantry:', ingestErr)
+    }
+
+    // 3. Fetch unchecked items (is_checked = false AND in_pantry = false)
     const { data: uncheckedItems } = await supabase
       .from('shopping_list_items')
       .select(`
@@ -656,25 +716,27 @@ export const shoppingListService = {
     const remainingDraftItems: DraftItem[] = []
 
     if (uncheckedItems && uncheckedItems.length > 0) {
-      uncheckedItems.forEach((item: any) => {
-        if (item.product) {
-          const catId = item.category_id ?? item.category?.id ?? item.product.category_id ?? item.product.category?.id ?? undefined
-          const catName = item.category?.name || item.product.category?.name || 'other'
-          const catSortOrder = item.category?.sort_order ?? item.product.category?.sort_order ?? 99
+      uncheckedItems
+        .filter((item: any) => !item.in_pantry)
+        .forEach((item: any) => {
+          if (item.product) {
+            const catId = item.category_id ?? item.category?.id ?? item.product.category_id ?? item.product.category?.id ?? undefined
+            const catName = item.category?.name || item.product.category?.name || 'other'
+            const catSortOrder = item.category?.sort_order ?? item.product.category?.sort_order ?? 99
 
-          remainingDraftItems.push({
-            id: `archived_rem_${item.id}`,
-            product_id: item.product.id,
-            name: item.product.name,
-            unit_type: item.product.unit_type,
-            category_id: catId,
-            category_name: catName,
-            sort_order: catSortOrder,
-            quantity: item.total_quantity,
-            is_ad_hoc: item.added_ad_hoc
-          })
-        }
-      })
+            remainingDraftItems.push({
+              id: `archived_rem_${item.id}`,
+              product_id: item.product.id,
+              name: item.product.name,
+              unit_type: item.product.unit_type,
+              category_id: catId,
+              category_name: catName,
+              sort_order: catSortOrder,
+              quantity: item.total_quantity,
+              is_ad_hoc: item.added_ad_hoc
+            })
+          }
+        })
     }
 
     return remainingDraftItems

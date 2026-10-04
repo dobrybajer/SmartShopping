@@ -11,6 +11,7 @@ import { ProductsView } from '@/components/views/ProductsView'
 import { DraftView } from '@/components/views/DraftView'
 import { ActiveListView } from '@/components/views/ActiveListView'
 import { HistoryView } from '@/components/views/HistoryView'
+import { PantryView } from '@/components/views/PantryView'
 
 // Desktop Layout & Views
 import { DesktopLayout } from '@/components/layout/desktop/DesktopLayout'
@@ -19,6 +20,7 @@ import { DesktopProductsView } from '@/components/layout/desktop/views/DesktopPr
 import { DesktopDraftView } from '@/components/layout/desktop/views/DesktopDraftView'
 import { DesktopActiveListView } from '@/components/layout/desktop/views/DesktopActiveListView'
 import { DesktopHistoryView } from '@/components/layout/desktop/views/DesktopHistoryView'
+import { DesktopPantryView } from '@/components/layout/desktop/views/DesktopPantryView'
 
 export const AppLayoutRouter: React.FC = () => {
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
@@ -27,7 +29,7 @@ export const AppLayoutRouter: React.FC = () => {
   const [activeTab, setActiveTabState] = useState<TabType>(() => {
     try {
       const saved = localStorage.getItem('smartshopping_active_tab') as TabType
-      if (saved && ['cookbook', 'products', 'draft', 'active', 'history'].includes(saved)) {
+      if (saved && ['cookbook', 'products', 'draft', 'active', 'history', 'pantry'].includes(saved)) {
         return saved
       }
     } catch {
@@ -57,6 +59,8 @@ export const AppLayoutRouter: React.FC = () => {
         return t('navigation.activeList')
       case 'history':
         return t('navigation.history')
+      case 'pantry':
+        return t('navigation.pantry')
       default:
         return 'SmartShopping'
     }
@@ -82,6 +86,7 @@ export const AppLayoutRouter: React.FC = () => {
         )}
         {activeTab === 'active' && <DesktopActiveListView />}
         {activeTab === 'history' && <DesktopHistoryView />}
+        {activeTab === 'pantry' && <DesktopPantryView />}
       </DesktopLayout>
     )
   }
@@ -101,6 +106,7 @@ export const AppLayoutRouter: React.FC = () => {
       )}
       {activeTab === 'active' && <ActiveListView />}
       {activeTab === 'history' && <HistoryView />}
+      {activeTab === 'pantry' && <PantryView />}
     </MobileLayout>
   )
 }

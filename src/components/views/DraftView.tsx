@@ -9,8 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { TransferToActiveListSheet } from '@/components/dialogs/TransferToActiveListSheet'
-import { Trash2, Play, Plus, Minus, ShoppingBag } from 'lucide-react'
+import { PantryConfirmModal } from '@/components/dialogs/PantryConfirmModal'
+import { Trash2, Play, Plus, Minus, ShoppingBag, Warehouse } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
+import { usePantryStore } from '@/store/usePantryStore'
+import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 
 interface DraftViewProps {
   onActiveListCreated?: () => void
@@ -25,6 +28,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     updateDraftQuantity,
     clearDraft
   } = useShoppingStore()
+  const { pantryMapByProductId, pantryMapByAdHocName } = usePantryStore()
   const { t, formatUnit, formatQuantity } = useTranslation()
   const [unselectedIds, setUnselectedIds] = useState<Set<string>>(new Set())
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)
@@ -33,6 +37,7 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [selectedPantryModalItem, setSelectedPantryModalItem] = useState<DraftItem | null>(null)
 
   const selectedItems = draftItems.filter((i) => !unselectedIds.has(i.id))
   const allSelected = draftItems.length > 0 && selectedItems.length === draftItems.length
@@ -206,6 +211,22 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
 
           {draftItems.map((item) => {
             const isSelected = !unselectedIds.has(item.id)
+            const pantryItem = item.product_id
+              ? pantryMapByProductId[item.product_id]
+              : pantryMapByAdHocName[item.name.toLowerCase().trim()]
+            const isNonFood = !!(
+              pantryItem?.category?.is_non_food ||
+              pantryItem?.product?.category?.is_non_food
+            )
+            const freshness = pantryItem
+              ? calculatePantryFreshness(
+                  pantryItem.last_purchased_at,
+                  isNonFood,
+                  item.name,
+                  formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                  pantryItem.last_verified_at
+                )
+              : null
 
             return (
               <SwipeToDismiss key={item.id} onDismiss={() => removeFromDraft(item.id)}>
@@ -249,74 +270,95 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
                     </div>
                   </div>
 
-                  <div
-                    className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDecrease(item)
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
-                      title={t('common.decrease')}
-                      aria-label={t('common.decrease')}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div
+                      className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-
-                    {editingId === item.id ? (
-                      <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoFocus
-                          value={editValue}
-                          onChange={(e) => handleInputChange(e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleCommitEdit(item.id)
-                            } else if (e.key === 'Escape') {
-                              setEditingId(null)
-                              setEditValue('')
-                            }
-                          }}
-                          onBlur={() => handleCommitEdit(item.id)}
-                          className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
-                        />
-                        <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
-                          {formatUnit(item.unit_type)}
-                        </span>
-                      </div>
-                    ) : (
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          startEditing(item.id, item.quantity)
+                          handleDecrease(item)
                         }}
-                        className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-primary hover:bg-muted rounded transition-colors cursor-text select-none"
-                        title={t('common.edit')}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
+                        title={t('common.decrease')}
+                        aria-label={t('common.decrease')}
                       >
-                        {formatQuantity(item.quantity, item.unit_type)}
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+
+                      {editingId === item.id ? (
+                        <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            autoFocus
+                            value={editValue}
+                            onChange={(e) => handleInputChange(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCommitEdit(item.id)
+                              } else if (e.key === 'Escape') {
+                                setEditingId(null)
+                                setEditValue('')
+                              }
+                            }}
+                            onBlur={() => handleCommitEdit(item.id)}
+                            className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
+                          />
+                          <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
+                            {formatUnit(item.unit_type)}
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startEditing(item.id, item.quantity)
+                          }}
+                          className="font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center text-primary hover:bg-muted rounded transition-colors cursor-text select-none"
+                          title={t('common.edit')}
+                        >
+                          {formatQuantity(item.quantity, item.unit_type)}
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleIncrease(item)
+                        }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
+                        title={t('common.increase')}
+                        aria-label={t('common.increase')}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {pantryItem && freshness && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedPantryModalItem(item)
+                        }}
+                        className={cn(
+                          "w-8 h-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90",
+                          freshness.badgeBgClass,
+                          freshness.colorClass
+                        )}
+                        title={t('pantry.modal.viewPantryDetails')}
+                        aria-label={t('pantry.modal.viewPantryDetails')}
+                      >
+                        <Warehouse className="w-4 h-4" />
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleIncrease(item)
-                      }}
-                      className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
-                      title={t('common.increase')}
-                      aria-label={t('common.increase')}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
               </SwipeToDismiss>
@@ -362,6 +404,24 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
         itemName={itemToDelete?.name}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Pantry Confirm Modal */}
+      {selectedPantryModalItem && (
+        <PantryConfirmModal
+          open={!!selectedPantryModalItem}
+          onOpenChange={(open) => {
+            if (!open) setSelectedPantryModalItem(null)
+          }}
+          context="cart"
+          productId={selectedPantryModalItem.product_id}
+          adHocName={selectedPantryModalItem.is_ad_hoc ? selectedPantryModalItem.name : null}
+          productName={selectedPantryModalItem.name}
+          unitType={selectedPantryModalItem.unit_type}
+          neededQuantity={selectedPantryModalItem.quantity}
+          draftItemId={selectedPantryModalItem.id}
+          onSuccess={() => setSelectedPantryModalItem(null)}
+        />
+      )}
     </div>
   )
 }

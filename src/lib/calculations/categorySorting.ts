@@ -10,14 +10,14 @@ import type {
  * the database schema and internationalization slug definitions.
  */
 export const DEFAULT_PRODUCT_CATEGORIES: RawCategoryRow[] = [
-  { id: 1, name: 'fruits_vegetables', sort_order: 1, household_id: null },
-  { id: 2, name: 'bakery', sort_order: 2, household_id: null },
-  { id: 3, name: 'dairy', sort_order: 3, household_id: null },
-  { id: 4, name: 'meat_fish', sort_order: 4, household_id: null },
-  { id: 5, name: 'pantry', sort_order: 5, household_id: null },
-  { id: 6, name: 'beverages', sort_order: 6, household_id: null },
-  { id: 7, name: 'household', sort_order: 7, household_id: null },
-  { id: 8, name: 'other', sort_order: 8, household_id: null }
+  { id: 1, name: 'fruits_vegetables', sort_order: 1, household_id: null, is_non_food: false },
+  { id: 2, name: 'bakery', sort_order: 2, household_id: null, is_non_food: false },
+  { id: 3, name: 'dairy', sort_order: 3, household_id: null, is_non_food: false },
+  { id: 4, name: 'meat_fish', sort_order: 4, household_id: null, is_non_food: false },
+  { id: 5, name: 'pantry', sort_order: 5, household_id: null, is_non_food: false },
+  { id: 6, name: 'beverages', sort_order: 6, household_id: null, is_non_food: false },
+  { id: 7, name: 'household', sort_order: 7, household_id: null, is_non_food: true },
+  { id: 8, name: 'other', sort_order: 8, household_id: null, is_non_food: true }
 ]
 
 /**

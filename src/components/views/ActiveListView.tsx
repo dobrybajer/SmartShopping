@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { CreateActiveListDialog } from '@/components/dialogs/CreateActiveListDialog'
 import { RenameActiveListDialog } from '@/components/dialogs/RenameActiveListDialog'
+import { PantryConfirmModal } from '@/components/dialogs/PantryConfirmModal'
 import {
   CheckCircle2,
   Calendar,
@@ -26,11 +27,14 @@ import {
   MoreVertical,
   Edit2,
   Trash2,
-  Package
+  Package,
+  Warehouse
 } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
 import { useCategoryStore } from '@/store/useCategoryStore'
+import { usePantryStore } from '@/store/usePantryStore'
+import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import {
   sortActiveLists,
@@ -40,6 +44,7 @@ import {
 export const ActiveListView: React.FC = () => {
   const { household, userProfile, user } = useAuth()
   const { categoriesByHousehold, loadCategories } = useCategoryStore()
+  const { pantryMapByProductId, pantryMapByAdHocName } = usePantryStore()
   const {
     setDraftItems,
     draftItems,
@@ -62,6 +67,7 @@ export const ActiveListView: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
+  const [selectedPantryItem, setSelectedPantryItem] = useState<ActiveListItemWithProduct | null>(null)
 
   const householdId = household?.id
 
@@ -563,128 +569,204 @@ export const ActiveListView: React.FC = () => {
                   )}
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
-                  {group.items.filter((i) => i.is_checked).length}/{group.items.length}
+                  {group.items.filter((i) => i.is_checked || i.in_pantry).length}/{group.items.length}
                 </span>
               </h4>
 
               <div className="flex flex-col gap-2">
                 {group.items.map((item) => {
                   const isChecked = !!item.is_checked
+                  const isInPantry = !!item.in_pantry
                   const name = item.product?.name || item.ad_hoc_name || 'Product'
                   const unit = item.product?.unit_type || 'pcs'
+
+                  const pantryItem = item.product_id
+                    ? pantryMapByProductId[item.product_id]
+                    : (item.ad_hoc_name ? pantryMapByAdHocName[item.ad_hoc_name.toLowerCase().trim()] : undefined)
+
+                  const isNonFood = !!(
+                    pantryItem?.category?.is_non_food ||
+                    pantryItem?.product?.category?.is_non_food ||
+                    item.product?.category?.is_non_food
+                  )
+
+                  const freshness = pantryItem
+                    ? calculatePantryFreshness(
+                        pantryItem.last_purchased_at,
+                        isNonFood,
+                        name,
+                        formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                        pantryItem.last_verified_at
+                      )
+                    : null
 
                   return (
                     <div
                       key={item.id}
-                      onClick={() => handleToggleCheck(item.id, isChecked)}
+                      onClick={() => {
+                        if (isInPantry) {
+                          setSelectedPantryItem(item)
+                        } else {
+                          handleToggleCheck(item.id, isChecked)
+                        }
+                      }}
                       className={cn(
-                        "p-3.5 rounded-xl bg-card border border-border/80 flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] gap-3",
-                        isChecked && "bg-card/40 border-border/40 opacity-55"
+                        "p-3.5 rounded-xl flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] gap-3",
+                        isInPantry
+                          ? "border border-dashed border-amber-500/40 bg-amber-500/5 opacity-60"
+                          : isChecked
+                          ? "bg-card/40 border border-border/40 opacity-55"
+                          : "bg-card border border-border/80"
                       )}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={() => handleToggleCheck(item.id, isChecked)}
-                          enableHaptics
-                        />
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={isChecked || isInPantry}
+                            disabled={isInPantry}
+                            onCheckedChange={() => {
+                              if (!isInPantry) {
+                                handleToggleCheck(item.id, isChecked)
+                              }
+                            }}
+                            enableHaptics
+                            className={cn(
+                              isInPantry && "border-amber-500/50 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
+                            )}
+                          />
+                        </div>
 
                         <div className="flex flex-col min-w-0">
-                          <span
-                            className={cn(
-                              "font-semibold text-sm transition-all truncate",
-                              isChecked ? "line-through text-muted-foreground" : "text-foreground"
-                            )}
-                          >
-                            {name}
-                          </span>
-                          {item.added_ad_hoc && (
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {t('draft.adHocItem')}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={cn(
+                                "font-semibold text-sm transition-all truncate",
+                                isInPantry
+                                  ? "line-through text-amber-500/80 decoration-amber-500/50"
+                                  : isChecked
+                                  ? "line-through text-muted-foreground"
+                                  : "text-foreground"
+                              )}
+                            >
+                              {name}
                             </span>
-                          )}
+                            {isInPantry ? (
+                              <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 gap-1 py-0">
+                                <Warehouse className="w-3 h-3" />
+                                <span>{t('pantry.badgeInPantry')}</span>
+                              </Badge>
+                            ) : item.added_ad_hoc ? (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {t('draft.adHocItem')}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
 
-                      {/* Stepper +/- */}
-                      <div
-                        className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDecrease(item)
-                          }}
-                          disabled={isChecked}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                          title={t('common.decrease')}
-                          aria-label={t('common.decrease')}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Stepper +/- */}
+                        <div
+                          className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-
-                        {editingId === item.id && !isChecked ? (
-                          <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              autoFocus
-                              value={editValue}
-                              onChange={(e) => handleInputChange(e.target.value)}
-                              onFocus={(e) => e.target.select()}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleCommitEdit(item)
-                                } else if (e.key === 'Escape') {
-                                  setEditingId(null)
-                                  setEditValue('')
-                                }
-                              }}
-                              onBlur={() => handleCommitEdit(item)}
-                              className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
-                            />
-                            <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
-                              {formatUnit(unit)}
-                            </span>
-                          </div>
-                        ) : (
                           <button
                             type="button"
-                            disabled={isChecked}
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (!isChecked) {
-                                startEditing(item.id, item.total_quantity)
-                              }
+                              handleDecrease(item)
+                            }}
+                            disabled={isChecked || isInPantry}
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            title={t('common.decrease')}
+                            aria-label={t('common.decrease')}
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+
+                          {editingId === item.id && !isChecked && !isInPantry ? (
+                            <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                autoFocus
+                                value={editValue}
+                                onChange={(e) => handleInputChange(e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleCommitEdit(item)
+                                  } else if (e.key === 'Escape') {
+                                    setEditingId(null)
+                                    setEditValue('')
+                                  }
+                                }}
+                                onBlur={() => handleCommitEdit(item)}
+                                className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
+                              />
+                              <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
+                                {formatUnit(unit)}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isChecked || isInPantry}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!isChecked && !isInPantry) {
+                                  startEditing(item.id, item.total_quantity)
+                                }
+                              }}
+                              className={cn(
+                                "font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center select-none transition-colors rounded",
+                                isInPantry
+                                  ? "text-amber-500/70 cursor-default"
+                                  : isChecked
+                                  ? "text-muted-foreground line-through cursor-default"
+                                  : "text-primary hover:bg-muted cursor-text"
+                              )}
+                              title={isChecked || isInPantry ? undefined : t('common.edit')}
+                            >
+                              {formatQuantity(item.total_quantity, unit)}
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleIncrease(item)
+                            }}
+                            disabled={isChecked || isInPantry}
+                            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                            title={t('common.increase')}
+                            aria-label={t('common.increase')}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Warehouse indicator if in pantry and not marked in pantry */}
+                        {!isInPantry && pantryItem && freshness && !isChecked && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedPantryItem(item)
                             }}
                             className={cn(
-                              "font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center select-none transition-colors rounded",
-                              isChecked
-                                ? "text-muted-foreground line-through cursor-default"
-                                : "text-primary hover:bg-muted cursor-text"
+                              "w-8 h-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90",
+                              freshness.badgeBgClass,
+                              freshness.colorClass
                             )}
-                            title={isChecked ? undefined : t('common.edit')}
+                            title={t('pantry.modal.viewPantryDetails')}
+                            aria-label={t('pantry.modal.viewPantryDetails')}
                           >
-                            {formatQuantity(item.total_quantity, unit)}
+                            <Warehouse className="w-4 h-4" />
                           </button>
                         )}
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleIncrease(item)
-                          }}
-                          disabled={isChecked}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                          title={t('common.increase')}
-                          aria-label={t('common.increase')}
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
                   )
@@ -698,7 +780,7 @@ export const ActiveListView: React.FC = () => {
       {/* Complete & Archive CTA */}
       {activeList.items.length > 0 && (
         <div className="mt-4 flex flex-col gap-2">
-          {checkedCount === totalCount && (
+          {(checkedCount === totalCount || (totalCount > 0 && activeList.items.every((i) => i.is_checked || i.in_pantry))) && (
             <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-center flex items-center justify-center gap-2 text-primary text-xs font-bold animate-bounce">
               <CheckCircle2 className="w-4 h-4" />
               <span>{t('activeList.allPurchased')}</span>
@@ -753,6 +835,34 @@ export const ActiveListView: React.FC = () => {
         onConfirm={handleDeleteList}
         isDeleting={isDeleting}
       />
+
+      {/* Pantry Confirm Modal */}
+      {selectedPantryItem && (
+        <PantryConfirmModal
+          open={!!selectedPantryItem}
+          onOpenChange={(open) => {
+            if (!open) setSelectedPantryItem(null)
+          }}
+          context="active"
+          productId={selectedPantryItem.product_id}
+          adHocName={selectedPantryItem.ad_hoc_name}
+          productName={selectedPantryItem.product?.name || selectedPantryItem.ad_hoc_name || 'Product'}
+          unitType={selectedPantryItem.product?.unit_type || 'pcs'}
+          neededQuantity={selectedPantryItem.total_quantity}
+          activeItemId={selectedPantryItem.id}
+          isAlreadyMarkedInPantry={!!selectedPantryItem.in_pantry}
+          onSuccess={async () => {
+            setSelectedPantryItem(null)
+            if (activeList?.id) {
+              const details = await shoppingListService.getListWithDetails(activeList.id)
+              if (details) setActiveList(details)
+              if (householdId) {
+                shoppingListService.getActiveListsSummary(householdId).then(setActiveListsSummary)
+              }
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -19,7 +19,8 @@ import {
   Sparkles,
   Laptop,
   Smartphone,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -108,6 +109,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       label: t('navigation.history'),
       description: t('history.subtitle'),
       icon: History
+    },
+    {
+      id: 'pantry',
+      label: t('navigation.pantry'),
+      description: t('pantry.subtitle'),
+      icon: Warehouse
     }
   ]
 

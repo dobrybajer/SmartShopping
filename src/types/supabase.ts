@@ -139,18 +139,21 @@ export interface Database {
           household_id: string | null
           name: string
           sort_order: number
+          is_non_food: boolean
         }
         Insert: {
           id?: number
           household_id?: string | null
           name: string
           sort_order: number
+          is_non_food?: boolean
         }
         Update: {
           id?: number
           household_id?: string | null
           name?: string
           sort_order?: number
+          is_non_food?: boolean
         }
         Relationships: [
           {
@@ -434,6 +437,7 @@ export interface Database {
           is_checked: boolean | null
           added_ad_hoc: boolean | null
           category_id?: number | null
+          in_pantry: boolean | null
         }
         Insert: {
           id?: string
@@ -443,6 +447,7 @@ export interface Database {
           is_checked?: boolean | null
           added_ad_hoc?: boolean | null
           category_id?: number | null
+          in_pantry?: boolean | null
         }
         Update: {
           id?: string
@@ -452,6 +457,7 @@ export interface Database {
           is_checked?: boolean | null
           added_ad_hoc?: boolean | null
           category_id?: number | null
+          in_pantry?: boolean | null
         }
         Relationships: [
           {
@@ -524,6 +530,70 @@ export interface Database {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      pantry_items: {
+        Row: {
+          id: string
+          household_id: string
+          product_id: string | null
+          ad_hoc_name: string | null
+          category_id: number | null
+          quantity: number
+          unit_type: UnitEnum
+          last_purchased_at: string | null
+          last_verified_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          product_id?: string | null
+          ad_hoc_name?: string | null
+          category_id?: number | null
+          quantity?: number
+          unit_type?: UnitEnum
+          last_purchased_at?: string | null
+          last_verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          product_id?: string | null
+          ad_hoc_name?: string | null
+          category_id?: number | null
+          quantity?: number
+          unit_type?: UnitEnum
+          last_purchased_at?: string | null
+          last_verified_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pantry_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pantry_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pantry_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
             referencedColumns: ["id"]
           }
         ]

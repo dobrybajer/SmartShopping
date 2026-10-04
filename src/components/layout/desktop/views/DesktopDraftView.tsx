@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { AddAdHocSheet } from '@/components/dialogs/AddAdHocSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { TransferToActiveListDialog } from '@/components/dialogs/TransferToActiveListDialog'
+import { PantryConfirmModal } from '@/components/dialogs/PantryConfirmModal'
 import {
   ShoppingBag,
   Plus,
@@ -18,9 +19,12 @@ import {
   CheckCircle2,
   Utensils,
   Layers,
-  Check
+  Check,
+  Warehouse
 } from 'lucide-react'
 import { cn, getNextQuantity } from '@/lib/utils'
+import { usePantryStore } from '@/store/usePantryStore'
+import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 
 interface DesktopDraftViewProps {
   onActiveListCreated?: () => void
@@ -36,6 +40,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
     removeMultipleFromDraft,
     clearDraft
   } = useShoppingStore()
+  const { pantryMapByProductId, pantryMapByAdHocName } = usePantryStore()
   const { household } = useAuth()
   const { t, formatUnit, formatQuantity } = useTranslation()
 
@@ -46,6 +51,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [selectedPantryModalItem, setSelectedPantryModalItem] = useState<DraftItem | null>(null)
 
   const selectedItems = draftItems.filter((i) => !unselectedIds.has(i.id))
   const allSelected = draftItems.length > 0 && selectedItems.length === draftItems.length
@@ -231,6 +237,22 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
             <div className="flex flex-col gap-2.5">
               {draftItems.map((item) => {
                 const isSelected = !unselectedIds.has(item.id)
+                const pantryItem = item.product_id
+                  ? pantryMapByProductId[item.product_id]
+                  : pantryMapByAdHocName[item.name.toLowerCase().trim()]
+                const isNonFood = !!(
+                  pantryItem?.category?.is_non_food ||
+                  pantryItem?.product?.category?.is_non_food
+                )
+                const freshness = pantryItem
+                  ? calculatePantryFreshness(
+                      pantryItem.last_purchased_at,
+                      isNonFood,
+                      item.name,
+                      formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                      pantryItem.last_verified_at
+                    )
+                  : null
 
                 return (
                   <div
@@ -280,7 +302,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Stepper +/- & Numeric Editor */}
+                    {/* Stepper +/- & Numeric Editor & Pantry Button */}
                     <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center bg-background border border-border rounded-xl p-1 shadow-inner">
                         <button
@@ -339,6 +361,23 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
+
+                      {/* Pantry Indicator Button */}
+                      {pantryItem && freshness && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPantryModalItem(item)}
+                          className={cn(
+                            "w-9 h-9 rounded-xl flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90 hover:opacity-80",
+                            freshness.badgeBgClass,
+                            freshness.colorClass
+                          )}
+                          title={t('pantry.modal.viewPantryDetails')}
+                          aria-label={t('pantry.modal.viewPantryDetails')}
+                        >
+                          <Warehouse className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {/* Delete Item Button */}
                       <button
@@ -445,6 +484,24 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
         itemName={itemToDelete?.name}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* Pantry Confirm Modal */}
+      {selectedPantryModalItem && (
+        <PantryConfirmModal
+          open={!!selectedPantryModalItem}
+          onOpenChange={(open) => {
+            if (!open) setSelectedPantryModalItem(null)
+          }}
+          context="cart"
+          productId={selectedPantryModalItem.product_id}
+          adHocName={selectedPantryModalItem.is_ad_hoc ? selectedPantryModalItem.name : null}
+          productName={selectedPantryModalItem.name}
+          unitType={selectedPantryModalItem.unit_type}
+          neededQuantity={selectedPantryModalItem.quantity}
+          draftItemId={selectedPantryModalItem.id}
+          onSuccess={() => setSelectedPantryModalItem(null)}
+        />
+      )}
     </div>
   )
 }

@@ -259,43 +259,45 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * 2 testy integracji skrótu i nagłówka w `DesktopLayoutShortcut.test.tsx`.
    * Komplet testów zielony (183 passed), zero błędów oxlint i zero błędów `tsc -b`.
 
-   ## Faza 14: Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008) (W toku / Zaplanowana)
-**Cel:** Zapobieganie dublowaniu zakupów oraz marnowaniu żywności poprzez dedykowany moduł inwentarza domowego (Spiżarnia), automatyczne zasilanie z archiwizowanych list zakupów, wskaźniki świeżości (3-7 dni dla żywności, 2-4 tyg dla chemii) z modalem weryfikacji w Koszyku i na Aktywnej Liście oraz dwukierunkową synchronizację Realtime. Zobacz [ADR-008](./adr/ADR-008-pantry-management-and-inventory-sync.md).
+## Faza 14: Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008) (Zakończona - Fazy 1-3)
+**Cel:** Zapobieganie dublowaniu zakupów oraz marnowaniu żywności poprzez dedykowany moduł inwentarza domowego (Spiżarnia), automatyczne zasilanie z archiwizowanych list zakupów, wskaźniki świeżości (3-7 dni dla żywności, 2-4 tyg dla chemii) z modalem weryfikacji w Koszyku i na Aktywnej Liście oraz synchronizację Realtime. Zobacz [ADR-008](./adr/ADR-008-pantry-management-and-inventory-sync.md).
 
 1. **Baza Danych & RLS (Supabase):**
-   * Migracja PostgreSQL `20260901000000_add_pantry_module.sql`:
-     * Dodanie kolumny `is_non_food BOOLEAN DEFAULT FALSE` do `product_categories` (kategorie 7 i 8 zainicjalizowane jako `true`).
+   * Migracja PostgreSQL `supabase/migrations/20260901000000_add_pantry_module.sql`:
+     * Dodanie kolumny `is_non_food BOOLEAN DEFAULT FALSE` do `product_categories` (kategorie 7 'household' i 8 'other' domyślnie oznaczone jako `true`).
      * Dodanie kolumny `in_pantry BOOLEAN DEFAULT FALSE` do `shopping_list_items`.
-     * Tabela `pantry_items` (`id`, `household_id`, `product_id`, `ad_hoc_name`, `category_id`, `quantity`, `unit_type`, `last_purchased_at`, `last_verified_at`, `created_at`, `updated_at`).
-     * Unikalny indeks `idx_pantry_items_household_product` oraz indeksy na `household_id` i `last_purchased_at`.
-     * RLS i uprawnienia dla gospodarstwa domowego (`get_user_household_ids(auth.uid())`).
-     * Replikacja Supabase Realtime dla tabeli `pantry_items`.
-   * Aktualizacja definicji TypeScript w `src/types/supabase.ts`.
+     * Utworzenie tabeli `pantry_items` (`id`, `household_id`, `product_id`, `ad_hoc_name`, `category_id`, `quantity`, `unit_type`, `last_purchased_at`, `last_verified_at`, `created_at`, `updated_at`).
+     * Indeksy B-tree: `idx_pantry_items_household_product`, `idx_pantry_items_household`, `idx_pantry_items_last_purchased`.
+     * Kompletne polityki RLS (SELECT, INSERT, UPDATE, DELETE) powiązane z `get_user_household_ids(auth.uid())`.
+     * Publikacja tabeli `pantry_items` w `supabase_realtime`.
+   * Aktualizacja definicji TypeScript w `src/types/supabase.ts` oraz view modeli domenowych w `src/types/pantry.ts`.
 2. **Czyste Funkcje Kalkulacji (`src/lib/calculations/pantryCalculations.ts`):**
-   * Pure function `calculatePantryFreshness(lastPurchasedAt, isNonFood, productName, quantityStr, lastVerifiedAt, now)`:
-     * Wyliczanie poziomu (`fresh` | `medium` | `old`), klas kolorów (zielony, pomarańczowy, czerwony) i sformatowanych komunikatów.
-     * Obsługa jednostek i łączenia ilości przy auto-zasilaniu ze zarchiwizowanej listy.
-3. **Stan i Serwisy (`usePantryStore.ts` & `pantryService.ts`):**
-   * Serwis `pantryService.ts` z obsługą CRUD i batch upsert z `archiveActiveList`.
-   * Modułowy store `usePantryStore.ts` (Zustand) z natychmiastowym Optimistic UI i automatycznym rollbackiem przy błędach sieciowych.
-   * Hook `usePantryRealtime.ts` do wieloosobowej synchronizacji na żywo w czasie rzeczywistym.
+   * Funkcja `calculatePantryFreshness`: rygorystyczne reguły świeżości (<3 dni, 3-7 dni, >7 dni dla żywności; <14 dni, 14-28 dni, >28 dni dla chemii/non-food) z uwzględnieniem `last_verified_at`.
+   * Funkcja `calculatePantryQuantityDelta` do obsługi weryfikacji cząstkowych i pomniejszania ilości na liście.
+   * 11 testów jednostkowych pokrywających 100% przypadków brzegowych w `pantryCalculations.test.ts`.
+3. **Zarządzanie Stanem & Serwisy (`usePantryStore.ts` & `pantryService.ts`):**
+   * Serwis `pantryService.ts` obsługujący CRUD, weryfikację stanu (`verifyItem`), usuwanie według produktu lub nazwy ad-hoc (`removeByProductOrName`) oraz inteligentne dodawanie ze scalaniem (`addOrIncrementItem`).
+   * Zasilanie inwentarza przy archiwizacji listy w `shoppingListService.archiveActiveList`: automatyczny batch upsert ze scalaniem ilości, eliminacja duplikatów i wyłączenie pozycji `in_pantry = true` ze zwrotu do draftu.
+   * Zustand store `usePantryStore.ts` z natychmiastowym Optimistic UI, automatycznym rollbackiem przy błędzie sieci oraz szybkimi indeksami wyszukiwania O(1) (`pantryMapByProductId`, `pantryMapByAdHocName`).
 4. **Interaktywny Modal / Sheet Weryfikacji (`PantryConfirmModal`):**
    * Responsywny komponent: `Sheet` (Mobile PWA) i `Dialog` (Desktop).
-   * Wyświetlanie sformatowanego tekstu o dacie zakupu.
-   * Przycisk *"Mam produkt"* + steper/input preuzupełniony ze spiżarni:
-     * W Koszyku: usunięcie produktu z draftu.
-     * Na Aktywnej Liście: ustawienie `in_pantry = true` i prezentacja unikalnego przekreślenia/badge'a "W spiżarni".
-     * Aktualizacja komunikatu o dopisek `Aktualizacja: dd.mm.yyyy`.
-   * Przycisk *"Nie mam produktu"*: usunięcie pozycji ze spiżarni i wygaszenie ikony.
-5. **Nawigacja i Widoki Spiżarni (Dual Layout):**
-   * 6. zakładka w dolnej belce `BottomNavigation.tsx` (Mobile) z zachowaniem strefy kciuka min. 44px i kompaktowych etykiet.
-   * 6. pozycja w pasku bocznym `DesktopSidebar.tsx` (Desktop).
-   * Nowe widoki: `PantryView.tsx` (Mobile) oraz `DesktopPantryView.tsx` (Desktop).
-   * Reużycie komponentów prezentacji kategorii, alejek sklepowych i steperów ilości.
-6. **Integracja z Przepisami i Produktami:**
-   * Wskaźniki stanu magazynowego na kartach produktów w `ProductsView` / `DesktopProductsView` + przycisk szybkiego dodawania.
-   * Oznaczenia dostępności składników w spiżarni w `CookbookView` i `MealDetailsSheet`.
+   * 4 akcje użytkownika:
+     * *"Mam całość"*: usunięcie pozycji z koszyka lub oznaczenie `in_pantry = true` na aktywnej liście + aktualizacja daty `last_verified_at`.
+     * *"Mam częściowo"*: redukcja ilości na liście do kupienia o ilość posiadaną w domu + aktualizacja stanu spiżarni.
+     * *"Nie mam produktu"*: wyzerowanie stanu w spiżarni z zachowaniem pozycji na liście.
+     * *"Przywróć do kupienia"*: pełna odwracalność - ponowne otwarcie wiersza z `in_pantry = true` umożliwia powrót do stanu zakupu.
+5. **Integracja z Widokami Koszyka i Aktywnej Listy:**
+   * W widokach `DraftView` i `DesktopDraftView`: ikona `Warehouse` obok stepera ze wskaźnikiem świeżości (zielony/pomarańczowy/czerwony dot).
+   * W widokach `ActiveListView` i `DesktopActiveListView`:
+     * Wyróżniający styl dla pozycji `in_pantry = true` (bursztynowa przerywana ramka, bursztynowe przekreślenie, odznaka *"W spiżarni"*, zablokowany steper).
+     * Kliknięcie pozycji lub badge'a otwiera modal z możliwością przywrócenia do listy.
+     * Pasek postępu listy zakupowej uwzględnia pozycje pokryte spiżarnią w kalkulacji ukończenia (np. "3/3").
+6. **Nowe Widoki i Nawigacja (Dual Layout):**
+   * Responsywne okno dodawania artykułów `AddPantryItemDialog` (Mobile Sheet / Desktop Dialog) z wyszukiwarką katalogową `ProductAutocomplete`, automatycznym wykrywaniem duplikatów (*"Zwiększ stan (+X)"* vs *"Ustaw dokładnie (X)"*) oraz auto-rejestracją w katalogu.
+   * Widoki magazynu domowego `PantryView.tsx` (Mobile) oraz `DesktopPantryView.tsx` (Desktop) z podziałem na alejki sklepowe (`groupItemsByAisle`), filtrem kategorii, wyszukiwarką, inline steperami ilości i statystykami świeżości.
+   * Nowa, 6. zakładka w dolnym pasku nawigacyjnym `BottomNavigation.tsx` (Mobile PWA) zoptymalizowana pod ekrany 360px (etykiety 10px, strefa dotyku 48px) oraz 6. pozycja w bocznym menu `DesktopSidebar.tsx` (Desktop).
 7. **Testy i Jakość:**
-   * Testy jednostkowe funkcji czystych kalkulacji świeżości i scalania ilości.
-   * Testy integracyjne przepływów UI w Vitest (Koszyk, Aktywna lista, Modal, Archiwizacja).
-   * Weryfikacja jakości: `npm run test`, `npm run lint`, `npx tsc -b`.
+   * 37 pakietów testowych Vitest (241 testów) zakończonych wynikiem 100% pass (w tym `pantryCalculations.test.ts`, `usePantryStore.test.ts`, `PantryView.test.tsx`).
+   * Czysty build i linter `oxlint` (0 błędów).
+   * Rygorystyczny typecheck TypeScript `tsc -b` bez żadnych błędów ani użycia typu `any`.
+   *(Uwaga: Faza 4 z ADR-008 – odznaki stanów magazynowych w Przepiśniku i katalogu produktów – zaplanowana do realizacji w kolejnym kroku).*
