@@ -1,7 +1,7 @@
 # ADR-003: Internationalization (i18n) Strategy, Codebase English Purity & Multi-Tier Persistence
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-24
 - **Decision Drivers:** 100% Codebase English Purity, Type-Safe Zero-Dependency i18n, Dual-Layout UX Duality, Offline Supermarket Reliability, Household Multi-Tenant Multi-Language Isolation
 - **Scope:** Full-Stack (Database Schema, TypeScript Types, State Management, Frontend UI & Design System)

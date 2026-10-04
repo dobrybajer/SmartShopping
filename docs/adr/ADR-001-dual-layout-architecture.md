@@ -1,7 +1,7 @@
 # ADR-001: Dual Layout Architecture (Desktop Split & Mobile PWA)
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-23
 - **Decision Drivers:** Ergonomic in-store mobile usage, high-efficiency desktop meal planning, zero business logic duplication.
 - **Scope:** Full-Stack Frontend & UX

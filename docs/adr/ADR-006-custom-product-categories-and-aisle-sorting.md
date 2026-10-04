@@ -1,7 +1,7 @@
 # ADR-006: Custom Product Categories, Household Overrides & Store Aisle Sorting
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-26
 - **Decision Drivers:** Household Personalization, Supermarket Aisle Optimization, Multi-Tenant Data Isolation, Non-Destructive Global Catalog, Offline-Resilient Optimistic Reordering
 - **Scope:** Full-Stack (PostgreSQL / Supabase RLS, Zustand State, UI Components, Calculation Engine & Service Layer)

@@ -119,10 +119,10 @@ flowchart TD
 ALTER TABLE public.product_categories 
 ADD COLUMN IF NOT EXISTS is_non_food BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Update seeded categories: 7 ('Chemia i Dom') and 8 ('Inne') are non-food
+-- Update seeded categories: 7 ('household') and 8 ('other') are non-food
 UPDATE public.product_categories
 SET is_non_food = TRUE
-WHERE id IN (7, 8) OR LOWER(name) LIKE '%chemia%' OR LOWER(name) LIKE '%dom%';
+WHERE id IN (7, 8) OR LOWER(name) IN ('household', 'other');
 
 -- 2. Extend shopping_list_items with in_pantry status flag
 ALTER TABLE public.shopping_list_items 
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS public.pantry_items (
   ad_hoc_name TEXT NULL,
   category_id INT REFERENCES public.product_categories(id) ON DELETE SET NULL,
   quantity NUMERIC NOT NULL DEFAULT 1 CHECK (quantity >= 0),
-  unit_type public.unit_enum NOT NULL DEFAULT 'szt',
+  unit_type public.unit_enum NOT NULL DEFAULT 'pcs',
   last_purchased_at TIMESTAMPTZ NULL,
   last_verified_at TIMESTAMPTZ NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -222,17 +222,25 @@ export type FreshnessLevel = 'fresh' | 'medium' | 'old' | 'unknown'
 
 export interface FreshnessCalculationResult {
   level: FreshnessLevel
-  colorClass: string // 'text-emerald-500', 'text-amber-500', 'text-rose-500'
+  colorClass: string // 'text-emerald-500', 'text-amber-500', 'text-rose-500', 'text-muted-foreground'
   badgeBgClass: string
   daysSincePurchase: number | null
   messageKey: string
-  formattedMessage: string
+  translationParams: {
+    productName: string
+    quantity: string
+    date: string
+    verifiedDate?: string
+  }
 }
 
 /**
  * Evaluates purchase recency against category threshold rules:
  * - Food: <3 days (Green), 3-7 days (Orange), >7 days (Red)
- * - Non-Food / Chemistry: <14 days (Green), 14-28 days (Orange), >28 days (Red)
+ * - Non-Food / Household: <14 days (Green), 14-28 days (Orange), >28 days (Red)
+ *
+ * Adheres strictly to ADR-003 English purity: pure calculations emit semantic keys
+ * and raw interpolation parameters, delegating localized string formatting to the UI layer.
  */
 export function calculatePantryFreshness(
   lastPurchasedAt: string | null | undefined,
@@ -248,15 +256,19 @@ export function calculatePantryFreshness(
       colorClass: 'text-muted-foreground',
       badgeBgClass: 'bg-muted',
       daysSincePurchase: null,
-      messageKey: 'pantry.statusUnknown',
-      formattedMessage: `Produkt ${productName} znajduje się w spiżarni.`
+      messageKey: 'pantry.freshness.unknown',
+      translationParams: {
+        productName,
+        quantity: quantityStr,
+        date: ''
+      }
     }
   }
 
   const purchaseDate = new Date(lastPurchasedAt)
   const diffMs = now.getTime() - purchaseDate.getTime()
   const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
-  const formattedDate = purchaseDate.toLocaleDateString('pl-PL')
+  const formattedDate = purchaseDate.toISOString().split('T')[0]
 
   let level: FreshnessLevel = 'fresh'
 
@@ -292,18 +304,14 @@ export function calculatePantryFreshness(
       ? 'bg-amber-500/10 border-amber-500/30'
       : 'bg-rose-500/10 border-rose-500/30'
 
-  let text = ''
-  if (level === 'fresh') {
-    text = `Dnia ${formattedDate} zakupiono ${productName} (${quantityStr}), sprawdź czy przypadkiem nie masz jeszcze tego produktu`
-  } else if (level === 'medium') {
-    text = `Dnia ${formattedDate} zakupiono ${productName} (${quantityStr}), możliwe że masz jeszcze ten produkt`
-  } else {
-    text = `Dnia ${formattedDate} zakupiono ${productName} (${quantityStr}), prawdopodobnie nie masz jeszcze tego produktu`
+  const translationParams: FreshnessCalculationResult['translationParams'] = {
+    productName,
+    quantity: quantityStr,
+    date: formattedDate
   }
 
   if (lastVerifiedAt) {
-    const verifiedDate = new Date(lastVerifiedAt).toLocaleDateString('pl-PL')
-    text += ` (Aktualizacja: ${verifiedDate})`
+    translationParams.verifiedDate = new Date(lastVerifiedAt).toISOString().split('T')[0]
   }
 
   return {
@@ -312,7 +320,35 @@ export function calculatePantryFreshness(
     badgeBgClass,
     daysSincePurchase: diffDays,
     messageKey: `pantry.freshness.${level}`,
-    formattedMessage: text
+    translationParams
+  }
+}
+```
+
+#### 5.3.1 i18n Translation Catalog Schema (`src/i18n/locales/`)
+
+To guarantee multi-language parity without hardcoding strings in logic files:
+
+```typescript
+// en.ts
+pantry: {
+  freshness: {
+    fresh: "Purchased on {{date}}: {{productName}} ({{quantity}}). Check if you still have this item at home.",
+    medium: "Purchased on {{date}}: {{productName}} ({{quantity}}). You might still have this item at home.",
+    old: "Purchased on {{date}}: {{productName}} ({{quantity}}). You probably don't have this item at home anymore.",
+    unknown: "{{productName}} is in the pantry.",
+    verifiedSuffix: " (Updated: {{verifiedDate}})"
+  }
+}
+
+// pl.ts
+pantry: {
+  freshness: {
+    fresh: "Dnia {{date}} zakupiono {{productName}} ({{quantity}}), sprawdź czy przypadkiem nie masz jeszcze tego produktu",
+    medium: "Dnia {{date}} zakupiono {{productName}} ({{quantity}}), możliwe że masz jeszcze ten produkt",
+    old: "Dnia {{date}} zakupiono {{productName}} ({{quantity}}), prawdopodobnie nie masz jeszcze tego produktu",
+    unknown: "Produkt {{productName}} znajduje się w spiżarni.",
+    verifiedSuffix: " (Aktualizacja: {{verifiedDate}})"
   }
 }
 ```
@@ -340,14 +376,16 @@ export function calculatePantryFreshness(
 2. **Modal Presentation:**
    - On Mobile PWA: Native swipe-down bottom sheet (`Sheet`).
    - On Desktop: Centered dialog modal (`Dialog`).
-3. **Modal Contents:**
-   - Informative recency text according to the category rules.
+3. **Modal Contents & Actions:**
+   - Informative recency text according to the category rules and i18n catalog.
    - Stepper / input prefilled with current pantry quantity.
-   - Button **"Mam produkt"**:
+   - Button **"Mam całość" (Full Coverage)**:
      - Updates pantry stock with the input quantity and stamps `last_verified_at = NOW()`.
      - In Cart (`DraftView`): Completely removes the product from draft cart.
      - In Active List (`ActiveListView`): Sets `in_pantry = true` on the item. The item transforms visually to a distinctive state (amber/cyan dashed strikethrough, badge `W spiżarni`, opacity 55%, quantity stepper locked).
-     - Updates the modal text with `Aktualizacja: dd.mm.yyyy`.
+   - Button **"Mam częściowo" (Partial Coverage)**:
+     - Enabled when pantry stock is less than list/draft requirement (e.g., list needs 500g, pantry has 200g).
+     - Automatically reduces the quantity to buy to the remaining difference (500g - 200g = 300g), keeps the item active on the list, and records `last_verified_at = NOW()` on the pantry item.
    - Button **"Nie mam produktu"**:
      - Deletes the product entry from `pantry_items`.
      - The `Warehouse` icon disappears immediately from Cart / Active List.
@@ -360,6 +398,29 @@ When `shoppingListService.archiveActiveList(listId, householdId)` is invoked:
    - If the product already exists: `quantity = existing_quantity + purchased_quantity`, `last_purchased_at = NOW()`.
    - If the product is new: inserted with `quantity = purchased_quantity`, `last_purchased_at = NOW()`.
 
+#### 5.4.4 Manual Product Addition Flow & Duplicate Handling (`PantryView`)
+To support friction-free inventory management without requiring shopping trips:
+1. **Entry Point:**
+   - A prominent "Dodaj do spiżarni" (`Add to Pantry`) button in the header and sticky floating action button in `PantryView` (Mobile) and `DesktopPantryView` (Desktop).
+2. **Modal Form (`AddPantryItemSheet` / `AddPantryItemDialog`):**
+   - **Catalog-First Selection:** Real-time search against the `products` catalog (displaying name, category badge, and default unit).
+   - **Catalog Integrity:** If a product does not exist, an inline action ("+ Nowy produkt") opens the standard `CreateProductDialog` / `AddProductSheet`. Once created, it is automatically selected, ensuring referential integrity and accurate macro/category associations.
+   - **Duplicate Detection & Smart Merge:**
+     - If the chosen product is already present in `pantry_items` (e.g. current stock: 500g):
+     - Displays an informational banner: `W spiżarni: 500g`.
+     - Action 1 (Default): "Zwiększ stan (+X)" -> `quantity = current_stock + added_quantity`.
+     - Action 2: "Ustaw dokładnie (X)" -> `quantity = added_quantity`.
+   - **Zero-Friction Dates:**
+     - Both `last_purchased_at` and `last_verified_at` are automatically set to `NOW()`. No complex date pickers cluttering the UI.
+
+#### 5.4.5 Pantry View Layout, Grouping & Category Sorting
+1. **Aisle Consistency (ADR-006 Integration):**
+   - Products in `PantryView` and `DesktopPantryView` are grouped by `category_id` and ordered by the household's resolved supermarket aisle order (`household_category_settings` / `custom_sort_order`).
+2. **Search & Filter:**
+   - Horizontal category filter chips at the top and real-time text search.
+3. **Card Ergonomics:**
+   - Touch-friendly quantity steppers (+ / -) directly on cards for instant stock increments/decrements in the kitchen.
+
 ---
 
 ## 6. Comprehensive Edge Cases & Mitigation Matrix
@@ -367,12 +428,13 @@ When `shoppingListService.archiveActiveList(listId, householdId)` is invoked:
 | # | Scenario / Edge Case | Risk | Architectural Mitigation |
 | :- | :--- | :--- | :--- |
 | **1** | **Accidental "Mam produkt" click on active list** | Shopper marked item as "in pantry" by mistake and might forget to buy it. | **Full reversibility:** Clicking the item row or pantry badge re-opens the modal with an option: "Przywróć do kupienia" (sets `in_pantry = false`). |
-| **2** | **Ad-Hoc items without `product_id`** | Items added manually in the aisle (e.g. "Specjalny pędzel malarski"). | `pantry_items` supports `ad_hoc_name` and `category_id`. Deduplication and lookups match on normalized `LOWER(TRIM(ad_hoc_name))`. |
+| **2** | **Product catalog integrity & legacy ad-hoc items** | Uncatalogued items causing schema divergence. | Manual addition requires selection from `products` catalog. Schema retains `ad_hoc_name` as a fallback for legacy items migrated from old ad-hoc lists. |
 | **3** | **Spotty supermarket cellular network (3G/Drop)** | User clicks "Mam produkt" while entering a cold-storage aisle with zero signal. | **Optimistic mutation:** Item is immediately updated in local Zustand state. The request is dispatched asynchronously. If it fails, toast notification triggers and state rolls back safely. |
 | **4** | **Simultaneous multi-family edits** | User A at home reduces milk in pantry to 0 while User B in store checks the active list. | Supabase Realtime channel broadcasts table changes; `usePantryStore.syncFromRealtime` updates `pantryMapByProductId` instantly. User B's icon updates live. |
 | **5** | **6 tabs in mobile bottom navigation** | Ergonomic crowding and text truncation on compact mobile screens (360px–375px). | Mobile bar applies compact layout: concise labels (`Przepisy`, `Produkty`, `Koszyk`, `Lista`, `Historia`, `Spiżarnia`), 10px typography, 48px touch targets, and icons only if screen width < 360px. |
-| **6** | **Unit mismatch between recipe/list and pantry** | Product in pantry is stored in pieces ('szt'), but list item is in grams ('g'). | Units are anchored to catalog product master `unit_type`. For ad-hoc items, the unit is preserved from the original shopping list entry. |
+| **6** | **Unit mismatch between recipe/list and pantry** | Product in pantry is stored in pieces ('pcs'), but list item is in grams ('g'). | Units are anchored to catalog product master `unit_type`. For legacy ad-hoc items, the unit is preserved from the original shopping list entry. |
 | **7** | **Zero or negative quantity input** | User sets pantry quantity to `0` in the "Mam produkt" input. | Submitting `0` automatically triggers the "Nie mam produktu" flow (removes from pantry and clears icon). |
+| **8** | **Partial stock coverage (e.g. 500g needed, 200g in pantry)** | User is forced into all-or-nothing decision, leading to buying either too much or too little. | **"Mam częściowo" option:** Modal calculates remaining delta (500g - 200g = 300g) and automatically adjusts quantity on the list while updating pantry verification date. |
 
 ---
 

@@ -1,7 +1,7 @@
 # ADR-004: Theme System, Semantic Design Tokens & Multi-Tier Visual Customization
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-24
 - **Decision Drivers:** OLED Battery Optimization, Semantic Token Architecture, Co-Equal Dual Layout UX, Offline Supermarket Resilience, Zero-FOUC Instant Boot, Per-User Personalization Isolation
 - **Scope:** Full-Stack (Database Schema, TypeScript Types, State Management, CSS Architecture, Frontend Design System)

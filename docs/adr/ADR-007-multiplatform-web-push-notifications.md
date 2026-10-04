@@ -1,7 +1,7 @@
 # ADR-007: Multiplatform Web Push Notifications & Extensible Event Registry
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-27
 - **Decision Drivers:** Multiplatform Background Alerts (Mobile PWA & Desktop), Zero-Lock-In Open Web Standards (VAPID Web Push), Extensible Event Registry (Type-Safe Event Bus), Household Multi-Tenant Data Isolation (Supabase RLS), High-Frequency Action Throttling & Pruning, Future-Proof Path to Persistent History & Notification Center
 - **Scope:** Full-Stack (PostgreSQL Schema, Supabase RLS, Supabase Edge Functions, Service Worker, Zustand State, Service Layer & UI Components)

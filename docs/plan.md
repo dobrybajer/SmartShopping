@@ -141,7 +141,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Testy jednostkowe walidatora motywów i tokenów (`src/theme/__tests__/theme.test.ts`).
    * Testy integracyjne RTL dla Desktop i Mobile PWA (`AccountDetailsTheme.test.tsx`).
 
-## Faza 10: Wielolistowość i Elastyczny Transfer z Koszyka (Zaplanowana / Do Wdrożenia)
+## Faza 10: Wielolistowość i Elastyczny Transfer z Koszyka (Zakończona)
 **Cel:** Wsparcie wielu równorzędnych aktywnych list zakupowych (np. spożywcze vs dom), inteligentny transfer z koszyka oraz szybkie przełączanie. Zobacz [ADR-005](./adr/ADR-005-multiple-active-shopping-lists.md).
 
 1. **Baza Danych & Schemat:**

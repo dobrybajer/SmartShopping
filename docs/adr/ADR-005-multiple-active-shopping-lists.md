@@ -1,7 +1,7 @@
 # ADR-005: Multiple Concurrent Active Shopping Lists & Smart Cart Transfer Architecture
 
 ## 1. Metadata
-- **Status:** Accepted
+- **Status:** Implemented
 - **Date:** 2026-08-26
 - **Decision Drivers:** Multi-List Domain Modeling, PWA Dual Layout Ergonomics, Real-time Multi-tenant Synchronization, Offline-Resilient Merging Logic
 - **Scope:** Full-Stack (PostgreSQL / Supabase RLS, Zustand State, UI Components & Service Layer)

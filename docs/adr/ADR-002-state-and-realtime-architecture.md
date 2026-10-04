@@ -1,7 +1,7 @@
 # ADR-002: State Management, Services & Realtime Optimistic UI
 
 ## Status
-Accepted
+Implemented
 
 ## Context
 SmartShopping requires instantaneous UI feedback when checking off items in a physical grocery aisle (low/spotty connectivity) alongside real-time synchronization across multiple household members shopping concurrently.
