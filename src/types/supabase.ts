@@ -438,6 +438,7 @@ export interface Database {
           added_ad_hoc: boolean | null
           category_id?: number | null
           in_pantry: boolean | null
+          meal_plan_item_id?: string | null
         }
         Insert: {
           id?: string
@@ -448,6 +449,7 @@ export interface Database {
           added_ad_hoc?: boolean | null
           category_id?: number | null
           in_pantry?: boolean | null
+          meal_plan_item_id?: string | null
         }
         Update: {
           id?: string
@@ -458,6 +460,7 @@ export interface Database {
           added_ad_hoc?: boolean | null
           category_id?: number | null
           in_pantry?: boolean | null
+          meal_plan_item_id?: string | null
         }
         Relationships: [
           {
@@ -479,6 +482,13 @@ export interface Database {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_meal_plan_item_id_fkey"
+            columns: ["meal_plan_item_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
             referencedColumns: ["id"]
           }
         ]
@@ -594,6 +604,76 @@ export interface Database {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      meal_plans: {
+        Row: {
+          id: string
+          household_id: string
+          date: string
+          meal_id: string | null
+          meal_category_id: number | null
+          custom_name: string | null
+          is_ad_hoc: boolean
+          servings: number
+          target_kcal: number | null
+          notes: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          date: string
+          meal_id?: string | null
+          meal_category_id?: number | null
+          custom_name?: string | null
+          is_ad_hoc?: boolean
+          servings?: number
+          target_kcal?: number | null
+          notes?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          date?: string
+          meal_id?: string | null
+          meal_category_id?: number | null
+          custom_name?: string | null
+          is_ad_hoc?: boolean
+          servings?: number
+          target_kcal?: number | null
+          notes?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plans_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plans_meal_category_id_fkey"
+            columns: ["meal_category_id"]
+            isOneToOne: false
+            referencedRelation: "meal_categories"
             referencedColumns: ["id"]
           }
         ]

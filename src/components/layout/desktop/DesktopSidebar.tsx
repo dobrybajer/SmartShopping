@@ -20,7 +20,8 @@ import {
   Laptop,
   Smartphone,
   SlidersHorizontal,
-  Warehouse
+  Warehouse,
+  Calendar
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -83,6 +84,12 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       label: t('navigation.cookbook'),
       description: t('cookbook.subtitle'),
       icon: BookOpen
+    },
+    {
+      id: 'calendar',
+      label: t('navigation.calendar'),
+      description: t('calendar.title'),
+      icon: Calendar
     },
     {
       id: 'products',

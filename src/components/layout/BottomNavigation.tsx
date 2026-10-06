@@ -1,9 +1,9 @@
 import React from 'react'
-import { BookOpen, Package, ShoppingCart, CheckSquare, History, Warehouse } from 'lucide-react'
+import { BookOpen, Package, ShoppingCart, CheckSquare, History, Warehouse, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n'
 
-export type TabType = 'cookbook' | 'products' | 'draft' | 'active' | 'history' | 'pantry'
+export type TabType = 'cookbook' | 'calendar' | 'products' | 'draft' | 'active' | 'history' | 'pantry'
 
 interface BottomNavigationProps {
   activeTab: TabType
@@ -32,6 +32,11 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
       id: 'cookbook',
       label: t('navigation.cookbook'),
       icon: BookOpen
+    },
+    {
+      id: 'calendar',
+      label: t('navigation.calendar'),
+      icon: Calendar
     },
     {
       id: 'products',
@@ -84,7 +89,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             key={item.id}
             onClick={() => handleSelect(item.id)}
             className={cn(
-              "flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1 max-w-[64px]",
+              "flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1 max-w-[56px]",
               isActive
                 ? "text-primary font-semibold"
                 : "text-muted-foreground hover:text-foreground"

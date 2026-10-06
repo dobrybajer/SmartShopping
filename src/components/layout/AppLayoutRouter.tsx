@@ -8,6 +8,7 @@ import type { TabType } from '@/components/layout/BottomNavigation'
 import { MobileLayout } from '@/components/layout/MobileLayout'
 import { CookbookView } from '@/components/views/CookbookView'
 import { ProductsView } from '@/components/views/ProductsView'
+import { CalendarView } from '@/components/views/CalendarView'
 import { DraftView } from '@/components/views/DraftView'
 import { ActiveListView } from '@/components/views/ActiveListView'
 import { HistoryView } from '@/components/views/HistoryView'
@@ -17,6 +18,7 @@ import { PantryView } from '@/components/views/PantryView'
 import { DesktopLayout } from '@/components/layout/desktop/DesktopLayout'
 import { DesktopCookbookView } from '@/components/layout/desktop/views/DesktopCookbookView'
 import { DesktopProductsView } from '@/components/layout/desktop/views/DesktopProductsView'
+import { DesktopCalendarView } from '@/components/layout/desktop/views/DesktopCalendarView'
 import { DesktopDraftView } from '@/components/layout/desktop/views/DesktopDraftView'
 import { DesktopActiveListView } from '@/components/layout/desktop/views/DesktopActiveListView'
 import { DesktopHistoryView } from '@/components/layout/desktop/views/DesktopHistoryView'
@@ -29,7 +31,7 @@ export const AppLayoutRouter: React.FC = () => {
   const [activeTab, setActiveTabState] = useState<TabType>(() => {
     try {
       const saved = localStorage.getItem('smartshopping_active_tab') as TabType
-      if (saved && ['cookbook', 'products', 'draft', 'active', 'history', 'pantry'].includes(saved)) {
+      if (saved && ['cookbook', 'calendar', 'products', 'draft', 'active', 'history', 'pantry'].includes(saved)) {
         return saved
       }
     } catch {
@@ -51,6 +53,8 @@ export const AppLayoutRouter: React.FC = () => {
     switch (tab) {
       case 'cookbook':
         return t('navigation.cookbook')
+      case 'calendar':
+        return t('navigation.calendar')
       case 'products':
         return t('navigation.products')
       case 'draft':
@@ -80,6 +84,7 @@ export const AppLayoutRouter: React.FC = () => {
         onLayoutModeChange={setLayoutMode}
       >
         {activeTab === 'cookbook' && <DesktopCookbookView />}
+        {activeTab === 'calendar' && <DesktopCalendarView />}
         {activeTab === 'products' && <DesktopProductsView />}
         {activeTab === 'draft' && (
           <DesktopDraftView onActiveListCreated={() => setActiveTab('active')} />
@@ -100,6 +105,7 @@ export const AppLayoutRouter: React.FC = () => {
       draftCount={draftItems.length}
     >
       {activeTab === 'cookbook' && <CookbookView />}
+      {activeTab === 'calendar' && <CalendarView />}
       {activeTab === 'products' && <ProductsView />}
       {activeTab === 'draft' && (
         <DraftView onActiveListCreated={() => setActiveTab('active')} />

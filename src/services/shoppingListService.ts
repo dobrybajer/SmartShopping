@@ -412,7 +412,8 @@ export const shoppingListService = {
             total_quantity: item.total_quantity,
             is_checked: false,
             added_ad_hoc: item.added_ad_hoc,
-            category_id: item.category_id || null
+            category_id: item.category_id || null,
+            meal_plan_item_id: item.meal_plan_item_id || null
           })
         }
       }
@@ -820,7 +821,8 @@ export const shoppingListService = {
           total_quantity: item.quantity,
           is_checked: false,
           added_ad_hoc: item.is_ad_hoc,
-          category_id: item.category_id || null
+          category_id: item.category_id || null,
+          meal_plan_item_id: item.meal_plan_item_id || null
         })
       }
     }

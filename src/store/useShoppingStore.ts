@@ -41,6 +41,7 @@ export interface DraftItem {
   is_ad_hoc: boolean
   is_pantry_item?: boolean
   meal_source?: string
+  meal_plan_item_id?: string | null
 }
 
 export interface AddToDraftPayload {
@@ -53,6 +54,7 @@ export interface AddToDraftPayload {
   quantity: number
   is_ad_hoc?: boolean
   meal_source?: string
+  meal_plan_item_id?: string | null
 }
 
 interface ShoppingStoreState {
@@ -220,10 +222,11 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const key = state.activeHouseholdId || 'default'
         const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
         const isAdHoc = !!item.is_ad_hoc || !item.product_id
+        const targetPlanId = item.meal_plan_item_id || null
 
         if (!isAdHoc && item.product_id) {
           const existingIndex = currentDraft.findIndex(
-            (d) => d.product_id === item.product_id && !d.is_ad_hoc
+            (d) => d.product_id === item.product_id && !d.is_ad_hoc && (d.meal_plan_item_id || null) === targetPlanId
           )
 
           if (existingIndex >= 0) {
@@ -234,7 +237,9 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
               category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
               category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
+              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
+              meal_source: existing.meal_source || item.meal_source,
+              meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
             }
           } else {
             currentDraft.push({
@@ -247,12 +252,13 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               sort_order: item.sort_order ?? 99,
               quantity: item.quantity,
               is_ad_hoc: false,
-              meal_source: item.meal_source
+              meal_source: item.meal_source,
+              meal_plan_item_id: targetPlanId
             })
           }
         } else {
           const existingIndex = currentDraft.findIndex(
-            (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type
+            (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type && (d.meal_plan_item_id || null) === targetPlanId
           )
 
           if (existingIndex >= 0) {
@@ -263,7 +269,9 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
               category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
               category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
+              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
+              meal_source: existing.meal_source || item.meal_source,
+              meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
             }
           } else {
             currentDraft.push({
@@ -276,7 +284,8 @@ export const useShoppingStore = create<ShoppingStoreState>()(
               sort_order: item.sort_order ?? 99,
               quantity: item.quantity,
               is_ad_hoc: true,
-              meal_source: item.meal_source
+              meal_source: item.meal_source,
+              meal_plan_item_id: targetPlanId
             })
           }
         }
@@ -297,10 +306,11 @@ export const useShoppingStore = create<ShoppingStoreState>()(
 
         for (const item of items) {
           const isAdHoc = !!item.is_ad_hoc || !item.product_id
+          const targetPlanId = item.meal_plan_item_id || null
 
           if (!isAdHoc && item.product_id) {
             const existingIndex = currentDraft.findIndex(
-              (d) => d.product_id === item.product_id && !d.is_ad_hoc
+              (d) => d.product_id === item.product_id && !d.is_ad_hoc && (d.meal_plan_item_id || null) === targetPlanId
             )
 
             if (existingIndex >= 0) {
@@ -311,7 +321,9 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
                 category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
                 category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
+                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
+                meal_source: existing.meal_source || item.meal_source,
+                meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
               }
             } else {
               currentDraft.push({
@@ -324,12 +336,13 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 sort_order: item.sort_order ?? 99,
                 quantity: item.quantity,
                 is_ad_hoc: false,
-                meal_source: item.meal_source
+                meal_source: item.meal_source,
+                meal_plan_item_id: targetPlanId
               })
             }
           } else {
             const existingIndex = currentDraft.findIndex(
-              (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type
+              (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type && (d.meal_plan_item_id || null) === targetPlanId
             )
 
             if (existingIndex >= 0) {
@@ -340,7 +353,9 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
                 category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
                 category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order
+                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
+                meal_source: existing.meal_source || item.meal_source,
+                meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
               }
             } else {
               currentDraft.push({
@@ -353,7 +368,8 @@ export const useShoppingStore = create<ShoppingStoreState>()(
                 sort_order: item.sort_order ?? 99,
                 quantity: item.quantity,
                 is_ad_hoc: true,
-                meal_source: item.meal_source
+                meal_source: item.meal_source,
+                meal_plan_item_id: targetPlanId
               })
             }
           }
