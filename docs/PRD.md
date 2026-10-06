@@ -151,11 +151,33 @@ CREATE TABLE push_subscriptions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_used_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE meal_plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  meal_id UUID REFERENCES meals(id) ON DELETE CASCADE,
+  meal_category_id INT REFERENCES meal_categories(id) ON DELETE SET NULL,
+  custom_name TEXT,
+  is_ad_hoc BOOLEAN NOT NULL DEFAULT FALSE,
+  servings NUMERIC NOT NULL DEFAULT 1,
+  target_kcal NUMERIC,
+  notes TEXT,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 ```
 
 ## 5. Opis Biznesowy Funkcjonalności
 *   **Baza Potraw (CRUD):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw.
 *   **Zarządzanie Makro i Skalowanie:** Produkty definiują makro na 100g/100ml lub 1 sztukę. Przy dodawaniu posiłku użytkownik określa docelową kaloryczność, co automatycznie wylicza mnożnik dla proporcjonalnej ilości składników.
+*   **Moduł Kalendarza i Planowania Posiłków (ADR-009):**
+    *   **3 Perspektywy Czasowe:** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (kategorie posiłków, pełne makro B/W/T, lista składników).
+    *   **Synchronizacja z Procesem Zakupowym:** Śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`).
+    *   **Wykrywanie Niepewności (⚠️):** Jeśli jakikolwiek składnik dania zostanie usunięty z koszyka lub listy przed zakupem, pojawia się wskaźnik niepewności z możliwością podglądu braków i natychmiastowego ich przywrócenia jednym kliknięciem.
+    *   **Elastyczność i Skalowanie:** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc oraz duplikowanie posiłku na kolejny dzień.
+    *   **Tryb Archiwalny:** Przeszłe dni są zablokowane do edycji (tylko do odczytu) z trwałym oznaczeniem zrealizowanych posiłków.
 *   **Wiele Aktywnych List Zakupowych i Elastyczny Transfer z Koszyka (ADR-005):**
     *   Gospodarstwo domowe może posiadać jednocześnie wiele aktywnych list zakupowych (np. *"Bieżące spożywcze"*, *"Dom / Majsterkowanie"*, *"Apteka"*).
     *   W Koszyku (Draft) użytkownik może przenieść zaznaczone pozycje do istniejącej aktywnej listy (z automatycznym sumowaniem ilości i resetem stanu odhaczenia) LUB utworzyć zupełnie nową aktywną listę bez archiwizowania pozostałych.

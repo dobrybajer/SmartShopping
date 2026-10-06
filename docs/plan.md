@@ -259,7 +259,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * 2 testy integracji skrótu i nagłówka w `DesktopLayoutShortcut.test.tsx`.
    * Komplet testów zielony (183 passed), zero błędów oxlint i zero błędów `tsc -b`.
 
-## Faza 14: Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008) (Zakończona - Fazy 1-3)
+## Faza 14: Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008) (Zakończona w całości)
 **Cel:** Zapobieganie dublowaniu zakupów oraz marnowaniu żywności poprzez dedykowany moduł inwentarza domowego (Spiżarnia), automatyczne zasilanie z archiwizowanych list zakupów, wskaźniki świeżości (3-7 dni dla żywności, 2-4 tyg dla chemii) z modalem weryfikacji w Koszyku i na Aktywnej Liście oraz synchronizację Realtime. Zobacz [ADR-008](./adr/ADR-008-pantry-management-and-inventory-sync.md).
 
 1. **Baza Danych & RLS (Supabase):**
@@ -296,8 +296,49 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Responsywne okno dodawania artykułów `AddPantryItemDialog` (Mobile Sheet / Desktop Dialog) z wyszukiwarką katalogową `ProductAutocomplete`, automatycznym wykrywaniem duplikatów (*"Zwiększ stan (+X)"* vs *"Ustaw dokładnie (X)"*) oraz auto-rejestracją w katalogu.
    * Widoki magazynu domowego `PantryView.tsx` (Mobile) oraz `DesktopPantryView.tsx` (Desktop) z podziałem na alejki sklepowe (`groupItemsByAisle`), filtrem kategorii, wyszukiwarką, inline steperami ilości i statystykami świeżości.
    * Nowa, 6. zakładka w dolnym pasku nawigacyjnym `BottomNavigation.tsx` (Mobile PWA) zoptymalizowana pod ekrany 360px (etykiety 10px, strefa dotyku 48px) oraz 6. pozycja w bocznym menu `DesktopSidebar.tsx` (Desktop).
-7. **Testy i Jakość:**
-   * 37 pakietów testowych Vitest (241 testów) zakończonych wynikiem 100% pass (w tym `pantryCalculations.test.ts`, `usePantryStore.test.ts`, `PantryView.test.tsx`).
+7. **Integracja z Przepisami i Produktami (Faza 4 z ADR-008):**
+   * **Katalog Produktów (`ProductsView.tsx` i `DesktopProductsView.tsx`):**
+     * Odznaka stanu magazynowego przy każdym produkcie w katalogu: wyświetlanie aktualnego stanu w spiżarni z kolorowym indykatorem świeżości (zielony/pomarańczowy/czerwony dot zależny od daty weryfikacji i typu kategorii food/non-food).
+     * Przycisk szybkiej akcji `Warehouse` na karcie produktu: otwiera `AddPantryItemDialog` z wstępnie wybranym produktem (`initialProduct`), umożliwiając błyskawiczne zasilenie stanu magazynowego z poziomu bazy artykułów.
+   * **Przepiśnik i Posiłki (`CookbookView.tsx` i `DesktopCookbookView.tsx`):**
+     * Analiza dostępności składników w spiżarni w czasie rzeczywistym dla każdego przepisu: porównanie `meal_ingredients` ze stanem w `pantryMapByProductId`.
+     * Odznaki dostępności: zielona *"Wszystkie składniki w spiżarni"* (100% pokrycia) lub bursztynowa *"{count}/{total} składników w spiżarni"*.
+   * **Szczegóły Przepisu (`MealDetailsSheet.tsx`):**
+     * Dynamiczne badże dostępności przy każdym składniku przepisu: zielona odznaka *"Dostępne w spiżarni: {qty} {unit}"* (przy pełnym pokryciu) lub bursztynowa *"Częściowo w spiżarni: {qty} {unit}"* (przy częściowym pokryciu).
+   * **Globalna Synchronizacja Realtime (`App.tsx`):**
+     * Podpięcie hooka `usePantryRealtime(household?.id ?? null, () => usePantryStore.getState().syncFromRealtime())` w głównym drzewie aplikacji – natychmiastowe odzwierciedlanie zmian w stanach spiżarni na wszystkich sparowanych urządzeniach we wszystkich widokach bez dublowania subskrypcji WebSocket.
+8. **Testy i Jakość:**
+   * 39 pakietów testowych Vitest (245 testów) zakończonych wynikiem 100% pass (w tym `pantryCalculations.test.ts`, `usePantryStore.test.ts`, `PantryView.test.tsx`, `CookbookView.test.tsx` oraz `ProductsView.test.tsx`).
    * Czysty build i linter `oxlint` (0 błędów).
    * Rygorystyczny typecheck TypeScript `tsc -b` bez żadnych błędów ani użycia typu `any`.
-   *(Uwaga: Faza 4 z ADR-008 – odznaki stanów magazynowych w Przepiśniku i katalogu produktów – zaplanowana do realizacji w kolejnym kroku).*
+
+## Faza 15: Moduł Kalendarza i Planowania Posiłków (ADR-009)
+**Cel:** Pełnowymiarowy kalendarz planowania posiłków z trzema perspektywami (Miesiąc, Tydzień roboczy/pełny, Dzień z podziałem na kategorie i makro), bezpośrednią synchronizacją z procesem zakupowym (Koszyk -> Aktywna lista -> Kupione), wykrywaniem niepewności (⚠️) przy brakujących składnikach, uwzględnianiem zapasów ze Spiżarni oraz zablokowanym trybem archiwalnym dla przeszłości. Zobacz [ADR-009](./adr/ADR-009-meal-planning-and-calendar-module.md).
+
+1. **Baza Danych & RLS (Supabase):**
+   * Migracja PostgreSQL `supabase/migrations/20261007000000_add_calendar_meal_plans.sql`:
+     * Tabela `public.meal_plans` (`id`, `household_id`, `date`, `meal_id`, `meal_category_id`, `custom_name`, `is_ad_hoc`, `servings`, `target_kcal`, `notes`, `sort_order`, `created_at`, `updated_at`).
+     * Dodanie kolumny `meal_plan_item_id UUID REFERENCES meal_plans(id) ON DELETE SET NULL` do `shopping_list_items`.
+     * Indeksy B-tree na `(household_id, date)`, `(household_id, meal_id)` oraz `meal_plan_item_id`.
+     * Kompletne polityki RLS (SELECT, INSERT, UPDATE, DELETE) ograniczone do domowników (`public.get_user_household_ids(auth.uid())`).
+     * Włączenie replikacji Supabase Realtime dla `meal_plans`.
+   * Aktualizacja typów TypeScript w `src/types/supabase.ts` oraz view modeli domenowych w `src/types/calendar.ts`.
+2. **Czyste Funkcje Kalkulacji (`src/lib/calculations/calendarStatus.ts`):**
+   * Funkcja `calculateMealPlanStatus`: wyliczenie statusu (`planned`, `in_draft`, `in_list`, `bought`, `uncertain`) na podstawie obecności składników w Spiżarni, Koszyku oraz Aktywnej Liście.
+   * Funkcja `calculateDayMacros`: sumowanie kalorii, białka, węglowodanów i tłuszczów w danym dniu ze skalowaniem porcji.
+   * Funkcja `generateDraftItemsFromMealPlan`: generowanie pozycji `AddToDraftPayload` z referencją do kalendarza.
+3. **Warstwa Serwisów & Stanu (Zustand):**
+   * Serwis `mealPlanService.ts` obsługujący CRUD posiłków w kalendarzu, pobieranie zakresu dat, duplikację na kolejny dzień oraz transfer składników do koszyka.
+   * Store `useMealPlanStore.ts` z Optimistic UI, auto-rollbackiem przy błędzie sieci oraz subskrypcją Realtime dla domowników.
+4. **Komponenty i Dual Layout:**
+   * Nawigacja: 7. zakładka w `BottomNavigation.tsx` (Mobile) z dopasowaniem pod ekrany 360px+ oraz 7. pozycja w `DesktopSidebar.tsx` (Desktop).
+   * Widoki kalendarza:
+     * **Miesiąc:** siatka 7 kolumn (Pn-Nd) z kropkami statusów, zwięzłą liczbą kalorii i płynnym przejściem do dnia po kliknięciu.
+     * **Tydzień:** przełącznik Pn-Pt (roboczy) vs Pn-Nd (pełny); na mobile wertykalna lista kart dni z nagłówkami; na desktopie siatka kolumnowa.
+     * **Dzień:** pasek makroskładników (kcal, B/W/T), sekcje kategorii posiłków, składniki, integracja ze spiżarnią, przycisk transferu do koszyka oraz popup/sheet "Niepewność" (⚠️) z przywróceniem brakujących produktów.
+     * **Archiwum:** przeszłe dni zablokowane do edycji (tylko do odczytu) z trwałymi oznaczeniami ukończenia.
+   * Dialogi / Sheety: `AddCalendarMealDialog` / `AddCalendarMealSheet` (wybór z Przepiśnika lub Ad-Hoc, skalowanie porcji).
+5. **Testy i Weryfikacja Jakości:**
+   * 100% pokrycia testami czystych funkcji kalkulacji statusów i makro (`calendarStatus.test.ts`).
+   * Testy integracyjne serwisu i store'a (`mealPlanService.test.ts`, `useMealPlanStore.test.ts`).
+   * Testy User Flow w Vitest i React Testing Library dla widoków `CalendarView.test.tsx` i `DesktopCalendarView.test.tsx`.
