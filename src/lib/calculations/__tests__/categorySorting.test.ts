@@ -32,6 +32,7 @@ describe('categorySorting pure calculations', () => {
         household_id: null,
         sort_order: 10,
         is_hidden: false,
+        is_non_food: false,
         custom_name: null,
         has_active_items: false
       })

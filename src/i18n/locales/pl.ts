@@ -554,6 +554,13 @@ export const pl: TranslationSchema = {
     lastVerified: 'Zweryfikowano',
     verifiedBadge: 'Zaktualizowano',
     badgeInPantry: 'W spiżarni',
+    quickAdd: 'Dodaj do spiżarni',
+    managePantry: 'Zarządzaj w spiżarni',
+    stockStatus: 'Stan w spiżarni',
+    availableInPantry: 'Dostępne w spiżarni: {quantity}',
+    allIngredientsInPantry: 'Wszystkie składniki w spiżarni',
+    ingredientsInPantryCount: '{count}/{total} składników w spiżarni',
+    partiallyInPantry: 'Częściowo w spiżarni ({quantity})',
     deleteConfirm: 'Czy na pewno chcesz usunąć "{name}" ze spiżarni?',
     freshness: {
       fresh: 'Dnia {date} zakupiono {productName} ({quantity}), sprawdź czy przypadkiem nie masz jeszcze tego produktu.',

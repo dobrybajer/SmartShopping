@@ -57,6 +57,7 @@ export function resolveCategoriesWithSettings(
       household_id: cat.household_id,
       sort_order: sortOrder,
       is_hidden: isHidden,
+      is_non_food: cat.is_non_food ?? false,
       custom_name: setting?.custom_name || null,
       has_active_items: hasActiveItems
     }

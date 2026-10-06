@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
+import { usePantryStore } from '@/store/usePantryStore'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
@@ -19,7 +20,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, Scale, Globe, Home, Plus, Check } from 'lucide-react'
+import { Flame, Scale, Globe, Home, Plus, Check, Warehouse } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface MealDetailsSheetProps {
   meal: MealWithIngredients | null
@@ -33,6 +35,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   onOpenChange
 }) => {
   const { addMealToDraft } = useShoppingStore()
+  const { pantryMapByProductId } = usePantryStore()
   const { isDesktop } = useDeviceLayout()
   const { t, formatQuantity } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
@@ -178,20 +181,51 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
         <div className="flex flex-col gap-2">
           {meal.ingredients.map((ing) => {
             const scaledQty = Math.round((ing.base_quantity * multiplier) * 10) / 10
+            const pantryItem = ing.product_id ? pantryMapByProductId[ing.product_id] : null
+            const isFullyCovered = pantryItem && pantryItem.quantity >= scaledQty
+
             return (
               <div
                 key={ing.id}
-                className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-xs"
+                className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-xs gap-2"
               >
-                <div>
-                  <span className="font-semibold text-foreground">
-                    {ing.product?.name || 'Product'}
-                  </span>
-                  {ing.is_pantry_item && (
-                    <span className="text-[10px] text-muted-foreground ml-2">({t('cookbook.pantryItem')})</span>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-foreground">
+                      {ing.product?.name || 'Product'}
+                    </span>
+                    {ing.is_pantry_item && (
+                      <span className="text-[10px] text-muted-foreground">({t('cookbook.pantryItem')})</span>
+                    )}
+                  </div>
+
+                  {pantryItem && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border",
+                          isFullyCovered
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                        )}
+                        title={
+                          isFullyCovered
+                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
+                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
+                        }
+                      >
+                        <Warehouse className="w-3 h-3 shrink-0" />
+                        <span>
+                          {isFullyCovered
+                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
+                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })}
+                        </span>
+                      </span>
+                    </div>
                   )}
                 </div>
-                <span className="font-mono text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md">
+
+                <span className="font-mono text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md shrink-0">
                   {formatQuantity(scaledQty, ing.product?.unit_type || 'g')}
                 </span>
               </div>

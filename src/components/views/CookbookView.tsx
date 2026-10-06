@@ -3,17 +3,19 @@ import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
+import { usePantryStore } from '@/store/usePantryStore'
 import { MealDetailsSheet } from '@/components/dialogs/MealDetailsSheet'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Search, Plus, Flame, Utensils, Trash2, Globe, Home } from 'lucide-react'
+import { Search, Plus, Flame, Utensils, Trash2, Globe, Home, Warehouse } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const CookbookView: React.FC = () => {
   const { household } = useAuth()
   const { t } = useTranslation()
+  const { pantryMapByProductId } = usePantryStore()
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -195,6 +197,11 @@ export const CookbookView: React.FC = () => {
               }
             })
 
+            const pantryIngredientsCount = meal.ingredients.filter(
+              (ing) => ing.product_id && !!pantryMapByProductId[ing.product_id]
+            ).length
+            const totalIngredients = meal.ingredients.length
+
             return (
               <div
                 key={meal.id}
@@ -228,6 +235,29 @@ export const CookbookView: React.FC = () => {
                           <Home className="w-2.5 h-2.5" />
                           <span>{t('navigation.households')}</span>
                         </Badge>
+                      )}
+
+                      {/* Pantry ingredients availability badge */}
+                      {totalIngredients > 0 && pantryIngredientsCount > 0 && (
+                        pantryIngredientsCount === totalIngredients ? (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1.5 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold flex items-center gap-1"
+                            title={t('pantry.allIngredientsInPantry')}
+                          >
+                            <Warehouse className="w-2.5 h-2.5" />
+                            <span>{t('pantry.allIngredientsInPantry')}</span>
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-400 border border-amber-500/25 font-semibold flex items-center gap-1"
+                            title={t('pantry.ingredientsInPantryCount', { count: pantryIngredientsCount, total: totalIngredients })}
+                          >
+                            <Warehouse className="w-2.5 h-2.5" />
+                            <span>{t('pantry.ingredientsInPantryCount', { count: pantryIngredientsCount, total: totalIngredients })}</span>
+                          </Badge>
+                        )
                       )}
                     </div>
 

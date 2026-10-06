@@ -8,6 +8,9 @@ import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
 import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
 import { useCategoryStore } from '@/store/useCategoryStore'
+import { usePantryStore } from '@/store/usePantryStore'
+import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
+import { AddPantryItemDialog } from '@/components/dialogs/AddPantryItemDialog'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +25,8 @@ import {
   Edit2,
   Package,
   Scale,
-  Layers
+  Layers,
+  Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +50,11 @@ export const ProductsView: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Pantry Integration (Phase 4)
+  const { pantryMapByProductId } = usePantryStore()
+  const [pantryProduct, setPantryProduct] = useState<Product | null>(null)
+  const [isAddPantryOpen, setIsAddPantryOpen] = useState(false)
 
   const householdKey = household?.id || 'global'
   const categories = useMemo(
@@ -323,6 +332,18 @@ export const ProductsView: React.FC = () => {
 
             const unitLabel = product.unit_type === 'pcs' ? formatQuantity(1, 'pcs') : `100 ${formatUnit(product.unit_type)}`
 
+            const pantryItem = pantryMapByProductId[product.id]
+            const isNonFood = !!(product.category_id && categories.find((c) => c.id === product.category_id)?.is_non_food)
+            const freshness = pantryItem
+              ? calculatePantryFreshness(
+                  pantryItem.last_purchased_at,
+                  isNonFood,
+                  product.name,
+                  formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                  pantryItem.last_verified_at
+                )
+              : null
+
             return (
               <div
                 key={product.id}
@@ -361,8 +382,8 @@ export const ProductsView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Category & Unit */}
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    {/* Category & Unit & Pantry Stock */}
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                       {categoryName && (
                         <span className="text-muted-foreground bg-background px-1.5 py-0.5 rounded-md border border-border">
                           {categoryName}
@@ -372,11 +393,49 @@ export const ProductsView: React.FC = () => {
                         <Scale className="w-3 h-3 text-muted-foreground" />
                         <span>{formatUnit(product.unit_type)}</span>
                       </span>
+
+                      {/* Pantry stock badge */}
+                      {pantryItem && freshness && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPantryProduct(product)
+                            setIsAddPantryOpen(true)
+                          }}
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md border transition-all cursor-pointer shadow-xs",
+                            freshness.badgeBgClass,
+                            freshness.colorClass
+                          )}
+                          title={t(freshness.messageKey as any, freshness.translationParams as any)}
+                        >
+                          <Warehouse className="w-3 h-3 shrink-0" />
+                          <span>{formatQuantity(pantryItem.quantity, pantryItem.unit_type)}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Actions on right */}
                   <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPantryProduct(product)
+                        setIsAddPantryOpen(true)
+                      }}
+                      className={cn(
+                        "p-2 rounded-lg transition-colors cursor-pointer",
+                        pantryItem
+                          ? "text-primary hover:bg-primary/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                      )}
+                      title={pantryItem ? t('pantry.managePantry') : t('pantry.quickAdd')}
+                      aria-label={pantryItem ? t('pantry.managePantry') : t('pantry.quickAdd')}
+                    >
+                      <Warehouse className="w-3.5 h-3.5" />
+                    </button>
+
                     {isHousehold && (
                       <>
                         <button
@@ -467,6 +526,13 @@ export const ProductsView: React.FC = () => {
           />
         )
       )}
+
+      {/* Add / Edit Pantry Item Dialog */}
+      <AddPantryItemDialog
+        open={isAddPantryOpen}
+        onOpenChange={setIsAddPantryOpen}
+        initialProduct={pantryProduct}
+      />
     </div>
   )
 }

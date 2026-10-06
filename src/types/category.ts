@@ -15,6 +15,7 @@ export interface ResolvedCategory {
   household_id: string | null
   sort_order: number // resolved custom_sort_order or default (category.sort_order * 10)
   is_hidden: boolean
+  is_non_food?: boolean
   custom_name?: string | null
   has_active_items?: boolean
   assigned_products_count?: number

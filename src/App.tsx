@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
+import { usePantryRealtime } from '@/hooks/usePantryRealtime'
 import { useTranslation } from '@/i18n'
 import { LoginScreen } from '@/components/LoginScreen'
 import { AppLayoutRouter } from '@/components/layout/AppLayoutRouter'
@@ -12,6 +13,10 @@ export default function App() {
   const { setActiveHousehold } = useShoppingStore()
   const { setActiveHousehold: setPantryHousehold } = usePantryStore()
   const { t, language } = useTranslation()
+
+  usePantryRealtime(household?.id ?? null, () => {
+    usePantryStore.getState().syncFromRealtime()
+  })
 
   useEffect(() => {
     const hhId = household?.id ?? null

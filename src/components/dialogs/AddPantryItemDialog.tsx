@@ -27,12 +27,14 @@ export interface AddPantryItemDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+  initialProduct?: Product | null
 }
 
 export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
   open,
   onOpenChange,
-  onSuccess
+  onSuccess,
+  initialProduct
 }) => {
   const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
@@ -67,14 +69,21 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
   useEffect(() => {
     if (open) {
       loadData()
-      setName('')
+      if (initialProduct) {
+        setName(initialProduct.name)
+        setSelectedProductId(initialProduct.id)
+        setUnitType(initialProduct.unit_type as UnitEnum)
+        setSelectedCategoryId(initialProduct.category_id || undefined)
+      } else {
+        setName('')
+        setSelectedProductId(undefined)
+        setUnitType('pcs')
+        setSelectedCategoryId(undefined)
+      }
       setQuantity(1)
-      setUnitType('pcs')
-      setSelectedCategoryId(undefined)
-      setSelectedProductId(undefined)
       setMergeMode('increment')
     }
-  }, [open, loadData])
+  }, [open, loadData, initialProduct])
 
   // Check if item is already in pantry
   const existingPantryItem =

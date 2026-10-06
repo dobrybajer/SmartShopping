@@ -32,9 +32,12 @@ class MockResizeObserver {
 window.ResizeObserver = MockResizeObserver;
 globalThis.ResizeObserver = MockResizeObserver;
 
-// Global mock for realtime hook to prevent hanging WebSocket intervals in tests
+// Global mock for realtime hooks to prevent hanging WebSocket intervals in tests
 vi.mock('@/hooks/useActiveListRealtime', () => ({
   useActiveListRealtime: vi.fn(),
+}));
+vi.mock('@/hooks/usePantryRealtime', () => ({
+  usePantryRealtime: vi.fn(),
 }));
 
 // Mock Notification API for Web Push tests

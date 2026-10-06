@@ -546,6 +546,13 @@ export const en = {
     lastVerified: 'Verified',
     verifiedBadge: 'Verified',
     badgeInPantry: 'In pantry',
+    quickAdd: 'Add to pantry',
+    managePantry: 'Manage in pantry',
+    stockStatus: 'Pantry stock',
+    availableInPantry: 'Available in pantry: {quantity}',
+    allIngredientsInPantry: 'All ingredients in pantry',
+    ingredientsInPantryCount: '{count}/{total} ingredients in pantry',
+    partiallyInPantry: 'Partially in pantry ({quantity})',
     deleteConfirm: 'Are you sure you want to remove "{name}" from your pantry?',
     freshness: {
       fresh: 'Purchased on {date}: {productName} ({quantity}). Check if you still have this item at home.',

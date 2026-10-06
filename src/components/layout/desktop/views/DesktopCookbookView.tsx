@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
+import { usePantryStore } from '@/store/usePantryStore'
 import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import { Button } from '@/components/ui/button'
@@ -17,13 +18,15 @@ import {
   Utensils,
   ShoppingCart,
   Check,
-  Trash2
+  Trash2,
+  Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export const DesktopCookbookView: React.FC = () => {
   const { household } = useAuth()
   const { addMealToDraft } = useShoppingStore()
+  const { pantryMapByProductId } = usePantryStore()
   const { t } = useTranslation()
 
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
@@ -265,6 +268,11 @@ export const DesktopCookbookView: React.FC = () => {
 
             const isJustAdded = addedMealId === meal.id
 
+            const pantryIngredientsCount = meal.ingredients.filter(
+              (ing) => ing.product_id && !!pantryMapByProductId[ing.product_id]
+            ).length
+            const totalIngredients = meal.ingredients.length
+
             return (
               <div
                 key={meal.id}
@@ -290,7 +298,7 @@ export const DesktopCookbookView: React.FC = () => {
                         <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors truncate">
                           {meal.name}
                         </h4>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {isGlobal ? (
                             <Badge
                               variant="secondary"
@@ -312,6 +320,29 @@ export const DesktopCookbookView: React.FC = () => {
                           <span className="text-[11px] text-muted-foreground font-mono">
                             {meal.ingredients.length} {t('cookbook.ingredients').toLowerCase()}
                           </span>
+
+                          {/* Pantry availability badge */}
+                          {totalIngredients > 0 && pantryIngredientsCount > 0 && (
+                            pantryIngredientsCount === totalIngredients ? (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] px-2 py-0 bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold flex items-center gap-1 shrink-0"
+                                title={t('pantry.allIngredientsInPantry')}
+                              >
+                                <Warehouse className="w-3 h-3" />
+                                <span>{t('pantry.allIngredientsInPantry')}</span>
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] px-2 py-0 bg-amber-500/10 text-amber-400 border border-amber-500/25 font-semibold flex items-center gap-1 shrink-0"
+                                title={t('pantry.ingredientsInPantryCount', { count: pantryIngredientsCount, total: totalIngredients })}
+                              >
+                                <Warehouse className="w-3 h-3" />
+                                <span>{t('pantry.ingredientsInPantryCount', { count: pantryIngredientsCount, total: totalIngredients })}</span>
+                              </Badge>
+                            )
+                          )}
                         </div>
                       </div>
                     </div>
