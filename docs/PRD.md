@@ -73,7 +73,9 @@ CREATE TABLE products (
   protein_per_100 NUMERIC DEFAULT 0,
   carbs_per_100 NUMERIC DEFAULT 0,
   fat_per_100 NUMERIC DEFAULT 0,
-  is_ad_hoc BOOLEAN DEFAULT FALSE -- np. chemia, papier toaletowy
+  is_ad_hoc BOOLEAN DEFAULT FALSE, -- np. chemia, papier toaletowy
+  is_general BOOLEAN DEFAULT FALSE, -- produkt ogólny (rodzic, brak bezpośrednich makro)
+  parent_id UUID REFERENCES products(id) ON DELETE RESTRICT -- produkt nadrzędny
 );
 
 CREATE TABLE meal_categories (
@@ -96,6 +98,7 @@ CREATE TABLE meal_ingredients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   meal_id UUID REFERENCES meals(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id),
+  reference_product_id UUID REFERENCES products(id) ON DELETE SET NULL, -- wariant referencyjny makro dla produktu ogólnego
   base_quantity NUMERIC NOT NULL,
   is_pantry_item BOOLEAN DEFAULT FALSE -- np. sól, pieprz
 );
@@ -217,6 +220,13 @@ CREATE TABLE meal_plans (
         *   *"Mam produkt":* pozwala skorygować liczbę ze spiżarni, usuwa produkt z Koszyka lub oznacza na Aktywnej Liście jako nieaktywny ze specjalnym przekreśleniem "W spiżarni" (i nie jest on duplikowany przy archiwizacji listy).
         *   *"Nie mam produktu":* usuwa produkt ze spiżarni i gasi ikonkę na liście.
     *   **Integracja z Przepisami i Produktami:** Podgląd stanu spiżarni przy planowaniu posiłków w Książce Kucharskiej oraz przycisk szybkiego dodawania do spiżarni z widoku Produktów. Zobacz [ADR-008: Household Pantry Management](./adr/ADR-008-pantry-management-and-inventory-sync.md).
+*   **Dwu-poziomowa Hierarchia Produktów, Dynamiczne Trasowanie Makro i Inteligencja Spiżarni (ADR-010):**
+    *   **Katalog 2-Poziomowy:** Wsparcie dla produktów ogólnych (rodziców, np. *Awokado*, *Baterie*) oraz produktów szczegółowych (dzieci, np. *Awokado Hass*, *Baterie AAAA*), a także produktów samodzielnych szczegółowych bez rodzica.
+    *   **Czystość Wartości Odżywczych:** Produkty ogólne nie mają przypisanych bezpośrednich kalorii/makroskładników. Formularz dodawania produktu adaptacyjnie pokazuje lub ukrywa pola makro w zależności od typu ("Ogólny" vs "Szczegółowy").
+    *   **Dynamiczne Trasowanie Makro w Przepisach:** Użycie produktu ogólnego w przepisie automatycznie routuje wyliczenie makro przez wybrany wariant referencyjny (`reference_product_id`), prezentowany użytkownikowi w edytorze z możliwością łatwej zmiany.
+    *   **Spłaszczone Drzewo Wyboru (2-Level Autocomplete):** Unified Autocomplete we wszystkich miejscach aplikacji prezentuje czytelne, 2-poziomowe drzewo ze wcięciami (`↳`), klikalnymi nagłówkami rodziców i pełną obsługą gestów touch (min. 44x44px) na Mobile PWA oraz klawiatury na Desktopie.
+    *   **Hierarchiczna Detekcja Spiżarni:** Sprawdzenie obecności produktu ogólnego na liście zakupowej lub w przepisie agreguje zapasy wszystkich dzieci w spiżarni i prezentuje rozwijany podgląd konkretnych wariantów z ich indywidualnymi datami i poziomami świeżości.
+    *   **Integralność Relacyjna:** Ścisła blokada usunięcia rodzica (`ON DELETE RESTRICT`) przy powiązanych wariantach szczegółowych. Zobacz [ADR-010: Two-Level Hierarchical Product Catalog](./adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md).
 
 
 ## 6. PWA, UX & Interfejs (Dual Layout)

@@ -49,3 +49,5 @@ Before finalizing any ADR, the agent and contributor must rigorously probe:
 | [ADR-006](../../docs/adr/ADR-006-custom-product-categories-and-aisle-sorting.md) | Custom Product Categories, Household Overrides & Store Aisle Sorting | Accepted |
 | [ADR-007](../../docs/adr/ADR-007-multiplatform-web-push-notifications.md) | Multiplatform Web Push Notifications & Extensible Event Registry | Accepted |
 | [ADR-008](../../docs/adr/ADR-008-pantry-management-and-inventory-sync.md) | Household Pantry Management, Real-Time Inventory Sync & Cross-List Freshness Intelligence | Accepted |
+| [ADR-009](../../docs/adr/ADR-009-meal-planning-and-calendar-module.md) | Meal Planning & Calendar Module (Multi-View Scheduling & Shopping Pipeline Synchronization) | Accepted |
+| [ADR-010](../../docs/adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md) | Two-Level Hierarchical Product Catalog, Dynamic Nutrition Routing & Multi-Tier Pantry Intelligence | Accepted |

@@ -99,6 +99,10 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md)
    * [ADR-005: Multiple Concurrent Active Shopping Lists & Smart Cart Transfer](./adr/ADR-005-multiple-active-shopping-lists.md)
    * [ADR-006: Custom Product Categories & Store Aisle Sorting](./adr/ADR-006-custom-product-categories-and-aisle-sorting.md)
+   * [ADR-007: Multiplatform Web Push Notifications & Extensible Event Registry](./adr/ADR-007-multiplatform-web-push-notifications.md)
+   * [ADR-008: Household Pantry Management, Real-Time Inventory Sync & Cross-List Freshness Intelligence](./adr/ADR-008-pantry-management-and-inventory-sync.md)
+   * [ADR-009: Meal Planning & Calendar Module](./adr/ADR-009-meal-planning-and-calendar-module.md)
+   * [ADR-010: Two-Level Hierarchical Product Catalog, Dynamic Nutrition Routing & Multi-Tier Pantry Intelligence](./adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md)
 3. **Automatyczne Testy Jednostkowe & User Flow:**
    * Konfiguracja Vitest + React Testing Library (`jsdom`).
    * Testy czystych kalkulacji (`src/lib/calculations/__tests__/`).
@@ -342,3 +346,25 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * 100% pokrycia testami czystych funkcji kalkulacji statusów i makro (`calendarStatus.test.ts`).
    * Testy integracyjne serwisu i store'a (`mealPlanService.test.ts`, `useMealPlanStore.test.ts`).
    * Testy User Flow w Vitest i React Testing Library dla widoków `CalendarView.test.tsx` i `DesktopCalendarView.test.tsx`.
+
+## Faza 16: Dwu-poziomowa Hierarchia Produktów, Trasowanie Makro i Inteligencja Spiżarni (ADR-010)
+**Cel:** Wdrożenie 2-poziomowego katalogu produktów (ogólne/rodzice bez makro vs szczegółowe/dzieci z makro + produkty samodzielne), dynamicznego trasowania kalorii w przepisach przez wybrany produkt referencyjny, 2-poziomowego spłaszczonego drzewa z wcięciami w wyszukiwarkach (`ProductAutocomplete`), agregacji stanów i świeżości w spiżarni oraz blokady usuwania rodzica (`ON DELETE RESTRICT`). Zobacz [ADR-010](./adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md).
+
+1. **Baza Danych & RLS (Supabase):**
+   * Migracja addytywna: `is_general BOOLEAN`, `parent_id UUID REFERENCES products(id) ON DELETE RESTRICT`, `chk_products_parent_general`, `reference_product_id UUID REFERENCES products(id) ON DELETE SET NULL` w `meal_ingredients`.
+   * Indeksy B-tree na `parent_id`, `(household_id, is_general)` oraz `reference_product_id`.
+   * Skrypt inteligentnego pogrupowania istniejących produktów w katalogu pod rodziców globalnych z zachowaniem unikalnych produktów jako samodzielnych.
+2. **Czyste Funkcje Kalkulacji (`src/lib/calculations/`):**
+   * Rozszerzenie `macroCalculations.ts` o funkcję `resolveEffectiveIngredientMacros` (obsługa produktów ogólnych przez referencję).
+   * Rozszerzenie `pantryCalculations.ts` o funkcję `matchHierarchicalPantry` (agregacja ilości dzieci i podgląd świeżości per wariant).
+3. **Warstwa Serwisów & Stanu (Zustand):**
+   * Aktualizacja `productService.ts` o pobieranie i mutacje produktów hierarchicznych.
+   * Rozszerzenie `usePantryStore.ts` o indeksowanie `pantryItemsByParentId`.
+4. **Komponenty i Dual Layout:**
+   * `ProductAutocomplete.tsx`: 2-poziomowe spłaszczone drzewo z wcięciami (`↳`), klikalnymi nagłówkami rodziców, obsługą dotyku 44px i klawiatury.
+   * `ProductFormSheet.tsx`: dynamiczne ukrywanie/pokazywanie pól kalorii/makro w zależności od przełącznika "Ogólny" / "Szczegółowy".
+   * `AddMealSheet.tsx` & `MealDetailsSheet.tsx`: wskaźnik i selektor wariantu referencyjnego ("Makro wg: Awokado Hass ▾").
+   * `DraftView.tsx`, `ActiveListView.tsx` & modale: agregacyjny badge stanu spiżarni z rozwijanym podglądem konkretnych wariantów i świeżości.
+5. **Testy i Weryfikacja Jakości:**
+   * Testy jednostkowe kalkulacji makro i dopasowania spiżarni w `macroCalculations.test.ts` i `pantryCalculations.test.ts`.
+   * Testy User Flows w Vitest i React Testing Library dla formularza produktów, drzewka autocomplete, wyliczania makro w przepisie i ochrony przed usunięciem rodzica.
