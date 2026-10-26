@@ -347,7 +347,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Testy integracyjne serwisu i store'a (`mealPlanService.test.ts`, `useMealPlanStore.test.ts`).
    * Testy User Flow w Vitest i React Testing Library dla widoków `CalendarView.test.tsx` i `DesktopCalendarView.test.tsx`.
 
-## Faza 16: Dwu-poziomowa Hierarchia Produktów, Trasowanie Makro i Inteligencja Spiżarni (ADR-010)
+## Faza 16: Dwu-poziomowa Hierarchia Produktów, Trasowanie Makro i Inteligencja Spiżarni (ADR-010) (Zakończona w całości)
 **Cel:** Wdrożenie 2-poziomowego katalogu produktów (ogólne/rodzice bez makro vs szczegółowe/dzieci z makro + produkty samodzielne), dynamicznego trasowania kalorii w przepisach przez wybrany produkt referencyjny, 2-poziomowego spłaszczonego drzewa z wcięciami w wyszukiwarkach (`ProductAutocomplete`), agregacji stanów i świeżości w spiżarni oraz blokady usuwania rodzica (`ON DELETE RESTRICT`). Zobacz [ADR-010](./adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md).
 
 1. **Baza Danych & RLS (Supabase):**

@@ -40,7 +40,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
     removeMultipleFromDraft,
     clearDraft
   } = useShoppingStore()
-  const { pantryMapByProductId, pantryMapByAdHocName } = usePantryStore()
+  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore()
   const { household } = useAuth()
   const { t, formatUnit, formatQuantity } = useTranslation()
 
@@ -237,9 +237,15 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
             <div className="flex flex-col gap-2.5">
               {draftItems.map((item) => {
                 const isSelected = !unselectedIds.has(item.id)
-                const pantryItem = item.product_id
+                const childItems = item.product_id ? pantryItemsByParentId[item.product_id] || [] : []
+                const directPantryItem = item.product_id
                   ? pantryMapByProductId[item.product_id]
                   : pantryMapByAdHocName[item.name.toLowerCase().trim()]
+                const pantryItem = directPantryItem || (childItems.length > 0 ? childItems[0] : null)
+                const aggregatedStockQty =
+                  childItems.length > 0 && !directPantryItem
+                    ? childItems.reduce((sum, c) => sum + Number(c.quantity || 0), 0)
+                    : pantryItem?.quantity
                 const isNonFood = !!(
                   pantryItem?.category?.is_non_food ||
                   pantryItem?.product?.category?.is_non_food
@@ -249,7 +255,7 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
                       pantryItem.last_purchased_at,
                       isNonFood,
                       item.name,
-                      formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                      formatQuantity(aggregatedStockQty || 0, pantryItem.unit_type),
                       pantryItem.last_verified_at
                     )
                   : null

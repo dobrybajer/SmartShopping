@@ -39,6 +39,9 @@ interface IngredientInput {
   unit_type: 'g' | 'ml' | 'pcs'
   base_quantity: number
   is_pantry_item: boolean
+  is_general?: boolean
+  reference_product_id?: string | null
+  reference_product_name?: string
 }
 
 export const AddMealSheet: React.FC<AddMealSheetProps> = ({
@@ -101,6 +104,11 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   const handleAddIngredient = () => {
     if (!selectedProductId || !quantityInput || quantityInput <= 0) return
 
+    const selectedProd = availableProducts.find((p) => p.id === selectedProductId)
+    const isGeneral = !!selectedProd?.is_general
+    const childVariants = isGeneral ? availableProducts.filter((p) => p.parent_id === selectedProductId) : []
+    const defaultRef = childVariants.length > 0 ? childVariants[0] : null
+
     setIngredients([
       ...ingredients,
       {
@@ -108,7 +116,10 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
         product_name: selectedProductName,
         unit_type: selectedProductUnit,
         base_quantity: Number(quantityInput),
-        is_pantry_item: false
+        is_pantry_item: false,
+        is_general: isGeneral,
+        reference_product_id: defaultRef ? defaultRef.id : null,
+        reference_product_name: defaultRef ? defaultRef.name : undefined
       }
     ])
 
@@ -149,7 +160,8 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
       ingredients: ingredients.map((ing) => ({
         product_id: ing.product_id,
         base_quantity: ing.base_quantity,
-        is_pantry_item: ing.is_pantry_item
+        is_pantry_item: ing.is_pantry_item,
+        reference_product_id: ing.reference_product_id || null
       }))
     })
 
@@ -303,15 +315,61 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
             {ingredients.map((ing, idx) => (
               <div
                 key={idx}
-                className="p-2 rounded-lg bg-card border border-border flex items-center justify-between"
+                className="p-2.5 rounded-lg bg-card border border-border flex items-center justify-between gap-2"
               >
-                <div>
-                  <span className="font-semibold text-foreground">{ing.product_name}</span>
-                  {ing.is_pantry_item && (
-                    <span className="text-[10px] text-muted-foreground ml-1.5">({t('cookbook.pantryItem')})</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-foreground truncate">{ing.product_name}</span>
+                    {ing.is_general && (
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                        {t('products.generalBadge')}
+                      </span>
+                    )}
+                    {ing.is_pantry_item && (
+                      <span className="text-[10px] text-muted-foreground">({t('cookbook.pantryItem')})</span>
+                    )}
+                  </div>
+
+                  {ing.is_general && (
+                    <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">{t('cookbook.macroVia')}</span>
+                      {availableProducts.filter((p) => p.parent_id === ing.product_id).length > 0 ? (
+                        <select
+                          value={ing.reference_product_id || ''}
+                          onChange={(e) => {
+                            const newRefId = e.target.value
+                            const newRefProd = availableProducts.find((p) => p.id === newRefId)
+                            setIngredients(
+                              ingredients.map((item, i) =>
+                                i === idx
+                                  ? {
+                                      ...item,
+                                      reference_product_id: newRefId || null,
+                                      reference_product_name: newRefProd?.name
+                                    }
+                                  : item
+                              )
+                            )
+                          }}
+                          className="text-[11px] font-semibold bg-background border border-primary/40 text-primary rounded-md px-1.5 py-0.5 focus:outline-none"
+                        >
+                          {availableProducts
+                            .filter((p) => p.parent_id === ing.product_id)
+                            .map((child) => (
+                              <option key={child.id} value={child.id} className="bg-card text-foreground">
+                                {child.name}
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <span className="text-[10px] text-amber-400 font-medium italic">
+                          {t('cookbook.noReferenceWarning')}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <span className="font-mono text-primary font-bold">
                     {formatQuantity(ing.base_quantity, ing.unit_type)}
                   </span>

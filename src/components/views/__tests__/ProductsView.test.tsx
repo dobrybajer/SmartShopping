@@ -42,7 +42,9 @@ describe('ProductsView - Pantry Stock Badges & Quick Action (ADR-008 Phase 4)', 
       carbs_per_100: 4.8,
       fat_per_100: 3.2,
       type: 'Household',
-      is_ad_hoc: false
+      is_ad_hoc: false,
+      is_general: false,
+      parent_id: null
     },
     {
       id: 'prod-bread',
@@ -55,7 +57,9 @@ describe('ProductsView - Pantry Stock Badges & Quick Action (ADR-008 Phase 4)', 
       carbs_per_100: 45,
       fat_per_100: 1.5,
       type: 'Household',
-      is_ad_hoc: false
+      is_ad_hoc: false,
+      is_general: false,
+      parent_id: null
     }
   ]
 

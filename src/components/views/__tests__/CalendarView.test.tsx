@@ -36,10 +36,12 @@ vi.mock('@/services/mealPlanService', () => ({
 describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
   const mockHousehold = { id: 'hh-cal-1', name: 'Dom Testowy' }
 
+  const testDate = new Date().toISOString().split('T')[0]
+
   const mockPlan: MealPlanItem = {
     id: 'plan-1',
     household_id: 'hh-cal-1',
-    date: '2026-10-15',
+    date: testDate,
     meal_id: 'meal-1',
     meal_category_id: 1,
     custom_name: null,
@@ -77,6 +79,8 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
             carbs_per_100: 1,
             fat_per_100: 5,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         }
@@ -97,7 +101,9 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
       activeHouseholdId: 'hh-cal-1',
       viewMode: 'day',
       weekRangeMode: 'workweek',
-      selectedDate: '2026-10-15'
+      selectedDate: testDate,
+      loadMealPlans: vi.fn(),
+      setupRealtimeSubscription: vi.fn().mockReturnValue(() => {})
     })
 
     useShoppingStore.setState({

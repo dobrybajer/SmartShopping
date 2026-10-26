@@ -15,6 +15,7 @@ import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { toast } from '@/store/useToastStore'
 import {
   Search,
   Plus,
@@ -26,7 +27,8 @@ import {
   Package,
   Scale,
   Layers,
-  Warehouse
+  Warehouse,
+  FolderTree
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -94,6 +96,24 @@ export const ProductsView: React.FC = () => {
     return map
   }, [categories])
 
+  // Product map: ID -> Product
+  const productMap = useMemo(() => {
+    const map = new Map<string, Product>()
+    products.forEach((p) => map.set(p.id, p))
+    return map
+  }, [products])
+
+  // Count of child variants for each general product
+  const childCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    products.forEach((p) => {
+      if (p.parent_id) {
+        counts.set(p.parent_id, (counts.get(p.parent_id) || 0) + 1)
+      }
+    })
+    return counts
+  }, [products])
+
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {
@@ -147,6 +167,18 @@ export const ProductsView: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return
+    const count = childCounts.get(productToDelete.id) || 0
+    if (count > 0) {
+      toast.error(
+        t('products.deleteBlockedHasChildren', {
+          name: productToDelete.name,
+          count
+        })
+      )
+      setProductToDelete(null)
+      return
+    }
+
     setIsDeleting(true)
     try {
       const success = await productService.deleteProduct(productToDelete.id)
@@ -362,6 +394,17 @@ export const ProductsView: React.FC = () => {
                         {product.name}
                       </h4>
 
+                      {/* General Badge */}
+                      {product.is_general && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border border-primary/20 font-bold flex items-center gap-1"
+                        >
+                          <FolderTree className="w-2.5 h-2.5" />
+                          <span>{t('products.generalBadge')}</span>
+                        </Badge>
+                      )}
+
                       {/* Scope Badge */}
                       {isGlobal ? (
                         <Badge
@@ -382,13 +425,28 @@ export const ProductsView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Category & Unit & Pantry Stock */}
+                    {/* Category & Unit & Pantry Stock & Hierarchy Details */}
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
                       {categoryName && (
                         <span className="text-muted-foreground bg-background px-1.5 py-0.5 rounded-md border border-border">
                           {categoryName}
                         </span>
                       )}
+
+                      {/* Parent reference for specific child products */}
+                      {product.parent_id && (
+                        <span className="text-muted-foreground bg-background px-1.5 py-0.5 rounded-md border border-border">
+                          ↳ {productMap.get(product.parent_id)?.name || t('products.parentProduct')}
+                        </span>
+                      )}
+
+                      {/* Child variant count for general products */}
+                      {product.is_general && (
+                        <span className="text-primary font-medium bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/20">
+                          {t('products.variantsCount', { count: childCounts.get(product.id) || 0 })}
+                        </span>
+                      )}
+
                       <span className="flex items-center gap-0.5 text-muted-foreground">
                         <Scale className="w-3 h-3 text-muted-foreground" />
                         <span>{formatUnit(product.unit_type)}</span>
@@ -448,7 +506,19 @@ export const ProductsView: React.FC = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setProductToDelete(product)}
+                          onClick={() => {
+                            const count = childCounts.get(product.id) || 0
+                            if (count > 0) {
+                              toast.error(
+                                t('products.deleteBlockedHasChildren', {
+                                  name: product.name,
+                                  count
+                                })
+                              )
+                              return
+                            }
+                            setProductToDelete(product)
+                          }}
                           className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                           title={t('common.delete')}
                         >
@@ -459,8 +529,15 @@ export const ProductsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Macronutrient breakdown */}
-                {hasMacros && (
+                {/* Macronutrient breakdown or general product info */}
+                {product.is_general ? (
+                  <div className="pt-2 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <span className="text-[11px] text-muted-foreground italic flex items-center gap-1.5">
+                      <FolderTree className="w-3 h-3 text-primary shrink-0" />
+                      <span>{t('products.generalProductNote')}</span>
+                    </span>
+                  </div>
+                ) : hasMacros ? (
                   <div className="pt-2 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
                     <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 font-bold shrink-0">
                       <Flame className="w-3 h-3" />
@@ -483,7 +560,7 @@ export const ProductsView: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )
           })}

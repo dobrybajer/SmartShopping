@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculatePantryFreshness,
-  calculatePartialDelta
+  calculatePartialDelta,
+  matchHierarchicalPantry
 } from '../pantryCalculations'
 
 describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () => {
@@ -119,6 +120,76 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
     it('returns 0 when pantry covers full or greater amount', () => {
       expect(calculatePartialDelta(500, 500)).toBe(0)
       expect(calculatePartialDelta(200, 500)).toBe(0)
+    })
+  })
+
+  describe('matchHierarchicalPantry (ADR-010)', () => {
+    it('Flow 01: returns exact match when product is directly in pantry', () => {
+      const specificProduct = { id: 'prod-hass', name: 'Awokado Hass', unit_type: 'pcs' as const, is_general: false }
+      const mockItem = {
+        id: 'pantry-1',
+        household_id: 'hh-1',
+        product_id: 'prod-hass',
+        quantity: 2,
+        unit_type: 'pcs' as const,
+        last_purchased_at: '2026-10-04T12:00:00Z',
+        created_at: '2026-10-04T12:00:00Z',
+        updated_at: '2026-10-04T12:00:00Z',
+        category: null,
+        product: null
+      }
+
+      const match = matchHierarchicalPantry(specificProduct, { 'prod-hass': mockItem as any }, {})
+      expect(match.isInPantry).toBe(true)
+      expect(match.totalQuantity).toBe(2)
+      expect(match.isHierarchical).toBe(false)
+      expect(match.matchingItems).toHaveLength(1)
+    })
+
+    it('Flow 02: aggregates all child items in pantry when product is general', () => {
+      const generalProduct = { id: 'prod-general-avo', name: 'Awokado', unit_type: 'pcs' as const, is_general: true }
+      const childItem1 = {
+        id: 'pantry-1',
+        household_id: 'hh-1',
+        product_id: 'prod-hass',
+        quantity: 2,
+        unit_type: 'pcs' as const,
+        last_purchased_at: '2026-10-04T12:00:00Z',
+        created_at: '2026-10-04T12:00:00Z',
+        updated_at: '2026-10-04T12:00:00Z',
+        product: { id: 'prod-hass', name: 'Awokado Hass', unit_type: 'pcs' as const, category_id: 1, parent_id: 'prod-general-avo' }
+      }
+      const childItem2 = {
+        id: 'pantry-2',
+        household_id: 'hh-1',
+        product_id: 'prod-green',
+        quantity: 1,
+        unit_type: 'pcs' as const,
+        last_purchased_at: '2026-10-02T12:00:00Z',
+        created_at: '2026-10-02T12:00:00Z',
+        updated_at: '2026-10-02T12:00:00Z',
+        product: { id: 'prod-green', name: 'Awokado Zielone', unit_type: 'pcs' as const, category_id: 1, parent_id: 'prod-general-avo' }
+      }
+
+      const byParent = {
+        'prod-general-avo': [childItem1 as any, childItem2 as any]
+      }
+
+      const match = matchHierarchicalPantry(generalProduct, {}, byParent)
+      expect(match.isInPantry).toBe(true)
+      expect(match.totalQuantity).toBe(3)
+      expect(match.isHierarchical).toBe(true)
+      expect(match.matchingItems).toHaveLength(2)
+      expect(match.matchingItems[0].item.product?.name).toBe('Awokado Hass')
+      expect(match.matchingItems[1].item.product?.name).toBe('Awokado Zielone')
+    })
+
+    it('Flow 03: handles general product with no children in pantry gracefully', () => {
+      const generalProduct = { id: 'prod-general-avo', name: 'Awokado', unit_type: 'pcs' as const, is_general: true }
+      const match = matchHierarchicalPantry(generalProduct, {}, {})
+      expect(match.isInPantry).toBe(false)
+      expect(match.totalQuantity).toBe(0)
+      expect(match.matchingItems).toHaveLength(0)
     })
   })
 })

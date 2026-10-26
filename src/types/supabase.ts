@@ -229,6 +229,8 @@ export interface Database {
           fat_per_100: number | null
           is_ad_hoc: boolean | null
           type: 'Global' | 'Household'
+          is_general: boolean
+          parent_id: string | null
         }
         Insert: {
           id?: string
@@ -242,6 +244,8 @@ export interface Database {
           fat_per_100?: number | null
           is_ad_hoc?: boolean | null
           type?: 'Global' | 'Household'
+          is_general?: boolean
+          parent_id?: string | null
         }
         Update: {
           id?: string
@@ -255,6 +259,8 @@ export interface Database {
           fat_per_100?: number | null
           is_ad_hoc?: boolean | null
           type?: 'Global' | 'Household'
+          is_general?: boolean
+          parent_id?: string | null
         }
         Relationships: [
           {
@@ -269,6 +275,13 @@ export interface Database {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           }
         ]
@@ -344,6 +357,7 @@ export interface Database {
           id: string
           meal_id: string | null
           product_id: string | null
+          reference_product_id: string | null
           base_quantity: number
           is_pantry_item: boolean | null
         }
@@ -351,6 +365,7 @@ export interface Database {
           id?: string
           meal_id?: string | null
           product_id?: string | null
+          reference_product_id?: string | null
           base_quantity: number
           is_pantry_item?: boolean | null
         }
@@ -358,6 +373,7 @@ export interface Database {
           id?: string
           meal_id?: string | null
           product_id?: string | null
+          reference_product_id?: string | null
           base_quantity?: number
           is_pantry_item?: boolean | null
         }
@@ -372,6 +388,13 @@ export interface Database {
           {
             foreignKeyName: "meal_ingredients_product_id_fkey"
             columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_ingredients_reference_product_id_fkey"
+            columns: ["reference_product_id"]
             isOneToOne: false
             referencedRelation: "products"
             referencedColumns: ["id"]

@@ -92,6 +92,8 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
             carbs_per_100: 4.8,
             fat_per_100: 2,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         },
@@ -112,6 +114,8 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
             carbs_per_100: 1,
             fat_per_100: 10,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         }
@@ -145,6 +149,8 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
             carbs_per_100: 0,
             fat_per_100: 3,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         },
@@ -165,6 +171,8 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
             carbs_per_100: 4.8,
             fat_per_100: 2,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         }

@@ -44,7 +44,7 @@ import {
 export const DesktopActiveListView: React.FC = () => {
   const { household, userProfile, user } = useAuth()
   const { categoriesByHousehold, loadCategories } = useCategoryStore()
-  const { pantryMapByProductId, pantryMapByAdHocName } = usePantryStore()
+  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore()
   const {
     setDraftItems,
     draftItems,
@@ -595,9 +595,14 @@ export const DesktopActiveListView: React.FC = () => {
                   const name = item.product?.name || item.ad_hoc_name || 'Product'
                   const unit = item.product?.unit_type || 'pcs'
 
-                  const pantryItem = item.product_id
+                  const childItems = item.product_id ? pantryItemsByParentId[item.product_id] || [] : []
+                  const directPantryItem = item.product_id
                     ? pantryMapByProductId[item.product_id]
                     : (item.ad_hoc_name ? pantryMapByAdHocName[item.ad_hoc_name.toLowerCase().trim()] : undefined)
+                  const pantryItem = directPantryItem || (childItems.length > 0 ? childItems[0] : undefined)
+                  const aggregatedQty = childItems.length > 0 && !directPantryItem
+                    ? childItems.reduce((acc, c) => acc + Number(c.quantity || 0), 0)
+                    : pantryItem?.quantity
 
                   const isNonFood = !!(
                     pantryItem?.category?.is_non_food ||
@@ -610,7 +615,7 @@ export const DesktopActiveListView: React.FC = () => {
                         pantryItem.last_purchased_at,
                         isNonFood,
                         name,
-                        formatQuantity(pantryItem.quantity, pantryItem.unit_type),
+                        formatQuantity(aggregatedQty || 0, pantryItem.unit_type),
                         pantryItem.last_verified_at
                       )
                     : null

@@ -22,6 +22,8 @@ export const pantryService = {
           name,
           unit_type,
           category_id,
+          is_general,
+          parent_id,
           category:product_categories(*)
         )
       `)

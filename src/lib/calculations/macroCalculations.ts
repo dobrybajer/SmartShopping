@@ -1,3 +1,5 @@
+import type { Database } from '@/types/supabase'
+
 export interface MacroNutrients {
   kcal: number;
   protein: number;
@@ -11,6 +13,67 @@ export interface IngredientMacroInput {
   proteinPer100: number;
   carbsPer100: number;
   fatPer100: number;
+}
+
+export type ProductMacroSource = Pick<
+  Database['public']['Tables']['products']['Row'],
+  'kcal_per_100' | 'protein_per_100' | 'carbs_per_100' | 'fat_per_100' | 'is_general' | 'unit_type' | 'name'
+>
+
+export interface EffectiveIngredientMacrosResult {
+  macros: MacroNutrients;
+  isUncalculated: boolean;
+  sourceProductName: string | null;
+}
+
+/**
+ * Resolves effective macronutrients for an ingredient.
+ * If product is general, extracts macros from referenceProduct.
+ * If referenceProduct is missing, returns zero macros and flags uncalculated.
+ */
+export function resolveEffectiveIngredientMacros(
+  product?: ProductMacroSource | null,
+  referenceProduct?: ProductMacroSource | null
+): EffectiveIngredientMacrosResult {
+  if (!product) {
+    return {
+      macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+      isUncalculated: true,
+      sourceProductName: null,
+    };
+  }
+
+  if (!product.is_general) {
+    return {
+      macros: {
+        kcal: Number(product.kcal_per_100) || 0,
+        protein: Number(product.protein_per_100) || 0,
+        carbs: Number(product.carbs_per_100) || 0,
+        fat: Number(product.fat_per_100) || 0,
+      },
+      isUncalculated: false,
+      sourceProductName: product.name,
+    };
+  }
+
+  if (referenceProduct) {
+    return {
+      macros: {
+        kcal: Number(referenceProduct.kcal_per_100) || 0,
+        protein: Number(referenceProduct.protein_per_100) || 0,
+        carbs: Number(referenceProduct.carbs_per_100) || 0,
+        fat: Number(referenceProduct.fat_per_100) || 0,
+      },
+      isUncalculated: false,
+      sourceProductName: referenceProduct.name,
+    };
+  }
+
+  return {
+    macros: { kcal: 0, protein: 0, carbs: 0, fat: 0 },
+    isUncalculated: true,
+    sourceProductName: null,
+  };
 }
 
 /**

@@ -16,6 +16,7 @@ export interface CreateMealInput {
   tags?: string[]
   ingredients: Array<{
     product_id: string
+    reference_product_id?: string | null
     base_quantity: number
     is_pantry_item?: boolean
   }>
@@ -44,9 +45,11 @@ export const mealService = {
           id,
           meal_id,
           product_id,
+          reference_product_id,
           base_quantity,
           is_pantry_item,
-          product:products(*)
+          product:products!meal_ingredients_product_id_fkey(*),
+          reference_product:products!meal_ingredients_reference_product_id_fkey(*)
         )
       `)
       .or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
@@ -71,9 +74,11 @@ export const mealService = {
         id: ing.id,
         meal_id: ing.meal_id,
         product_id: ing.product_id,
+        reference_product_id: ing.reference_product_id,
         base_quantity: ing.base_quantity,
         is_pantry_item: ing.is_pantry_item,
-        product: ing.product
+        product: ing.product,
+        reference_product: ing.reference_product
       }))
     }))
   },
@@ -108,6 +113,7 @@ export const mealService = {
       const ingredientsToInsert = input.ingredients.map((ing) => ({
         meal_id: newMeal.id,
         product_id: ing.product_id,
+        reference_product_id: ing.reference_product_id || null,
         base_quantity: ing.base_quantity,
         is_pantry_item: ing.is_pantry_item || false
       }))

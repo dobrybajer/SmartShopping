@@ -74,6 +74,8 @@ describe('useMealPlanStore', () => {
             carbs_per_100: 68,
             fat_per_100: 7,
             is_ad_hoc: false,
+            is_general: false,
+            parent_id: null,
             type: 'Household'
           }
         }

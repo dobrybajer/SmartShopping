@@ -11,9 +11,11 @@ export interface MealIngredientWithProduct {
   id: string
   meal_id: string | null
   product_id: string | null
+  reference_product_id?: string | null
   base_quantity: number
   is_pantry_item: boolean | null
   product: Product | null
+  reference_product?: Product | null
 }
 
 export interface MealWithIngredients {

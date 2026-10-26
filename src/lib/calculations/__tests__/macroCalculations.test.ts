@@ -3,6 +3,7 @@ import {
   calculateIngredientMacros,
   scaleIngredientQuantity,
   sumMacroNutrients,
+  resolveEffectiveIngredientMacros,
   type MacroNutrients,
 } from '../macroCalculations';
 
@@ -133,6 +134,69 @@ describe('Macro Calculations - Pure Business Logic & Scaling Flows', () => {
         carbs: 0,
         fat: 0,
       });
+    });
+  });
+
+  describe('resolveEffectiveIngredientMacros (ADR-010)', () => {
+    it('Flow 10: resolves macros directly for specific products', () => {
+      const specificProduct = {
+        name: 'Awokado Hass',
+        is_general: false,
+        unit_type: 'pcs' as const,
+        kcal_per_100: 160,
+        protein_per_100: 2,
+        carbs_per_100: 9,
+        fat_per_100: 15,
+      };
+
+      const result = resolveEffectiveIngredientMacros(specificProduct, null);
+      expect(result.isUncalculated).toBe(false);
+      expect(result.sourceProductName).toBe('Awokado Hass');
+      expect(result.macros).toEqual({ kcal: 160, protein: 2, carbs: 9, fat: 15 });
+    });
+
+    it('Flow 11: routes macros through referenceProduct when product is general', () => {
+      const generalProduct = {
+        name: 'Awokado',
+        is_general: true,
+        unit_type: 'pcs' as const,
+        kcal_per_100: null,
+        protein_per_100: null,
+        carbs_per_100: null,
+        fat_per_100: null,
+      };
+
+      const referenceChild = {
+        name: 'Awokado Hass',
+        is_general: false,
+        unit_type: 'pcs' as const,
+        kcal_per_100: 160,
+        protein_per_100: 2,
+        carbs_per_100: 9,
+        fat_per_100: 15,
+      };
+
+      const result = resolveEffectiveIngredientMacros(generalProduct, referenceChild);
+      expect(result.isUncalculated).toBe(false);
+      expect(result.sourceProductName).toBe('Awokado Hass');
+      expect(result.macros).toEqual({ kcal: 160, protein: 2, carbs: 9, fat: 15 });
+    });
+
+    it('Flow 12: flags isUncalculated with 0 macros when general product has no reference child', () => {
+      const generalProduct = {
+        name: 'Awokado',
+        is_general: true,
+        unit_type: 'pcs' as const,
+        kcal_per_100: null,
+        protein_per_100: null,
+        carbs_per_100: null,
+        fat_per_100: null,
+      };
+
+      const result = resolveEffectiveIngredientMacros(generalProduct, null);
+      expect(result.isUncalculated).toBe(true);
+      expect(result.sourceProductName).toBeNull();
+      expect(result.macros).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
     });
   });
 });

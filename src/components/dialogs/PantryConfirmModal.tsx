@@ -71,6 +71,7 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
   const {
     pantryMapByProductId,
     pantryMapByAdHocName,
+    pantryItemsByParentId,
     verifyPantryItem,
     removeByProductOrName,
     addOrIncrementItem,
@@ -78,11 +79,16 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
   } = usePantryStore()
   const { removeFromDraft, updateDraftQuantity } = useShoppingStore()
 
-  // Find existing pantry record
+  // Find existing pantry record or aggregated child variants
+  const childPantryItems = productId ? pantryItemsByParentId[productId] || [] : []
   const existingPantryItem =
     (productId ? pantryMapByProductId[productId] : null) ||
     (adHocName ? pantryMapByAdHocName[adHocName.trim().toLowerCase()] : null) ||
     (productName ? pantryMapByAdHocName[productName.trim().toLowerCase()] : null)
+
+  const isAggregated = !existingPantryItem && childPantryItems.length > 0
+  const aggregatedQty = childPantryItems.reduce((acc, c) => acc + Number(c.quantity || 0), 0)
+  const effectivePantryItem = existingPantryItem || (childPantryItems.length > 0 ? childPantryItems[0] : null)
 
   const [pantryQty, setPantryQty] = useState<number>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -91,23 +97,25 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
     if (open) {
       if (existingPantryItem) {
         setPantryQty(Number(existingPantryItem.quantity) || 1)
+      } else if (isAggregated) {
+        setPantryQty(aggregatedQty || 1)
       } else {
         setPantryQty(neededQuantity || 1)
       }
     }
-  }, [open, existingPantryItem, neededQuantity])
+  }, [open, existingPantryItem, isAggregated, aggregatedQty, neededQuantity])
 
   const isNonFood = !!(
-    existingPantryItem?.category?.is_non_food ||
-    existingPantryItem?.product?.category?.is_non_food
+    effectivePantryItem?.category?.is_non_food ||
+    effectivePantryItem?.product?.category?.is_non_food
   )
 
   const freshness = calculatePantryFreshness(
-    existingPantryItem?.last_purchased_at,
+    effectivePantryItem?.last_purchased_at,
     isNonFood,
     productName,
     formatQuantity(pantryQty, unitType),
-    existingPantryItem?.last_verified_at
+    effectivePantryItem?.last_verified_at
   )
 
   const remainingDelta = calculatePartialDelta(neededQuantity, pantryQty)
@@ -119,6 +127,10 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
     try {
       if (existingPantryItem) {
         await verifyPantryItem(existingPantryItem.id, pantryQty)
+      } else if (childPantryItems.length > 0) {
+        for (const child of childPantryItems) {
+          await verifyPantryItem(child.id, child.quantity)
+        }
       } else if (activeHouseholdId) {
         await addOrIncrementItem(
           {
@@ -193,6 +205,13 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
           existingPantryItem.product_id,
           existingPantryItem.ad_hoc_name || existingPantryItem.product?.name
         )
+      } else if (childPantryItems.length > 0) {
+        for (const child of childPantryItems) {
+          await removeByProductOrName(
+            child.product_id,
+            child.ad_hoc_name || child.product?.name
+          )
+        }
       } else {
         await removeByProductOrName(productId, adHocName || productName)
       }
@@ -270,6 +289,26 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
           {formatQuantity(neededQuantity, unitType)}
         </span>
       </div>
+
+      {/* Child variants breakdown if general product in stock */}
+      {childPantryItems.length > 0 && (
+        <div className="p-3 rounded-xl bg-card border border-border flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-foreground text-xs">{t('products.childVariants')} ({childPantryItems.length}):</span>
+            <span className="text-[10px] text-muted-foreground">{t('products.general')}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {childPantryItems.map((item) => (
+              <div key={item.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-background border border-border">
+                <span className="text-foreground font-medium">{item.product?.name || item.ad_hoc_name}</span>
+                <span className="font-mono font-bold text-primary">
+                  {formatQuantity(item.quantity, item.unit_type)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quantity Stepper in Pantry */}
       <div className="flex flex-col gap-1.5">

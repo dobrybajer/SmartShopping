@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
+import { resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
+import { matchHierarchicalPantry } from '@/lib/calculations/pantryCalculations'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
@@ -35,7 +37,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   onOpenChange
 }) => {
   const { addMealToDraft } = useShoppingStore()
-  const { pantryMapByProductId } = usePantryStore()
+  const { pantryMapByProductId, pantryItemsByParentId } = usePantryStore()
   const { isDesktop } = useDeviceLayout()
   const { t, formatQuantity } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
@@ -43,7 +45,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
 
   if (!meal) return null
 
-  // Calculate base macros
+  // Calculate base macros using dynamic reference product resolution
   let baseKcal = 0
   let baseProtein = 0
   let baseCarbs = 0
@@ -51,11 +53,12 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
 
   meal.ingredients.forEach((ing) => {
     if (ing.product) {
+      const { macros } = resolveEffectiveIngredientMacros(ing.product, ing.reference_product)
       const factor = ing.product.unit_type === 'pcs' ? ing.base_quantity : ing.base_quantity / 100
-      baseKcal += (ing.product.kcal_per_100 || 0) * factor
-      baseProtein += (ing.product.protein_per_100 || 0) * factor
-      baseCarbs += (ing.product.carbs_per_100 || 0) * factor
-      baseFat += (ing.product.fat_per_100 || 0) * factor
+      baseKcal += macros.kcal * factor
+      baseProtein += macros.protein * factor
+      baseCarbs += macros.carbs * factor
+      baseFat += macros.fat * factor
     }
   })
 
@@ -181,8 +184,11 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
         <div className="flex flex-col gap-2">
           {meal.ingredients.map((ing) => {
             const scaledQty = Math.round((ing.base_quantity * multiplier) * 10) / 10
-            const pantryItem = ing.product_id ? pantryMapByProductId[ing.product_id] : null
-            const isFullyCovered = pantryItem && pantryItem.quantity >= scaledQty
+            const pantryMatch = ing.product
+              ? matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId)
+              : null
+            const hasStock = !!pantryMatch?.isInPantry
+            const isFullyCovered = hasStock && (pantryMatch?.totalQuantity ?? 0) >= scaledQty
 
             return (
               <div
@@ -194,12 +200,26 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                     <span className="font-semibold text-foreground">
                       {ing.product?.name || 'Product'}
                     </span>
+                    {ing.product?.is_general && (
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                        {t('products.generalBadge')}
+                      </span>
+                    )}
                     {ing.is_pantry_item && (
                       <span className="text-[10px] text-muted-foreground">({t('cookbook.pantryItem')})</span>
                     )}
                   </div>
 
-                  {pantryItem && (
+                  {ing.product?.is_general && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="text-[10px] text-muted-foreground">{t('cookbook.macroVia')}</span>
+                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
+                        {ing.reference_product?.name || t('cookbook.noReferenceWarning')}
+                      </span>
+                    </div>
+                  )}
+
+                  {hasStock && pantryMatch && (
                     <div className="flex items-center gap-1.5 mt-1">
                       <span
                         className={cn(
@@ -209,16 +229,17 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
                             : "bg-amber-500/10 text-amber-400 border-amber-500/30"
                         )}
                         title={
-                          isFullyCovered
-                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
-                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
+                          pantryMatch.isHierarchical
+                            ? `${pantryMatch.matchingItems.map((m) => `${m.item.product?.name || m.item.ad_hoc_name}: ${formatQuantity(m.item.quantity, m.item.unit_type)}`).join(', ')}`
+                            : undefined
                         }
                       >
                         <Warehouse className="w-3 h-3 shrink-0" />
                         <span>
                           {isFullyCovered
-                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })
-                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryItem.quantity, pantryItem.unit_type) })}
+                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryMatch.totalQuantity, ing.product?.unit_type || 'pcs') })
+                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryMatch.totalQuantity, ing.product?.unit_type || 'pcs') })}
+                          {pantryMatch.isHierarchical && ` (${pantryMatch.matchingItems.length})`}
                         </span>
                       </span>
                     </div>

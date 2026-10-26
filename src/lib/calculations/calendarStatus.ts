@@ -1,8 +1,8 @@
 import type { MealPlanItem, MealStatusDetails, DayMacroSummary, MissingIngredient, MealPlanStatus } from '@/types/calendar'
 import type { DraftItem, AddToDraftPayload } from '@/store/useShoppingStore'
 import type { Database } from '@/types/supabase'
-import type { PantryItem } from '@/types/pantry'
-import { calculateIngredientMacros, sumMacroNutrients } from '@/lib/calculations/macroCalculations'
+import type { PantryItem, PantryItemWithDetails } from '@/types/pantry'
+import { calculateIngredientMacros, sumMacroNutrients, resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
 
 type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['Row']
 
@@ -17,7 +17,7 @@ type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['
 export function calculateMealPlanStatus(
   planItem: MealPlanItem,
   options: {
-    pantryItems?: PantryItem[]
+    pantryItems?: (PantryItem | PantryItemWithDetails)[]
     draftItems?: DraftItem[]
     activeListItems?: ShoppingListItemRow[]
     archivedListItems?: ShoppingListItemRow[]
@@ -89,7 +89,14 @@ export function calculateMealPlanStatus(
     const requiredQty = ing.base_quantity * (planItem.servings > 0 ? planItem.servings : 1)
 
     // Check if covered by pantry
-    const isPantryStocked = ing.is_pantry_item === true || (pantryMap.get(productId)?.quantity ?? 0) >= requiredQty
+    let stockedQty = pantryMap.get(productId)?.quantity ?? 0
+    if (product.is_general) {
+      const childStock = pantryItems
+        .filter((p) => 'product' in p && p.product?.parent_id === productId)
+        .reduce((sum, p) => sum + (p.quantity || 0), 0)
+      stockedQty = Math.max(stockedQty, childStock)
+    }
+    const isPantryStocked = ing.is_pantry_item === true || stockedQty >= requiredQty
 
     // Check if on archived list (completed / bought)
     const archivedItem = linkedArchived.find((item) => item.product_id === productId)
@@ -203,15 +210,11 @@ export function calculateDayMacros(planItems: MealPlanItem[]): DayMacroSummary {
 
       const product = ing.product
       const scaledQuantity = ing.base_quantity * multiplier
+      const effective = resolveEffectiveIngredientMacros(product, ing.reference_product)
 
       const macros = calculateIngredientMacros(
         scaledQuantity,
-        {
-          kcal: Number(product.kcal_per_100) || 0,
-          protein: Number(product.protein_per_100) || 0,
-          carbs: Number(product.carbs_per_100) || 0,
-          fat: Number(product.fat_per_100) || 0
-        },
+        effective.macros,
         product.unit_type
       )
 
@@ -237,7 +240,7 @@ export function generateDraftItemsFromMealPlan(
   planItem: MealPlanItem,
   options: {
     excludePantryItems?: boolean
-    pantryItems?: PantryItem[]
+    pantryItems?: (PantryItem | PantryItemWithDetails)[]
     dayLabel?: string
   } = {}
 ): AddToDraftPayload[] {
@@ -247,7 +250,7 @@ export function generateDraftItemsFromMealPlan(
     return []
   }
 
-  const pantryMap = new Map<string, PantryItem>()
+  const pantryMap = new Map<string, PantryItem | PantryItemWithDetails>()
   if (excludePantryItems) {
     for (const p of pantryItems) {
       if (p.product_id) {
@@ -271,7 +274,13 @@ export function generateDraftItemsFromMealPlan(
     // Skip if pantry item flag is set or stocked in domestic pantry
     if (excludePantryItems) {
       if (ing.is_pantry_item === true) continue
-      const stocked = pantryMap.get(ing.product_id)?.quantity ?? 0
+      let stocked = pantryMap.get(ing.product_id)?.quantity ?? 0
+      if (product.is_general) {
+        const childStock = pantryItems
+          .filter((p) => 'product' in p && p.product?.parent_id === ing.product_id)
+          .reduce((sum, p) => sum + (p.quantity || 0), 0)
+        stocked = Math.max(stocked, childStock)
+      }
       if (stocked >= requiredQty) continue
     }
 

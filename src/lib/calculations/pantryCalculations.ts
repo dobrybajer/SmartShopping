@@ -1,3 +1,6 @@
+import type { PantryItemWithDetails } from '@/types/pantry'
+import type { UnitEnum } from '@/types/supabase'
+
 export type FreshnessLevel = 'fresh' | 'medium' | 'old' | 'unknown'
 
 export interface FreshnessCalculationResult {
@@ -139,3 +142,79 @@ export function calculatePartialDelta(neededQuantity: number, pantryQuantity: nu
   if (delta <= 0) return 0
   return Math.round(delta * 10) / 10
 }
+
+export interface HierarchicalPantryMatch {
+  isInPantry: boolean
+  totalQuantity: number
+  unitType: UnitEnum
+  isHierarchical: boolean
+  matchingItems: Array<{
+    item: PantryItemWithDetails
+    freshness: FreshnessCalculationResult
+  }>
+}
+
+/**
+ * Checks domestic pantry availability with 2-level hierarchy support.
+ * For general products, aggregates all child variants in stock with individual freshness status.
+ */
+export function matchHierarchicalPantry(
+  product: { id: string; name: string; unit_type: UnitEnum; is_general?: boolean } | null | undefined,
+  pantryMapByProductId: Record<string, PantryItemWithDetails>,
+  pantryItemsByParentId: Record<string, PantryItemWithDetails[]> = {}
+): HierarchicalPantryMatch {
+  if (!product) {
+    return {
+      isInPantry: false,
+      totalQuantity: 0,
+      unitType: 'pcs',
+      isHierarchical: false,
+      matchingItems: []
+    }
+  }
+
+  const allItems: PantryItemWithDetails[] = []
+  const seenIds = new Set<string>()
+
+  // 1. Direct match on product.id
+  const directItem = pantryMapByProductId[product.id]
+  if (directItem && !seenIds.has(directItem.id)) {
+    allItems.push(directItem)
+    seenIds.add(directItem.id)
+  }
+
+  // 2. If product is general, gather all specific children in pantry
+  let isHierarchical = false
+  if (product.is_general) {
+    const childItems = pantryItemsByParentId[product.id] || []
+    if (childItems.length > 0) {
+      isHierarchical = true
+      for (const child of childItems) {
+        if (!seenIds.has(child.id)) {
+          allItems.push(child)
+          seenIds.add(child.id)
+        }
+      }
+    }
+  }
+
+  const totalQuantity = allItems.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0)
+
+  return {
+    isInPantry: allItems.length > 0,
+    totalQuantity: Math.round(totalQuantity * 10) / 10,
+    unitType: product.unit_type,
+    isHierarchical,
+    matchingItems: allItems.map((item) => ({
+      item,
+      freshness: calculatePantryFreshness(
+        item.last_purchased_at,
+        !!(item.category?.is_non_food || item.product?.category?.is_non_food),
+        item.product?.name || item.ad_hoc_name || product.name,
+        `${item.quantity} ${item.unit_type}`,
+        item.last_verified_at
+      )
+    }))
+  }
+}
+

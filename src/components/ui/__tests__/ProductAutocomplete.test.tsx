@@ -5,6 +5,21 @@ import type { Product } from '@/services/productService'
 
 const mockProducts: Product[] = [
   {
+    id: 'parent-1',
+    name: 'Awokado',
+    unit_type: 'pcs',
+    category_id: 1,
+    type: 'Global',
+    is_ad_hoc: false,
+    household_id: null,
+    is_general: true,
+    parent_id: null,
+    kcal_per_100: null,
+    protein_per_100: null,
+    fat_per_100: null,
+    carbs_per_100: null
+  },
+  {
     id: 'prod-1',
     name: 'Awokado Hass',
     unit_type: 'pcs',
@@ -12,6 +27,8 @@ const mockProducts: Product[] = [
     type: 'Household',
     is_ad_hoc: false,
     household_id: 'hh-1',
+    is_general: false,
+    parent_id: 'parent-1',
     kcal_per_100: 160,
     protein_per_100: 2,
     fat_per_100: 15,
@@ -25,6 +42,8 @@ const mockProducts: Product[] = [
     type: 'Global',
     is_ad_hoc: false,
     household_id: null,
+    is_general: false,
+    parent_id: null,
     kcal_per_100: 250,
     protein_per_100: 6,
     fat_per_100: 5,
@@ -38,6 +57,8 @@ const mockProducts: Product[] = [
     type: 'Household',
     is_ad_hoc: true,
     household_id: 'hh-1',
+    is_general: false,
+    parent_id: null,
     kcal_per_100: 0,
     protein_per_100: 0,
     fat_per_100: 0,
@@ -76,6 +97,7 @@ describe('ProductAutocomplete', () => {
     fireEvent.focus(input)
 
     // Should display all mock products when query is empty
+    expect(screen.getByText('Awokado')).toBeInTheDocument()
     expect(screen.getByText('Awokado Hass')).toBeInTheDocument()
     expect(screen.getByText('Bagietka czosnkowa')).toBeInTheDocument()
     expect(screen.getByText('Płyn do naczyń')).toBeInTheDocument()
@@ -115,7 +137,25 @@ describe('ProductAutocomplete', () => {
     const item = screen.getByText('Awokado Hass')
     fireEvent.mouseDown(item)
 
-    expect(handleSelect).toHaveBeenCalledWith(mockProducts[0])
+    expect(handleSelect).toHaveBeenCalledWith(mockProducts[1])
     expect(handleChange).toHaveBeenCalledWith('Awokado Hass')
+  })
+
+  it('Flow 04 (ADR-010): displays general parent badge and branch glyph for child items', () => {
+    render(
+      <ProductAutocomplete
+        value=""
+        onChange={() => {}}
+        products={mockProducts}
+        onSelectProduct={() => {}}
+        placeholder="Szukaj..."
+      />
+    )
+
+    const input = screen.getByPlaceholderText('Szukaj...')
+    fireEvent.focus(input)
+
+    // Branch symbol for indented child
+    expect(screen.getByText('↳')).toBeInTheDocument()
   })
 })

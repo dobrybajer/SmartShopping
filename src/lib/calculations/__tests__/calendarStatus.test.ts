@@ -23,6 +23,8 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
     carbs_per_100: 0.5,
     fat_per_100: 5,
     is_ad_hoc: false,
+    is_general: false,
+    parent_id: null,
     type: 'Household' as const
   }
 
@@ -37,6 +39,8 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
     carbs_per_100: 1,
     fat_per_100: 80,
     is_ad_hoc: false,
+    is_general: false,
+    parent_id: null,
     type: 'Household' as const
   }
 

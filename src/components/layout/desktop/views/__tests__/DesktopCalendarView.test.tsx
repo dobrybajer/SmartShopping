@@ -60,7 +60,9 @@ describe('DesktopCalendarView - Desktop User Flow Suite (ADR-009)', () => {
       activeHouseholdId: 'hh-desk-1',
       viewMode: 'week',
       weekRangeMode: 'workweek',
-      selectedDate: '2026-10-15'
+      selectedDate: '2026-10-15',
+      loadMealPlans: vi.fn(),
+      setupRealtimeSubscription: vi.fn().mockReturnValue(() => {})
     })
   })
 

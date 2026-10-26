@@ -113,5 +113,18 @@ export const productService = {
       return false
     }
     return true
+  },
+
+  async hasChildren(productId: string): Promise<boolean> {
+    const { count, error } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('parent_id', productId)
+
+    if (error) {
+      console.error('[productService.hasChildren] Error:', error)
+      return false
+    }
+    return (count ?? 0) > 0
   }
 }

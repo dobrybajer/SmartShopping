@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import { toast } from '@/store/useToastStore'
 import {
   Search,
   Plus,
@@ -21,7 +22,8 @@ import {
   Trash2,
   Scale,
   Flame,
-  Warehouse
+  Warehouse,
+  FolderTree
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -75,6 +77,22 @@ export const DesktopProductsView: React.FC = () => {
     return map
   }, [categories])
 
+  const productMap = React.useMemo(() => {
+    const map = new Map<string, Product>()
+    products.forEach((p) => map.set(p.id, p))
+    return map
+  }, [products])
+
+  const childCounts = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    products.forEach((p) => {
+      if (p.parent_id) {
+        counts.set(p.parent_id, (counts.get(p.parent_id) || 0) + 1)
+      }
+    })
+    return counts
+  }, [products])
+
   const getCategoryLabel = (catName: string) => {
     return t(`categories.${catName}` as any) !== `categories.${catName}`
       ? t(`categories.${catName}` as any)
@@ -116,6 +134,18 @@ export const DesktopProductsView: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (!productToDelete) return
+    const count = childCounts.get(productToDelete.id) || 0
+    if (count > 0) {
+      toast.error(
+        t('products.deleteBlockedHasChildren', {
+          name: productToDelete.name,
+          count
+        })
+      )
+      setProductToDelete(null)
+      return
+    }
+
     const success = await productService.deleteProduct(productToDelete.id)
     if (success) {
       setProductToDelete(null)
@@ -312,7 +342,16 @@ export const DesktopProductsView: React.FC = () => {
                         <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
                           {product.name}
                         </h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {product.is_general && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border border-primary/20 font-bold flex items-center gap-1"
+                            >
+                              <FolderTree className="w-2.5 h-2.5" />
+                              <span>{t('products.generalBadge')}</span>
+                            </Badge>
+                          )}
                           {isGlobal ? (
                             <Badge
                               variant="secondary"
@@ -366,7 +405,19 @@ export const DesktopProductsView: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setProductToDelete(product)}
+                            onClick={() => {
+                              const count = childCounts.get(product.id) || 0
+                              if (count > 0) {
+                                toast.error(
+                                  t('products.deleteBlockedHasChildren', {
+                                    name: product.name,
+                                    count
+                                  })
+                                )
+                                return
+                              }
+                              setProductToDelete(product)
+                            }}
                             className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
                             title={t('common.delete')}
                           >
@@ -377,14 +428,26 @@ export const DesktopProductsView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Category & Unit Meta & Pantry Stock */}
+                  {/* Category & Unit Meta & Pantry Stock & Hierarchy Details */}
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 flex-wrap gap-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {categoryName ? (
                         <span className="text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border truncate max-w-[130px]">
                           {categoryName}
                         </span>
                       ) : <span />}
+
+                      {product.parent_id && (
+                        <span className="text-muted-foreground bg-background px-2 py-0.5 rounded-md border border-border">
+                          ↳ {productMap.get(product.parent_id)?.name || t('products.parentProduct')}
+                        </span>
+                      )}
+
+                      {product.is_general && (
+                        <span className="text-primary font-medium bg-primary/5 px-2 py-0.5 rounded-md border border-primary/20">
+                          {t('products.variantsCount', { count: childCounts.get(product.id) || 0 })}
+                        </span>
+                      )}
 
                       <span className="flex items-center gap-1 font-mono text-muted-foreground">
                         <Scale className="w-3 h-3 text-muted-foreground" />
@@ -413,9 +476,14 @@ export const DesktopProductsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Macro summary footer */}
+                {/* Macro summary footer or general product note */}
                 <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
-                  {hasMacros ? (
+                  {product.is_general ? (
+                    <span className="text-[11px] text-muted-foreground italic flex items-center gap-1.5">
+                      <FolderTree className="w-3 h-3 text-primary shrink-0" />
+                      <span>{t('products.generalProductNote')}</span>
+                    </span>
+                  ) : hasMacros ? (
                     <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground flex-wrap">
                       <span className="text-foreground font-semibold flex items-center gap-0.5">
                         <Flame className="w-3 h-3 text-amber-500" />

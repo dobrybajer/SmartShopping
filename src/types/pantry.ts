@@ -10,6 +10,8 @@ export interface PantryItemWithDetails extends PantryItem {
     name: string
     unit_type: UnitEnum
     category_id: number | null
+    is_general?: boolean
+    parent_id?: string | null
     category?: {
       id: number
       name: string

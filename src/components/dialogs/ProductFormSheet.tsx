@@ -22,7 +22,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Plus, Minus, Flame, Utensils, Tag, Scale, Package, Sparkles } from 'lucide-react'
+import { Save, Plus, Minus, Flame, Utensils, Tag, Scale, Package, Sparkles, FolderTree, Info, Layers } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface ProductFormSheetProps {
   open: boolean
@@ -45,9 +46,12 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   const isEditing = !!productToEdit
 
   const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [parentProducts, setParentProducts] = useState<Product[]>([])
   const [name, setName] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [unitType, setUnitType] = useState<UnitEnum>('pcs')
+  const [isGeneral, setIsGeneral] = useState(false)
+  const [parentId, setParentId] = useState<string>('')
   const [isFood, setIsFood] = useState(true)
 
   // Macronutrients
@@ -59,14 +63,23 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Load product categories
+  // Load product categories and parent products
   useEffect(() => {
-    async function loadCategories() {
-      const data = await productService.getCategories(household?.id)
-      setCategories(data)
+    async function loadData() {
+      const [catData, prodData] = await Promise.all([
+        productService.getCategories(household?.id),
+        productService.getProducts(household?.id)
+      ])
+      setCategories(catData)
+      // Available parent products must be general and not the product itself
+      setParentProducts(
+        prodData.filter((p) => p.is_general && (!productToEdit || p.id !== productToEdit.id))
+      )
     }
-    loadCategories()
-  }, [household?.id])
+    if (open) {
+      loadData()
+    }
+  }, [household?.id, open, productToEdit])
 
   // Sync form state when productToEdit changes or sheet opens
   useEffect(() => {
@@ -75,6 +88,8 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
         setName(productToEdit.name)
         setCategoryId(productToEdit.category_id || '')
         setUnitType(productToEdit.unit_type)
+        setIsGeneral(!!productToEdit.is_general)
+        setParentId(productToEdit.parent_id || '')
         const hasMacros = (productToEdit.kcal_per_100 ?? 0) > 0 || (productToEdit.protein_per_100 ?? 0) > 0
         setIsFood(hasMacros)
         setKcal(productToEdit.kcal_per_100 ?? 0)
@@ -85,6 +100,8 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
         setName(initialName ? initialName.trim() : '')
         setCategoryId('')
         setUnitType('pcs')
+        setIsGeneral(false)
+        setParentId('')
         setIsFood(true)
         setKcal(0)
         setProtein(0)
@@ -147,10 +164,12 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           name: name.trim(),
           category_id: categoryId === '' ? null : Number(categoryId),
           unit_type: unitType,
-          kcal_per_100: isFood ? (typeof kcal === 'number' ? kcal : 0) : null,
-          protein_per_100: isFood ? (typeof protein === 'number' ? protein : 0) : null,
-          carbs_per_100: isFood ? (typeof carbs === 'number' ? carbs : 0) : null,
-          fat_per_100: isFood ? (typeof fat === 'number' ? fat : 0) : null
+          is_general: isGeneral,
+          parent_id: isGeneral ? null : (parentId ? parentId : null),
+          kcal_per_100: isGeneral ? null : (isFood ? (typeof kcal === 'number' ? kcal : 0) : null),
+          protein_per_100: isGeneral ? null : (isFood ? (typeof protein === 'number' ? protein : 0) : null),
+          carbs_per_100: isGeneral ? null : (isFood ? (typeof carbs === 'number' ? carbs : 0) : null),
+          fat_per_100: isGeneral ? null : (isFood ? (typeof fat === 'number' ? fat : 0) : null)
         })
 
         if (updated) {
@@ -165,10 +184,12 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           name: name.trim(),
           category_id: categoryId === '' ? undefined : Number(categoryId),
           unit_type: unitType,
-          kcal_per_100: isFood ? (typeof kcal === 'number' ? kcal : 0) : undefined,
-          protein_per_100: isFood ? (typeof protein === 'number' ? protein : 0) : undefined,
-          carbs_per_100: isFood ? (typeof carbs === 'number' ? carbs : 0) : undefined,
-          fat_per_100: isFood ? (typeof fat === 'number' ? fat : 0) : undefined
+          is_general: isGeneral,
+          parent_id: isGeneral ? null : (parentId ? parentId : null),
+          kcal_per_100: isGeneral ? undefined : (isFood ? (typeof kcal === 'number' ? kcal : 0) : undefined),
+          protein_per_100: isGeneral ? undefined : (isFood ? (typeof protein === 'number' ? protein : 0) : undefined),
+          carbs_per_100: isGeneral ? undefined : (isFood ? (typeof carbs === 'number' ? carbs : 0) : undefined),
+          fat_per_100: isGeneral ? undefined : (isFood ? (typeof fat === 'number' ? fat : 0) : undefined)
         })
 
         if (created) {
@@ -212,6 +233,45 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </div>
         )}
 
+        {/* Product Hierarchy Level (General vs Specific) */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-primary" />
+            <span>{t('dialogs.productForm.hierarchyLabel')}</span>
+          </label>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-background border border-border rounded-xl">
+            <button
+              type="button"
+              onClick={() => setIsGeneral(false)}
+              className={cn(
+                'py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]',
+                !isGeneral
+                  ? 'bg-primary text-primary-foreground shadow'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>{t('products.specific')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsGeneral(true)
+                setParentId('')
+              }}
+              className={cn(
+                'py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]',
+                isGeneral
+                  ? 'bg-primary text-primary-foreground shadow'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <FolderTree className="w-3.5 h-3.5" />
+              <span>{t('products.general')}</span>
+            </button>
+          </div>
+        </div>
+
         {/* Product Name */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -226,6 +286,43 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
             autoFocus={!isEditing}
           />
         </div>
+
+        {/* Parent product dropdown (only for specific products) */}
+        {!isGeneral && (
+          <div className="space-y-1.5 animate-in fade-in-50 duration-200">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <FolderTree className="w-3.5 h-3.5 text-primary" />
+              <span>{t('dialogs.productForm.parentSelectLabel')}</span>
+            </label>
+            <select
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+              className="w-full h-11 px-3 py-2 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
+            >
+              <option value="" className="bg-card text-foreground">
+                {t('products.noParent')}
+              </option>
+              {parentProducts.map((p) => (
+                <option key={p.id} value={p.id} className="bg-card text-foreground">
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* General product info notice */}
+        {isGeneral && (
+          <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 text-xs text-foreground flex items-start gap-2.5 animate-in fade-in-50 duration-200">
+            <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="font-semibold text-foreground">{t('products.general')}</div>
+              <div className="text-[11px] text-muted-foreground leading-relaxed">
+                {t('products.generalProductNote')}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Category and Unit */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -265,30 +362,32 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </div>
         </div>
 
-        {/* Is food? */}
-        <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-              <Flame className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-foreground">{t('products.macrosPer100')}</div>
-              <div className="text-[11px] text-muted-foreground">
-                {t('cookbook.macros')}
+        {/* Is food? (Only for specific products) */}
+        {!isGeneral && (
+          <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <Flame className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-foreground">{t('products.macrosPer100')}</div>
+                <div className="text-[11px] text-muted-foreground">
+                  {t('cookbook.macros')}
+                </div>
               </div>
             </div>
-          </div>
 
-          <Checkbox
-            id="isFood"
-            checked={isFood}
-            onCheckedChange={(checked) => setIsFood(!!checked)}
-            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary h-5 w-5 rounded-md"
-          />
-        </div>
+            <Checkbox
+              id="isFood"
+              checked={isFood}
+              onCheckedChange={(checked) => setIsFood(!!checked)}
+              className="data-[state=checked]:bg-primary data-[state=checked]:border-primary h-5 w-5 rounded-md"
+            />
+          </div>
+        )}
 
         {/* Macro inputs */}
-        {isFood && (
+        {!isGeneral && isFood && (
           <div className="space-y-3.5 p-4 rounded-2xl bg-background border border-border animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-1 border-b border-border">
               <span className="text-xs font-bold text-foreground flex items-center gap-1.5">

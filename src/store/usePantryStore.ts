@@ -9,6 +9,7 @@ interface PantryStoreState {
   pantryItems: PantryItemWithDetails[]
   pantryMapByProductId: Record<string, PantryItemWithDetails>
   pantryMapByAdHocName: Record<string, PantryItemWithDetails>
+  pantryItemsByParentId: Record<string, PantryItemWithDetails[]>
   isLoading: boolean
 
   // Actions
@@ -28,10 +29,17 @@ interface PantryStoreState {
 function buildPantryMaps(items: PantryItemWithDetails[]) {
   const byProduct: Record<string, PantryItemWithDetails> = {}
   const byName: Record<string, PantryItemWithDetails> = {}
+  const byParent: Record<string, PantryItemWithDetails[]> = {}
 
   for (const item of items) {
     if (item.product_id) {
       byProduct[item.product_id] = item
+    }
+    if (item.product?.parent_id) {
+      if (!byParent[item.product.parent_id]) {
+        byParent[item.product.parent_id] = []
+      }
+      byParent[item.product.parent_id].push(item)
     }
     if (item.ad_hoc_name) {
       byName[item.ad_hoc_name.trim().toLowerCase()] = item
@@ -40,7 +48,7 @@ function buildPantryMaps(items: PantryItemWithDetails[]) {
     }
   }
 
-  return { byProduct, byName }
+  return { byProduct, byName, byParent }
 }
 
 export const usePantryStore = create<PantryStoreState>()((set, get) => ({
@@ -48,6 +56,7 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
   pantryItems: [],
   pantryMapByProductId: {},
   pantryMapByAdHocName: {},
+  pantryItemsByParentId: {},
   isLoading: false,
 
   setActiveHousehold: (householdId) => {
@@ -58,7 +67,8 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
       set({
         pantryItems: [],
         pantryMapByProductId: {},
-        pantryMapByAdHocName: {}
+        pantryMapByAdHocName: {},
+        pantryItemsByParentId: {}
       })
     }
   },
@@ -70,6 +80,7 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
         pantryItems: [],
         pantryMapByProductId: {},
         pantryMapByAdHocName: {},
+        pantryItemsByParentId: {},
         isLoading: false
       })
       return
@@ -78,11 +89,12 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
     set({ isLoading: true })
     try {
       const items = await pantryService.getPantryItems(targetHh)
-      const { byProduct, byName } = buildPantryMaps(items)
+      const { byProduct, byName, byParent } = buildPantryMaps(items)
       set({
         pantryItems: items,
         pantryMapByProductId: byProduct,
         pantryMapByAdHocName: byName,
+        pantryItemsByParentId: byParent,
         isLoading: false
       })
     } catch (err) {
@@ -104,21 +116,23 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
         i.id === itemId ? { ...i, quantity: newQuantity, updated_at: now } : i
       )
     }
-    const { byProduct, byName } = buildPantryMaps(updated)
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
     set({
       pantryItems: updated,
       pantryMapByProductId: byProduct,
-      pantryMapByAdHocName: byName
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
     })
 
     const success = await pantryService.updateQuantity(itemId, newQuantity)
     if (!success) {
       // Rollback on network failure
-      const { byProduct: rollProduct, byName: rollName } = buildPantryMaps(previousItems)
+      const { byProduct: rollProduct, byName: rollName, byParent: rollParent } = buildPantryMaps(previousItems)
       set({
         pantryItems: previousItems,
         pantryMapByProductId: rollProduct,
-        pantryMapByAdHocName: rollName
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
       })
       toast.error(translate('toasts.errorOccurred'))
       return false
@@ -142,20 +156,22 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
           : i
       )
     }
-    const { byProduct, byName } = buildPantryMaps(updated)
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
     set({
       pantryItems: updated,
       pantryMapByProductId: byProduct,
-      pantryMapByAdHocName: byName
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
     })
 
     const success = await pantryService.verifyItem(itemId, newQuantity)
     if (!success) {
-      const { byProduct: rollProduct, byName: rollName } = buildPantryMaps(previousItems)
+      const { byProduct: rollProduct, byName: rollName, byParent: rollParent } = buildPantryMaps(previousItems)
       set({
         pantryItems: previousItems,
         pantryMapByProductId: rollProduct,
-        pantryMapByAdHocName: rollName
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
       })
       toast.error(translate('toasts.errorOccurred'))
       return false
@@ -167,21 +183,23 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
   deletePantryItem: async (itemId) => {
     const previousItems = get().pantryItems
     const updated = previousItems.filter((i) => i.id !== itemId)
-    const { byProduct, byName } = buildPantryMaps(updated)
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
 
     set({
       pantryItems: updated,
       pantryMapByProductId: byProduct,
-      pantryMapByAdHocName: byName
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
     })
 
     const success = await pantryService.deletePantryItem(itemId)
     if (!success) {
-      const { byProduct: rollProduct, byName: rollName } = buildPantryMaps(previousItems)
+      const { byProduct: rollProduct, byName: rollName, byParent: rollParent } = buildPantryMaps(previousItems)
       set({
         pantryItems: previousItems,
         pantryMapByProductId: rollProduct,
-        pantryMapByAdHocName: rollName
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
       })
       toast.error(translate('toasts.errorOccurred'))
       return false
@@ -203,21 +221,23 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
       }
       return true
     })
-    const { byProduct, byName } = buildPantryMaps(updated)
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
 
     set({
       pantryItems: updated,
       pantryMapByProductId: byProduct,
-      pantryMapByAdHocName: byName
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
     })
 
     const success = await pantryService.removeByProductOrName(hhId, productId, adHocName)
     if (!success) {
-      const { byProduct: rollProduct, byName: rollName } = buildPantryMaps(previousItems)
+      const { byProduct: rollProduct, byName: rollName, byParent: rollParent } = buildPantryMaps(previousItems)
       set({
         pantryItems: previousItems,
         pantryMapByProductId: rollProduct,
-        pantryMapByAdHocName: rollName
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
       })
       toast.error(translate('toasts.errorOccurred'))
       return false
@@ -248,11 +268,12 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
     const hhId = get().activeHouseholdId
     if (!hhId) return
     const items = await pantryService.getPantryItems(hhId)
-    const { byProduct, byName } = buildPantryMaps(items)
+    const { byProduct, byName, byParent } = buildPantryMaps(items)
     set({
       pantryItems: items,
       pantryMapByProductId: byProduct,
-      pantryMapByAdHocName: byName
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
     })
   }
 }))

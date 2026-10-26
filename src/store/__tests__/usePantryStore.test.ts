@@ -61,6 +61,7 @@ describe('usePantryStore', () => {
       pantryItems: [],
       pantryMapByProductId: {},
       pantryMapByAdHocName: {},
+      pantryItemsByParentId: {},
       activeHouseholdId: null,
       isLoading: false
     })
@@ -179,5 +180,37 @@ describe('usePantryStore', () => {
 
     expect(usePantryStore.getState().pantryItems).toHaveLength(1)
     expect(usePantryStore.getState().pantryMapByProductId['prod-100']).toBeDefined()
+  })
+
+  it('Flow 07 (ADR-010): groups pantry items by parent_id in pantryItemsByParentId', async () => {
+    const childItem1 = {
+      ...mockPantryItem,
+      id: 'pantry-child-1',
+      product_id: 'prod-child-1',
+      product: {
+        ...mockPantryItem.product!,
+        id: 'prod-child-1',
+        name: 'Awokado Hass',
+        parent_id: 'prod-parent-avo'
+      }
+    }
+    const childItem2 = {
+      ...mockPantryItem,
+      id: 'pantry-child-2',
+      product_id: 'prod-child-2',
+      product: {
+        ...mockPantryItem.product!,
+        id: 'prod-child-2',
+        name: 'Awokado Zielone',
+        parent_id: 'prod-parent-avo'
+      }
+    }
+
+    vi.mocked(pantryService.getPantryItems).mockResolvedValue([childItem1, childItem2])
+    await usePantryStore.getState().loadPantryItems('hh-1')
+
+    const state = usePantryStore.getState()
+    expect(state.pantryItemsByParentId['prod-parent-avo']).toBeDefined()
+    expect(state.pantryItemsByParentId['prod-parent-avo']).toHaveLength(2)
   })
 })
