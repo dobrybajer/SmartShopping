@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  areUnitsCompatible,
   calculatePantryFreshness,
   calculatePartialDelta,
+  convertQuantity,
   matchHierarchicalPantry
 } from '../pantryCalculations'
 
@@ -121,6 +123,46 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
       expect(calculatePartialDelta(500, 500)).toBe(0)
       expect(calculatePartialDelta(200, 500)).toBe(0)
     })
+
+    it('converts compatible weight and volume units accurately (MED-04)', () => {
+      // Weight: g <-> dag <-> kg
+      expect(calculatePartialDelta(1000, 0.4, 'g', 'kg')).toBe(600)
+      expect(calculatePartialDelta(1, 250, 'kg', 'g')).toBe(0.8) // 0.75 rounded to 1 decimal: wait Math.round(0.75 * 10)/10 = 0.8
+      expect(calculatePartialDelta(500, 20, 'g', 'dag')).toBe(300)
+      expect(calculatePartialDelta(1000, 1, 'g', 'kg')).toBe(0)
+
+      // Volume: ml <-> l
+      expect(calculatePartialDelta(750, 0.5, 'ml', 'l')).toBe(250)
+      expect(calculatePartialDelta(1.5, 500, 'l', 'ml')).toBe(1)
+
+      // Pieces: pcs <-> szt
+      expect(calculatePartialDelta(6, 2, 'pcs', 'szt')).toBe(4)
+    })
+
+    it('refuses subtraction and returns full neededQuantity when units are incompatible (MED-04)', () => {
+      expect(calculatePartialDelta(500, 2, 'g', 'pcs')).toBe(500)
+      expect(calculatePartialDelta(1000, 1, 'ml', 'g')).toBe(1000)
+    })
+  })
+
+  describe('Unit compatibility & conversion helpers (MED-04)', () => {
+    it('identifies compatible and incompatible unit families', () => {
+      expect(areUnitsCompatible('g', 'kg')).toBe(true)
+      expect(areUnitsCompatible('dag', 'kg')).toBe(true)
+      expect(areUnitsCompatible('ml', 'l')).toBe(true)
+      expect(areUnitsCompatible('pcs', 'szt')).toBe(true)
+      expect(areUnitsCompatible('g', 'ml')).toBe(false)
+      expect(areUnitsCompatible('pcs', 'g')).toBe(false)
+      expect(areUnitsCompatible('unknown', 'g')).toBe(false)
+    })
+
+    it('converts values across compatible families and returns null for incompatible ones', () => {
+      expect(convertQuantity(1.5, 'kg', 'g')).toBe(1500)
+      expect(convertQuantity(250, 'ml', 'l')).toBe(0.25)
+      expect(convertQuantity(30, 'dag', 'g')).toBe(300)
+      expect(convertQuantity(4, 'szt', 'pcs')).toBe(4)
+      expect(convertQuantity(500, 'g', 'pcs')).toBeNull()
+    })
   })
 
   describe('matchHierarchicalPantry (ADR-010)', () => {
@@ -190,6 +232,25 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
       expect(match.isInPantry).toBe(false)
       expect(match.totalQuantity).toBe(0)
       expect(match.matchingItems).toHaveLength(0)
+    })
+
+    it('Flow 04: converts child pantry quantities to parent product unit_type (MED-04)', () => {
+      const generalMilk = { id: 'prod-milk', name: 'Mleko', unit_type: 'ml' as const, is_general: true }
+      const childMilk = {
+        id: 'pantry-milk-1',
+        household_id: 'hh-1',
+        product_id: 'prod-milk-32',
+        quantity: 0.5,
+        unit_type: 'l',
+        last_purchased_at: '2026-10-04T12:00:00Z',
+        created_at: '2026-10-04T12:00:00Z',
+        updated_at: '2026-10-04T12:00:00Z',
+        product: { id: 'prod-milk-32', name: 'Mleko 3.2%', unit_type: 'ml' as const, category_id: 2, parent_id: 'prod-milk' }
+      }
+
+      const match = matchHierarchicalPantry(generalMilk, {}, { 'prod-milk': [childMilk as never] })
+      expect(match.totalQuantity).toBe(500)
+      expect(match.unitType).toBe('ml')
     })
   })
 })

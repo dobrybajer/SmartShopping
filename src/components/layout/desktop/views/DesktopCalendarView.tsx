@@ -1,12 +1,29 @@
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/hooks/useAuth'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { useShallow } from 'zustand/react/shallow'
-import { DayCalendarView } from '@/components/calendar/DayCalendarView'
-import { WeekCalendarView } from '@/components/calendar/WeekCalendarView'
-import { MonthCalendarGrid } from '@/components/calendar/MonthCalendarGrid'
-import { AddCalendarMealDialog } from '@/components/calendar/AddCalendarMealDialog'
+
+const DayCalendarView = lazy(() =>
+  import('@/components/calendar/DayCalendarView').then((m) => ({ default: m.DayCalendarView }))
+)
+const WeekCalendarView = lazy(() =>
+  import('@/components/calendar/WeekCalendarView').then((m) => ({ default: m.WeekCalendarView }))
+)
+const MonthCalendarGrid = lazy(() =>
+  import('@/components/calendar/MonthCalendarGrid').then((m) => ({ default: m.MonthCalendarGrid }))
+)
+const AddCalendarMealDialog = lazy(() =>
+  import('@/components/calendar/AddCalendarMealDialog').then((m) => ({
+    default: m.AddCalendarMealDialog
+  }))
+)
+
+const CalendarModeFallback: React.FC = () => (
+  <div className="w-full h-40 flex items-center justify-center">
+    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+)
 import { Calendar as CalendarIcon, CalendarDays, Clock, Plus, Utensils } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -133,37 +150,43 @@ export const DesktopCalendarView: React.FC = () => {
 
       {/* 2. Main Calendar Content */}
       <div className="flex flex-col">
-        {viewMode === 'month' && (
-          <MonthCalendarGrid
-            selectedDate={selectedDate}
-            onOpenDayView={handleOpenDayView}
-          />
-        )}
+        <Suspense fallback={<CalendarModeFallback />}>
+          {viewMode === 'month' && (
+            <MonthCalendarGrid
+              selectedDate={selectedDate}
+              onOpenDayView={handleOpenDayView}
+            />
+          )}
 
-        {viewMode === 'week' && (
-          <WeekCalendarView
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-            onOpenDayView={handleOpenDayView}
-            onAddMealClick={handleOpenAddMeal}
-          />
-        )}
+          {viewMode === 'week' && (
+            <WeekCalendarView
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+              onOpenDayView={handleOpenDayView}
+              onAddMealClick={handleOpenAddMeal}
+            />
+          )}
 
-        {viewMode === 'day' && (
-          <DayCalendarView
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-            onAddMealClick={() => handleOpenAddMeal(selectedDate)}
-          />
-        )}
+          {viewMode === 'day' && (
+            <DayCalendarView
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              onAddMealClick={() => handleOpenAddMeal(selectedDate)}
+            />
+          )}
+        </Suspense>
       </div>
 
       {/* Add / Edit Meal Dialog */}
-      <AddCalendarMealDialog
-        isOpen={isAddMealOpen}
-        onClose={() => setIsAddMealOpen(false)}
-        initialDate={addMealDate}
-      />
+      {isAddMealOpen && (
+        <Suspense fallback={null}>
+          <AddCalendarMealDialog
+            isOpen={isAddMealOpen}
+            onClose={() => setIsAddMealOpen(false)}
+            initialDate={addMealDate}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

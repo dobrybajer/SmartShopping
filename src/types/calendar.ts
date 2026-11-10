@@ -54,6 +54,7 @@ export interface CreateCalendarMealInput {
   target_kcal?: number | null
   notes?: string | null
   sort_order?: number
+  is_uncertainty_dismissed?: boolean
 }
 
 export interface UpdateCalendarMealInput {
@@ -66,4 +67,5 @@ export interface UpdateCalendarMealInput {
   target_kcal?: number | null
   notes?: string | null
   sort_order?: number
+  is_uncertainty_dismissed?: boolean
 }

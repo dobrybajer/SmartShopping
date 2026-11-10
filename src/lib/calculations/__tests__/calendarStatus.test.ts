@@ -56,6 +56,7 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
     target_kcal: null,
     notes: 'Breakfast with eggs and butter',
     sort_order: 0,
+    is_uncertainty_dismissed: false,
     created_at: '2026-10-07T00:00:00Z',
     updated_at: '2026-10-07T00:00:00Z',
     meal: {
@@ -259,6 +260,49 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
       expect(res.missingIngredients[0].productName).toBe('Butter')
       expect(res.missingIngredients[0].requiredQuantity).toBe(20)
     })
+
+    it('suppresses "uncertain" status when is_uncertainty_dismissed is true (MED-03)', () => {
+      const dismissedPlan: MealPlanItem = {
+        ...mockMealPlan,
+        is_uncertainty_dismissed: true
+      }
+
+      // Eggs are bought on active list, Butter is missing/deleted
+      const activeListItems: ShoppingListItemRow[] = [
+        {
+          id: 'item-1',
+          shopping_list_id: 'list-1',
+          product_id: 'prod-1',
+          total_quantity: 4,
+          is_checked: true,
+          added_ad_hoc: false,
+          in_pantry: false,
+          meal_plan_item_id: 'plan-101'
+        }
+      ]
+
+      const resBought = calculateMealPlanStatus(dismissedPlan, { activeListItems })
+      expect(resBought.status).toBe('bought')
+      expect(resBought.missingIngredients).toHaveLength(1)
+
+      // When remaining item is only in draft, dismissed plan falls back to in_draft
+      const draftItems: DraftItem[] = [
+        {
+          id: 'd-1',
+          product_id: 'prod-1',
+          name: 'Eggs',
+          unit_type: 'pcs',
+          category_name: 'dairy',
+          sort_order: 1,
+          quantity: 4,
+          is_ad_hoc: false,
+          meal_plan_item_id: 'plan-101'
+        }
+      ]
+
+      const resDraft = calculateMealPlanStatus(dismissedPlan, { draftItems })
+      expect(resDraft.status).toBe('in_draft')
+    })
   })
 
   describe('calculateDayMacros', () => {
@@ -291,6 +335,7 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
         target_kcal: 650,
         notes: null,
         sort_order: 1,
+        is_uncertainty_dismissed: false,
         created_at: '',
         updated_at: ''
       }

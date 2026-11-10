@@ -2,6 +2,7 @@ import type { MealPlanItem, MealStatusDetails, DayMacroSummary, MissingIngredien
 import type { DraftItem, AddToDraftPayload } from '@/store/useShoppingStore'
 import type { Database } from '@/types/supabase'
 import type { PantryItem, PantryItemWithDetails } from '@/types/pantry'
+import { convertQuantity } from '@/lib/calculations/pantryCalculations'
 import { calculateIngredientMacros, sumMacroNutrients, resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
 
 type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['Row']
@@ -88,12 +89,18 @@ export function calculateMealPlanStatus(
     const product = ing.product!
     const requiredQty = ing.base_quantity * (planItem.servings > 0 ? planItem.servings : 1)
 
-    // Check if covered by pantry
-    let stockedQty = pantryMap.get(productId)?.quantity ?? 0
+    // Check if covered by pantry (unit-aware conversion)
+    const directPantry = pantryMap.get(productId)
+    let stockedQty = directPantry
+      ? (convertQuantity(directPantry.quantity || 0, directPantry.unit_type, product.unit_type) ?? 0)
+      : 0
     if (product.is_general) {
       const childStock = pantryItems
         .filter((p) => 'product' in p && p.product?.parent_id === productId)
-        .reduce((sum, p) => sum + (p.quantity || 0), 0)
+        .reduce(
+          (sum, p) => sum + (convertQuantity(p.quantity || 0, p.unit_type, product.unit_type) ?? 0),
+          0
+        )
       stockedQty = Math.max(stockedQty, childStock)
     }
     const isPantryStocked = ing.is_pantry_item === true || stockedQty >= requiredQty
@@ -148,7 +155,7 @@ export function calculateMealPlanStatus(
 
   if (isPastDate) {
     status = 'bought'
-  } else if (missingIngredients.length > 0) {
+  } else if (missingIngredients.length > 0 && !planItem.is_uncertainty_dismissed) {
     // ⚠️ Uncertainty flag
     status = 'uncertain'
   } else if (!hasEnteredPipeline) {
@@ -159,10 +166,13 @@ export function calculateMealPlanStatus(
       status = 'planned'
     }
   } else {
-    // Pipeline is clean without missing items
+    // Pipeline is clean without missing items (or missing items were acknowledged)
     const satisfiedCount = boughtCount + pantryCoveredCount
+    const effectiveTotal = planItem.is_uncertainty_dismissed
+      ? Math.max(0, totalIngredients - missingIngredients.length)
+      : totalIngredients
 
-    if (satisfiedCount === totalIngredients) {
+    if (effectiveTotal > 0 && satisfiedCount >= effectiveTotal) {
       status = 'bought'
     } else if (inListCount > 0) {
       status = 'in_list'
@@ -274,11 +284,17 @@ export function generateDraftItemsFromMealPlan(
     // Skip if pantry item flag is set or stocked in domestic pantry
     if (excludePantryItems) {
       if (ing.is_pantry_item === true) continue
-      let stocked = pantryMap.get(ing.product_id)?.quantity ?? 0
+      const directPantry = pantryMap.get(ing.product_id)
+      let stocked = directPantry
+        ? (convertQuantity(directPantry.quantity || 0, directPantry.unit_type, product.unit_type) ?? 0)
+        : 0
       if (product.is_general) {
         const childStock = pantryItems
           .filter((p) => 'product' in p && p.product?.parent_id === ing.product_id)
-          .reduce((sum, p) => sum + (p.quantity || 0), 0)
+          .reduce(
+            (sum, p) => sum + (convertQuantity(p.quantity || 0, p.unit_type, product.unit_type) ?? 0),
+            0
+          )
         stocked = Math.max(stocked, childStock)
       }
       if (stocked >= requiredQty) continue

@@ -144,7 +144,8 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
       'push_subscriptions',
       'products',
       'meals',
-      'meal_ingredients'
+      'meal_ingredients',
+      'shopping_list_items_archive'
     ]
 
     for (const table of strictTenantTables) {

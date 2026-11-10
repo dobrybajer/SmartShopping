@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { DesktopSidebar } from './DesktopSidebar'
 import { DesktopHeader } from './DesktopHeader'
-import { JsonRecipeImportDialog } from '@/components/dialogs/JsonRecipeImportDialog'
 import { NotificationPromptBanner } from '@/components/notifications/NotificationPromptBanner'
 import type { TabType } from '@/components/layout/BottomNavigation'
 import type { LayoutMode } from '@/hooks/useDeviceLayout'
+
+const JsonRecipeImportDialog = lazy(() =>
+  import('@/components/dialogs/JsonRecipeImportDialog').then((m) => ({
+    default: m.JsonRecipeImportDialog
+  }))
+)
 
 interface DesktopLayoutProps {
   children: React.ReactNode
@@ -81,11 +86,15 @@ export const DesktopLayout: React.FC<DesktopLayoutProps> = ({
       </div>
 
       {/* Desktop-exclusive JSON Recipe Import Dialog */}
-      <JsonRecipeImportDialog
-        open={isJsonImportOpen}
-        onOpenChange={setIsJsonImportOpen}
-        onSuccess={handleJsonImportSuccess}
-      />
+      {isJsonImportOpen && (
+        <Suspense fallback={null}>
+          <JsonRecipeImportDialog
+            open={isJsonImportOpen}
+            onOpenChange={setIsJsonImportOpen}
+            onSuccess={handleJsonImportSuccess}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

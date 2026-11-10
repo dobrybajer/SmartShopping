@@ -1,29 +1,79 @@
-import React, { useState } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
 import type { TabType } from '@/components/layout/BottomNavigation'
 
-// Mobile Layout & Views
+// Mobile Layout & Lazy Views
 import { MobileLayout } from '@/components/layout/MobileLayout'
-import { CookbookView } from '@/components/views/CookbookView'
-import { ProductsView } from '@/components/views/ProductsView'
-import { CalendarView } from '@/components/views/CalendarView'
-import { DraftView } from '@/components/views/DraftView'
-import { ActiveListView } from '@/components/views/ActiveListView'
-import { HistoryView } from '@/components/views/HistoryView'
-import { PantryView } from '@/components/views/PantryView'
+const CookbookView = lazy(() =>
+  import('@/components/views/CookbookView').then((m) => ({ default: m.CookbookView }))
+)
+const ProductsView = lazy(() =>
+  import('@/components/views/ProductsView').then((m) => ({ default: m.ProductsView }))
+)
+const CalendarView = lazy(() =>
+  import('@/components/views/CalendarView').then((m) => ({ default: m.CalendarView }))
+)
+const DraftView = lazy(() =>
+  import('@/components/views/DraftView').then((m) => ({ default: m.DraftView }))
+)
+const ActiveListView = lazy(() =>
+  import('@/components/views/ActiveListView').then((m) => ({ default: m.ActiveListView }))
+)
+const HistoryView = lazy(() =>
+  import('@/components/views/HistoryView').then((m) => ({ default: m.HistoryView }))
+)
+const PantryView = lazy(() =>
+  import('@/components/views/PantryView').then((m) => ({ default: m.PantryView }))
+)
 
-// Desktop Layout & Views
-import { DesktopLayout } from '@/components/layout/desktop/DesktopLayout'
-import { DesktopCookbookView } from '@/components/layout/desktop/views/DesktopCookbookView'
-import { DesktopProductsView } from '@/components/layout/desktop/views/DesktopProductsView'
-import { DesktopCalendarView } from '@/components/layout/desktop/views/DesktopCalendarView'
-import { DesktopDraftView } from '@/components/layout/desktop/views/DesktopDraftView'
-import { DesktopActiveListView } from '@/components/layout/desktop/views/DesktopActiveListView'
-import { DesktopHistoryView } from '@/components/layout/desktop/views/DesktopHistoryView'
-import { DesktopPantryView } from '@/components/layout/desktop/views/DesktopPantryView'
+// Desktop Layout & Lazy Views
+const DesktopLayout = lazy(() =>
+  import('@/components/layout/desktop/DesktopLayout').then((m) => ({ default: m.DesktopLayout }))
+)
+const DesktopCookbookView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopCookbookView').then((m) => ({
+    default: m.DesktopCookbookView
+  }))
+)
+const DesktopProductsView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopProductsView').then((m) => ({
+    default: m.DesktopProductsView
+  }))
+)
+const DesktopCalendarView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopCalendarView').then((m) => ({
+    default: m.DesktopCalendarView
+  }))
+)
+const DesktopDraftView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopDraftView').then((m) => ({
+    default: m.DesktopDraftView
+  }))
+)
+const DesktopActiveListView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopActiveListView').then((m) => ({
+    default: m.DesktopActiveListView
+  }))
+)
+const DesktopHistoryView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopHistoryView').then((m) => ({
+    default: m.DesktopHistoryView
+  }))
+)
+const DesktopPantryView = lazy(() =>
+  import('@/components/layout/desktop/views/DesktopPantryView').then((m) => ({
+    default: m.DesktopPantryView
+  }))
+)
 import { useOfflineSync } from '@/hooks/useOfflineSync'
+
+const ViewLoadingFallback: React.FC = () => (
+  <div className="w-full h-48 flex items-center justify-center">
+    <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+)
 
 export const AppLayoutRouter: React.FC = () => {
   useOfflineSync()
@@ -77,24 +127,28 @@ export const AppLayoutRouter: React.FC = () => {
   // 1. Desktop Layout (Devices >= 13 inches / >= 1024px or manual desktop override)
   if (isDesktop) {
     return (
-      <DesktopLayout
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        headerTitle={headerTitle}
-        draftCount={draftItems.length}
-        layoutMode={layoutMode}
-        onLayoutModeChange={setLayoutMode}
-      >
-        {activeTab === 'cookbook' && <DesktopCookbookView />}
-        {activeTab === 'calendar' && <DesktopCalendarView />}
-        {activeTab === 'products' && <DesktopProductsView />}
-        {activeTab === 'draft' && (
-          <DesktopDraftView onActiveListCreated={() => setActiveTab('active')} />
-        )}
-        {activeTab === 'active' && <DesktopActiveListView />}
-        {activeTab === 'history' && <DesktopHistoryView />}
-        {activeTab === 'pantry' && <DesktopPantryView />}
-      </DesktopLayout>
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <DesktopLayout
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          headerTitle={headerTitle}
+          draftCount={draftItems.length}
+          layoutMode={layoutMode}
+          onLayoutModeChange={setLayoutMode}
+        >
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {activeTab === 'cookbook' && <DesktopCookbookView />}
+            {activeTab === 'calendar' && <DesktopCalendarView />}
+            {activeTab === 'products' && <DesktopProductsView />}
+            {activeTab === 'draft' && (
+              <DesktopDraftView onActiveListCreated={() => setActiveTab('active')} />
+            )}
+            {activeTab === 'active' && <DesktopActiveListView />}
+            {activeTab === 'history' && <DesktopHistoryView />}
+            {activeTab === 'pantry' && <DesktopPantryView />}
+          </Suspense>
+        </DesktopLayout>
+      </Suspense>
     )
   }
 
@@ -106,15 +160,17 @@ export const AppLayoutRouter: React.FC = () => {
       headerTitle={headerTitle}
       draftCount={draftItems.length}
     >
-      {activeTab === 'cookbook' && <CookbookView />}
-      {activeTab === 'calendar' && <CalendarView />}
-      {activeTab === 'products' && <ProductsView />}
-      {activeTab === 'draft' && (
-        <DraftView onActiveListCreated={() => setActiveTab('active')} />
-      )}
-      {activeTab === 'active' && <ActiveListView />}
-      {activeTab === 'history' && <HistoryView />}
-      {activeTab === 'pantry' && <PantryView />}
+      <Suspense fallback={<ViewLoadingFallback />}>
+        {activeTab === 'cookbook' && <CookbookView />}
+        {activeTab === 'calendar' && <CalendarView />}
+        {activeTab === 'products' && <ProductsView />}
+        {activeTab === 'draft' && (
+          <DraftView onActiveListCreated={() => setActiveTab('active')} />
+        )}
+        {activeTab === 'active' && <ActiveListView />}
+        {activeTab === 'history' && <HistoryView />}
+        {activeTab === 'pantry' && <PantryView />}
+      </Suspense>
     </MobileLayout>
   )
 }

@@ -36,12 +36,15 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
   const { t } = useTranslation()
   const { isDesktop } = useDeviceLayout()
   const restoreMissingIngredient = useMealPlanStore((state) => state.restoreMissingIngredient)
+  const dismissUncertainty = useMealPlanStore((state) => state.dismissUncertainty)
 
   const [restoredIds, setRestoredIds] = React.useState<Set<string>>(new Set())
+  const [isDismissing, setIsDismissing] = React.useState(false)
 
   React.useEffect(() => {
     if (isOpen) {
       setRestoredIds(new Set())
+      setIsDismissing(false)
     }
   }, [isOpen])
 
@@ -57,6 +60,15 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
       }
     }
     onClose()
+  }
+
+  const handleDismiss = async () => {
+    setIsDismissing(true)
+    const ok = await dismissUncertainty(planItem.id)
+    setIsDismissing(false)
+    if (ok) {
+      onClose()
+    }
   }
 
   const mealName = planItem.meal?.name || planItem.custom_name || 'Posiłek'
@@ -121,9 +133,17 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+      <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border">
         <Button variant="ghost" onClick={onClose} className="rounded-xl">
           {t('common.close')}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleDismiss}
+          disabled={isDismissing}
+          className="rounded-xl border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+        >
+          {t('calendar.uncertainty.dismiss')}
         </Button>
         <Button
           onClick={handleRestoreAll}

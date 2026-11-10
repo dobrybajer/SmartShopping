@@ -36,6 +36,7 @@ export interface MealPlanStoreState {
   transferMealToDraft: (planItem: MealPlanItem, options?: { excludePantryItems?: boolean }) => number
   transferDayToDraft: (date: string, options?: { excludePantryItems?: boolean }) => number
   restoreMissingIngredient: (missing: MissingIngredient, planItem: MealPlanItem) => void
+  dismissUncertainty: (planId: string) => Promise<boolean>
   syncFromRealtime: () => Promise<void>
   setupRealtimeSubscription: (householdId: string) => () => void
 }
@@ -104,6 +105,7 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       target_kcal: input.target_kcal ?? null,
       notes: input.notes || null,
       sort_order: input.sort_order ?? 0,
+      is_uncertainty_dismissed: input.is_uncertainty_dismissed ?? false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       meal: null
@@ -238,6 +240,14 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       translate('calendar.ingredientRestoredToast', { name: missing.productName }) ||
       `Przywrócono ${missing.productName} do koszyka`
     )
+  },
+
+  dismissUncertainty: async (planId) => {
+    const success = await get().updateMealPlan(planId, { is_uncertainty_dismissed: true })
+    if (success) {
+      toast.success(translate('calendar.uncertainty.dismissedToast'))
+    }
+    return success
   },
 
   syncFromRealtime: async () => {

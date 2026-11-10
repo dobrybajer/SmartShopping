@@ -10,7 +10,8 @@ vi.mock('@/services/pantryService', () => ({
     updateQuantity: vi.fn(),
     verifyItem: vi.fn(),
     deletePantryItem: vi.fn(),
-    removeByProductOrName: vi.fn()
+    removeByProductOrName: vi.fn(),
+    deductMealIngredients: vi.fn()
   }
 }))
 
@@ -212,5 +213,51 @@ describe('usePantryStore', () => {
     const state = usePantryStore.getState()
     expect(state.pantryItemsByParentId['prod-parent-avo']).toBeDefined()
     expect(state.pantryItemsByParentId['prod-parent-avo']).toHaveLength(2)
+  })
+
+  it('Flow 08 (MED-05): deductMealIngredients updates stock optimistically, removes depleted rows, and rolls back on failure', async () => {
+    const secondItem: PantryItemWithDetails = {
+      ...mockPantryItem,
+      id: 'pantry-2',
+      product_id: 'prod-200',
+      quantity: 500,
+      unit_type: 'g',
+      product: {
+        ...mockPantryItem.product!,
+        id: 'prod-200',
+        name: 'Makaron',
+        unit_type: 'g'
+      }
+    }
+
+    usePantryStore.setState({
+      pantryItems: [mockPantryItem, secondItem],
+      pantryMapByProductId: { 'prod-100': mockPantryItem, 'prod-200': secondItem },
+      pantryMapByAdHocName: {},
+      pantryItemsByParentId: {},
+      activeHouseholdId: 'hh-1'
+    })
+
+    vi.mocked(pantryService.deductMealIngredients).mockResolvedValueOnce(true)
+
+    const ok = await usePantryStore.getState().deductMealIngredients([
+      { pantryItemId: 'pantry-1', newQuantity: 0 },
+      { pantryItemId: 'pantry-2', newQuantity: 300 }
+    ])
+
+    expect(ok).toBe(true)
+    const afterSuccess = usePantryStore.getState()
+    expect(afterSuccess.pantryItems).toHaveLength(1)
+    expect(afterSuccess.pantryMapByProductId['prod-100']).toBeUndefined()
+    expect(afterSuccess.pantryMapByProductId['prod-200']?.quantity).toBe(300)
+
+    // Failure rollback check
+    vi.mocked(pantryService.deductMealIngredients).mockResolvedValueOnce(false)
+    const failResult = await usePantryStore.getState().deductMealIngredients([
+      { pantryItemId: 'pantry-2', newQuantity: 0 }
+    ])
+    expect(failResult).toBe(false)
+    expect(usePantryStore.getState().pantryItems).toHaveLength(1)
+    expect(usePantryStore.getState().pantryMapByProductId['prod-200']?.quantity).toBe(300)
   })
 })

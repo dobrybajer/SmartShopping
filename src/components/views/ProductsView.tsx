@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product } from '@/services/productService'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
-import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
-import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
+
+const CategoryManagerSheet = lazy(() =>
+  import('@/components/dialogs/CategoryManagerSheet').then((m) => ({
+    default: m.CategoryManagerSheet
+  }))
+)
+const CategoryManagerDialog = lazy(() =>
+  import('@/components/dialogs/CategoryManagerDialog').then((m) => ({
+    default: m.CategoryManagerDialog
+  }))
+)
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -594,20 +603,22 @@ export const ProductsView: React.FC = () => {
       />
 
       {/* Category Manager Modal (Desktop Dialog / Mobile Sheet) */}
-      {household?.id && (
-        isDesktop ? (
-          <CategoryManagerDialog
-            open={isCategoryManagerOpen}
-            onOpenChange={setIsCategoryManagerOpen}
-            householdId={household.id}
-          />
-        ) : (
-          <CategoryManagerSheet
-            open={isCategoryManagerOpen}
-            onOpenChange={setIsCategoryManagerOpen}
-            householdId={household.id}
-          />
-        )
+      {household?.id && isCategoryManagerOpen && (
+        <Suspense fallback={null}>
+          {isDesktop ? (
+            <CategoryManagerDialog
+              open={isCategoryManagerOpen}
+              onOpenChange={setIsCategoryManagerOpen}
+              householdId={household.id}
+            />
+          ) : (
+            <CategoryManagerSheet
+              open={isCategoryManagerOpen}
+              onOpenChange={setIsCategoryManagerOpen}
+              householdId={household.id}
+            />
+          )}
+        </Suspense>
       )}
 
       {/* Add / Edit Pantry Item Dialog */}

@@ -91,7 +91,8 @@ export const mealPlanService = {
         servings: input.servings ?? 1,
         target_kcal: input.target_kcal ?? null,
         notes: input.notes || null,
-        sort_order: input.sort_order ?? 0
+        sort_order: input.sort_order ?? 0,
+        is_uncertainty_dismissed: input.is_uncertainty_dismissed ?? false
       })
       .select(`
         *,

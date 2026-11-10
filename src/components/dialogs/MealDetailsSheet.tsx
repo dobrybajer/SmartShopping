@@ -23,7 +23,9 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, Scale, Globe, Home, Plus, Check, Warehouse } from 'lucide-react'
+import { Flame, Scale, Globe, Home, Plus, Check, Warehouse, UtensilsCrossed } from 'lucide-react'
+import { CookMealDeductModal } from './CookMealDeductModal'
+import { buildCookableIngredientsFromMeal } from '@/lib/calculations/pantryConsumption'
 import { cn } from '@/lib/utils'
 
 interface MealDetailsSheetProps {
@@ -48,6 +50,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   const { t, formatQuantity } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
   const [isAdded, setIsAdded] = useState(false)
+  const [isCookModalOpen, setIsCookModalOpen] = useState(false)
 
   if (!meal) return null
 
@@ -287,8 +290,10 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
     </div>
   )
 
+  const cookIngredients = buildCookableIngredientsFromMeal(meal.ingredients, multiplier)
+
   const footerContent = (
-    <div className="p-4 border-t border-border bg-card/90 shrink-0">
+    <div className="p-4 border-t border-border bg-card/90 shrink-0 flex flex-col gap-2">
       <Button
         onClick={handleAddToDraft}
         disabled={isAdded}
@@ -306,39 +311,65 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           </>
         )}
       </Button>
+      {cookIngredients.length > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setIsCookModalOpen(true)}
+          className="w-full h-10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <UtensilsCrossed className="w-4 h-4" />
+          <span>{t('pantry.cookModal.buttonLabel')}</span>
+        </Button>
+      )}
     </div>
+  )
+
+  const cookModal = (
+    <CookMealDeductModal
+      open={isCookModalOpen}
+      onOpenChange={setIsCookModalOpen}
+      mealName={meal.name}
+      ingredients={cookIngredients}
+    />
   )
 
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
-        >
-          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-            <DialogTitle className="sr-only">{meal.name}</DialogTitle>
-            <DialogDescription className="sr-only">{meal.description || meal.name}</DialogDescription>
-            {headerContent}
-          </DialogHeader>
-          {bodyContent}
-          {footerContent}
-        </DialogContent>
-      </Dialog>
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
+          >
+            <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <DialogTitle className="sr-only">{meal.name}</DialogTitle>
+              <DialogDescription className="sr-only">{meal.description || meal.name}</DialogDescription>
+              {headerContent}
+            </DialogHeader>
+            {bodyContent}
+            {footerContent}
+          </DialogContent>
+        </Dialog>
+        {cookModal}
+      </>
     )
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[90vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden">
-        <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-          <SheetTitle className="sr-only">{meal.name}</SheetTitle>
-          <SheetDescription className="sr-only">{meal.description || meal.name}</SheetDescription>
-          {headerContent}
-        </SheetHeader>
-        {bodyContent}
-        {footerContent}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="max-h-[90vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden">
+          <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+            <SheetTitle className="sr-only">{meal.name}</SheetTitle>
+            <SheetDescription className="sr-only">{meal.description || meal.name}</SheetDescription>
+            {headerContent}
+          </SheetHeader>
+          {bodyContent}
+          {footerContent}
+        </SheetContent>
+      </Sheet>
+      {cookModal}
+    </>
   )
 }

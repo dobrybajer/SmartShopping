@@ -50,6 +50,7 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
     target_kcal: null,
     notes: 'Pyszne śniadanie',
     sort_order: 0,
+    is_uncertainty_dismissed: false,
     created_at: '2026-10-07T00:00:00Z',
     updated_at: '2026-10-07T00:00:00Z',
     meal: {
@@ -124,23 +125,23 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
     expect(screen.getByText('Dzień')).toBeInTheDocument()
   })
 
-  it('Flow 02: in Day View, displays planned meal card, notes, and macro bar', () => {
+  it('Flow 02: in Day View, displays planned meal card, notes, and macro bar', async () => {
     render(<CalendarView />)
 
-    expect(screen.getByText('Jajecznica z pomidorami')).toBeInTheDocument()
+    expect(await screen.findByText('Jajecznica z pomidorami', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('"Pyszne śniadanie"')).toBeInTheDocument()
     expect(screen.getByText('Jajka')).toBeInTheDocument()
     expect(screen.getByText('225')).toBeInTheDocument() // 3 * 75 kcal
   })
 
-  it('Flow 03: switches to Week View when clicking Tydzień tab', () => {
+  it('Flow 03: switches to Week View when clicking Tydzień tab', async () => {
     render(<CalendarView />)
 
     const weekTab = screen.getByText('Tydzień')
     fireEvent.click(weekTab)
 
     expect(useMealPlanStore.getState().viewMode).toBe('week')
-    expect(screen.getByText('Roboczy (Pn-Pt)')).toBeInTheDocument()
+    expect(await screen.findByText('Roboczy (Pn-Pt)', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText('Pełny (Pn-Nd)')).toBeInTheDocument()
   })
 
@@ -153,10 +154,10 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
     expect(useMealPlanStore.getState().viewMode).toBe('month')
   })
 
-  it('Flow 05: transfers meal to draft when clicking "Dodaj do koszyka"', () => {
+  it('Flow 05: transfers meal to draft when clicking "Dodaj do koszyka"', async () => {
     render(<CalendarView />)
 
-    const transferButton = screen.getByText('Dodaj do koszyka')
+    const transferButton = await screen.findByText('Dodaj do koszyka', {}, { timeout: 5000 })
     fireEvent.click(transferButton)
 
     const draftItems = useShoppingStore.getState().draftItems

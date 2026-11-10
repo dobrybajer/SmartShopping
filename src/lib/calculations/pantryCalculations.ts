@@ -134,11 +134,89 @@ export function calculatePantryFreshness(
   }
 }
 
+type UnitFamily = 'weight' | 'volume' | 'pieces'
+
+interface UnitSpec {
+  family: UnitFamily
+  factorToBase: number // g (weight), ml (volume), pcs (pieces)
+}
+
+const UNIT_SPECS: Record<string, UnitSpec> = {
+  g: { family: 'weight', factorToBase: 1 },
+  dag: { family: 'weight', factorToBase: 10 },
+  kg: { family: 'weight', factorToBase: 1000 },
+  ml: { family: 'volume', factorToBase: 1 },
+  l: { family: 'volume', factorToBase: 1000 },
+  pcs: { family: 'pieces', factorToBase: 1 },
+  szt: { family: 'pieces', factorToBase: 1 }
+}
+
+function normalizeUnit(unit?: string | null): string {
+  return (unit || 'pcs').trim().toLowerCase()
+}
+
 /**
- * Calculates remaining quantity to buy if pantry provides partial stock.
+ * Checks whether two units belong to the same physical measurement family
+ * (weight: g/dag/kg, volume: ml/l, pieces: pcs/szt).
  */
-export function calculatePartialDelta(neededQuantity: number, pantryQuantity: number): number {
-  const delta = neededQuantity - pantryQuantity
+export function areUnitsCompatible(unitA?: string | null, unitB?: string | null): boolean {
+  const a = normalizeUnit(unitA)
+  const b = normalizeUnit(unitB)
+  if (a === b) return true
+  const specA = UNIT_SPECS[a]
+  const specB = UNIT_SPECS[b]
+  if (!specA || !specB) return false
+  return specA.family === specB.family
+}
+
+/**
+ * Converts a quantity from `fromUnit` into `toUnit` within compatible unit families.
+ * Returns `null` when units are incompatible (e.g., pcs -> g).
+ */
+export function convertQuantity(
+  quantity: number,
+  fromUnit?: string | null,
+  toUnit?: string | null
+): number | null {
+  const numericQty = Number(quantity) || 0
+  const from = normalizeUnit(fromUnit)
+  const to = normalizeUnit(toUnit)
+  if (from === to) return numericQty
+
+  const specFrom = UNIT_SPECS[from]
+  const specTo = UNIT_SPECS[to]
+  if (!specFrom || !specTo || specFrom.family !== specTo.family) {
+    return null
+  }
+
+  const converted = (numericQty * specFrom.factorToBase) / specTo.factorToBase
+  return Math.round(converted * 10000) / 10000
+}
+
+/**
+ * Calculates remaining quantity to buy if pantry provides partial stock,
+ * automatically converting between compatible units (e.g., 0.5 l vs 250 ml, 1 kg vs 500 g).
+ */
+export function calculatePartialDelta(
+  neededQuantity: number,
+  pantryQuantity: number,
+  neededUnit?: string | null,
+  pantryUnit?: string | null
+): number {
+  const safeNeeded = Number(neededQuantity) || 0
+  const safePantry = Number(pantryQuantity) || 0
+
+  let effectivePantry = safePantry
+  if (neededUnit && pantryUnit) {
+    const converted = convertQuantity(safePantry, pantryUnit, neededUnit)
+    if (converted === null) {
+      // Incompatible units cannot subtract against each other
+      return Math.round(Math.max(0, safeNeeded) * 10) / 10
+    }
+    effectivePantry = converted
+  }
+
+  const delta = safeNeeded - effectivePantry
   if (delta <= 0) return 0
   return Math.round(delta * 10) / 10
 }
@@ -198,7 +276,10 @@ export function matchHierarchicalPantry(
     }
   }
 
-  const totalQuantity = allItems.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0)
+  const totalQuantity = allItems.reduce((acc, curr) => {
+    const converted = convertQuantity(Number(curr.quantity || 0), curr.unit_type || product.unit_type, product.unit_type)
+    return acc + (converted ?? 0)
+  }, 0)
 
   return {
     isInPantry: allItems.length > 0,

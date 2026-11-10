@@ -5,7 +5,12 @@ import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useShallow } from 'zustand/react/shallow'
 import { shoppingListService } from '@/services/shoppingListService'
-import { calculatePantryFreshness, calculatePartialDelta } from '@/lib/calculations/pantryCalculations'
+import {
+  areUnitsCompatible,
+  calculatePantryFreshness,
+  calculatePartialDelta,
+  convertQuantity
+} from '@/lib/calculations/pantryCalculations'
 import { toast } from '@/store/useToastStore'
 import {
   Dialog,
@@ -103,8 +108,12 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
     (productName ? pantryMapByAdHocName[productName.trim().toLowerCase()] : null)
 
   const isAggregated = !existingPantryItem && childPantryItems.length > 0
-  const aggregatedQty = childPantryItems.reduce((acc, c) => acc + Number(c.quantity || 0), 0)
+  const aggregatedQty = childPantryItems.reduce(
+    (acc, c) => acc + (convertQuantity(Number(c.quantity || 0), c.unit_type, unitType) ?? 0),
+    0
+  )
   const effectivePantryItem = existingPantryItem || (childPantryItems.length > 0 ? childPantryItems[0] : null)
+  const pantryUnit = isAggregated ? unitType : (effectivePantryItem?.unit_type || unitType)
 
   const [pantryQty, setPantryQty] = useState<number>(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -130,12 +139,18 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
     effectivePantryItem?.last_purchased_at,
     isNonFood,
     productName,
-    formatQuantity(pantryQty, unitType),
+    formatQuantity(pantryQty, pantryUnit),
     effectivePantryItem?.last_verified_at
   )
 
-  const remainingDelta = calculatePartialDelta(neededQuantity, pantryQty)
-  const isPartial = pantryQty > 0 && pantryQty < neededQuantity
+  const unitsCompatible = areUnitsCompatible(unitType, pantryUnit)
+  const convertedPantryQty = convertQuantity(pantryQty, pantryUnit, unitType)
+  const remainingDelta = calculatePartialDelta(neededQuantity, pantryQty, unitType, pantryUnit)
+  const isPartial =
+    unitsCompatible &&
+    convertedPantryQty !== null &&
+    convertedPantryQty > 0 &&
+    convertedPantryQty < neededQuantity
 
   // 1. "Mam całość" (Full Coverage)
   const handleHaveAll = async () => {
@@ -260,7 +275,7 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
   }
 
   const handleStepQuantity = (direction: 'increase' | 'decrease') => {
-    const next = getNextQuantity(pantryQty, unitType, direction)
+    const next = getNextQuantity(pantryQty, pantryUnit, direction)
     setPantryQty(Math.max(0, next))
   }
 
@@ -350,7 +365,7 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
               className="w-20 h-9 text-center font-mono text-sm font-bold text-primary bg-transparent border-0 focus-visible:ring-0 p-0"
             />
             <span className="font-mono text-xs text-muted-foreground font-semibold pr-2">
-              {unitType}
+              {pantryUnit}
             </span>
           </div>
 
@@ -398,7 +413,7 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
         >
           <PieChart className="w-4 h-4 text-amber-400" />
           <span>
-            {t('pantry.modal.havePartial')} (-{formatQuantity(pantryQty, unitType)})
+            {t('pantry.modal.havePartial')} (-{formatQuantity(pantryQty, pantryUnit)})
           </span>
         </Button>
       )}

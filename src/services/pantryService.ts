@@ -279,5 +279,25 @@ export const pantryService = {
       console.error('[pantryService.batchIngestPurchasedItems] Error ingesting items:', err)
       return false
     }
+  },
+
+  /**
+   * Batch deduction when a cooked meal consumes ingredients from the household pantry.
+   * Items reaching <= 0 are deleted automatically via updateQuantity.
+   */
+  async deductMealIngredients(
+    updates: Array<{ pantryItemId: string; newQuantity: number }>
+  ): Promise<boolean> {
+    if (updates.length === 0) return true
+
+    try {
+      const results = await Promise.all(
+        updates.map((u) => this.updateQuantity(u.pantryItemId, u.newQuantity))
+      )
+      return results.every(Boolean)
+    } catch (err) {
+      console.error('[pantryService.deductMealIngredients] Error deducting ingredients:', err)
+      return false
+    }
   }
 }

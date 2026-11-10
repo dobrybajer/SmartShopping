@@ -53,7 +53,7 @@ describe('DesktopLayout - Ctrl+Alt+P Shortcut & JSON Import Integration', () => 
     })
 
     // Dialog should now be open
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: /Importuj przepis|Import Recipe/i })
     ).toBeInTheDocument()
@@ -82,7 +82,7 @@ describe('DesktopLayout - Ctrl+Alt+P Shortcut & JSON Import Integration', () => 
       fireEvent.click(jsonShortcutBtn)
     })
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByRole('dialog', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: /Importuj przepis|Import Recipe/i })
     ).toBeInTheDocument()

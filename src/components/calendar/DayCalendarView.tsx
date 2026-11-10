@@ -13,6 +13,8 @@ import { CalendarMacroBar } from './CalendarMacroBar'
 import { MealPlanStatusBadge } from './MealPlanStatusBadge'
 import { UncertaintyWarningModal } from './UncertaintyWarningModal'
 import { AddCalendarMealDialog } from './AddCalendarMealDialog'
+import { CookMealDeductModal } from '@/components/dialogs/CookMealDeductModal'
+import { buildCookableIngredientsFromMeal } from '@/lib/calculations/pantryConsumption'
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,7 +25,8 @@ import {
   Trash2,
   Lock,
   Warehouse,
-  Utensils
+  Utensils,
+  UtensilsCrossed
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -61,6 +64,11 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MealPlanItem | null>(null)
   const [uncertaintyItem, setUncertaintyItem] = useState<MealPlanItem | null>(null)
+  const [cookPlanItem, setCookPlanItem] = useState<MealPlanItem | null>(null)
+
+  const cookIngredients = cookPlanItem
+    ? buildCookableIngredientsFromMeal(cookPlanItem.meal?.ingredients, cookPlanItem.servings)
+    : []
 
   // Date Math
   const todayStr = new Date().toISOString().split('T')[0]
@@ -278,6 +286,20 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                         </Button>
                       )}
 
+                      {/* Cook meal / deduct ingredients from pantry */}
+                      {ingredients.length > 0 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setCookPlanItem(plan)}
+                          className="h-8 gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg px-2"
+                          title={t('pantry.cookModal.buttonLabel')}
+                        >
+                          <UtensilsCrossed className="w-3.5 h-3.5" />
+                          <span>{t('pantry.cookModal.buttonShort')}</span>
+                        </Button>
+                      )}
+
                       {/* Duplicate to next day */}
                       <Button
                         size="sm"
@@ -353,6 +375,16 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
               isPastDate
             }).missingIngredients
           }
+        />
+      )}
+
+      {/* Cook Meal & Deduct Pantry Modal */}
+      {cookPlanItem && (
+        <CookMealDeductModal
+          open={!!cookPlanItem}
+          onOpenChange={(open) => !open && setCookPlanItem(null)}
+          mealName={cookPlanItem.meal?.name || cookPlanItem.custom_name || 'Posiłek'}
+          ingredients={cookIngredients}
         />
       )}
     </div>

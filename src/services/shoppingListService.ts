@@ -69,6 +69,183 @@ export interface HistoryShoppingList extends ShoppingList {
   items?: HistoryListItemSummary[]
 }
 
+interface ArchiveRpcUncheckedItem {
+  id: string
+  product_id: string
+  name: string
+  unit_type: Database['public']['Enums']['unit_enum']
+  category_id?: number | null
+  category_name?: string | null
+  sort_order?: number | null
+  quantity: number
+  is_ad_hoc?: boolean
+}
+
+interface ArchiveRpcResult {
+  list_name?: string | null
+  unchecked_items?: ArchiveRpcUncheckedItem[]
+}
+
+async function dispatchArchiveNotification(
+  listId: string,
+  householdId: string,
+  listName?: string | null
+): Promise<void> {
+  try {
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+    const clearedByName =
+      user?.user_metadata?.name || user?.email?.split('@')[0] || translate('common.householdMember')
+    await notificationService.notify(
+      'LIST_CLEARED_OR_ARCHIVED',
+      {
+        listId,
+        listName: listName || translate('common.shoppingList'),
+        clearedByName,
+        action: 'archived'
+      },
+      householdId
+    )
+  } catch (e) {
+    console.warn('[shoppingListService] Failed to dispatch archive push notification:', e)
+  }
+}
+
+function isMissingRpcError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST202' || error.code === '42883') return true
+  const msg = (error.message || '').toLowerCase()
+  return (
+    msg.includes('could not find the function') ||
+    (msg.includes('function') && msg.includes('does not exist')) ||
+    msg.includes('function not found')
+  )
+}
+
+async function archiveActiveListLegacyFallback(
+  listId: string,
+  householdId: string
+): Promise<DraftItem[]> {
+  const { data: currentList } = await supabase
+    .from('shopping_lists')
+    .select('name, original_name')
+    .eq('id', listId)
+    .maybeSingle()
+
+  const originalName = currentList?.original_name || currentList?.name || null
+  const now = new Date().toISOString()
+
+  const { error } = await supabase
+    .from('shopping_lists')
+    .update({
+      status: 'archived',
+      is_default: false,
+      completed_at: now,
+      updated_at: now,
+      original_name: originalName
+    })
+    .eq('id', listId)
+
+  if (error) {
+    console.error('Error archiving list:', error)
+    return []
+  }
+
+  await dispatchArchiveNotification(listId, householdId, currentList?.name)
+
+  try {
+    const { data: checkedItems } = await supabase
+      .from('shopping_list_items')
+      .select(`
+        id,
+        product_id,
+        total_quantity,
+        is_checked,
+        in_pantry,
+        added_ad_hoc,
+        category_id,
+        product:products(
+          id,
+          name,
+          unit_type,
+          category_id
+        )
+      `)
+      .eq('shopping_list_id', listId)
+      .eq('is_checked', true)
+
+    if (checkedItems && checkedItems.length > 0) {
+      const typedChecked = checkedItems as unknown as ActiveListItemWithProduct[]
+      const itemsToIngest = typedChecked
+        .filter((item) => !item.in_pantry)
+        .map((item) => ({
+          product_id: item.product_id || item.product?.id || null,
+          ad_hoc_name: !item.product_id && item.product?.name ? item.product.name : null,
+          quantity: item.total_quantity,
+          unit_type: item.product?.unit_type || 'pcs',
+          category_id: item.category_id || item.product?.category_id || null
+        }))
+
+      if (itemsToIngest.length > 0) {
+        await pantryService.batchIngestPurchasedItems(householdId, itemsToIngest)
+      }
+    }
+  } catch (ingestErr) {
+    console.warn('[shoppingListService.archiveActiveList] Failed auto-ingesting into pantry:', ingestErr)
+  }
+
+  const { data: uncheckedItems } = await supabase
+    .from('shopping_list_items')
+    .select(`
+      *,
+      category:product_categories(*),
+      product:products(
+        id,
+        name,
+        unit_type,
+        category_id,
+        category:product_categories(*)
+      )
+    `)
+    .eq('shopping_list_id', listId)
+    .eq('is_checked', false)
+
+  const remainingDraftItems: DraftItem[] = []
+
+  if (uncheckedItems && uncheckedItems.length > 0) {
+    const typedUnchecked = uncheckedItems as unknown as ActiveListItemWithProduct[]
+    typedUnchecked
+      .filter((item) => !item.in_pantry)
+      .forEach((item) => {
+        if (item.product) {
+          const catId =
+            item.category_id ??
+            item.category?.id ??
+            item.product.category_id ??
+            item.product.category?.id ??
+            undefined
+          const catName = item.category?.name || item.product.category?.name || 'other'
+          const catSortOrder = item.category?.sort_order ?? item.product.category?.sort_order ?? 99
+
+          remainingDraftItems.push({
+            id: `archived_rem_${item.id}`,
+            product_id: item.product.id,
+            name: item.product.name,
+            unit_type: item.product.unit_type,
+            category_id: catId,
+            category_name: catName,
+            sort_order: catSortOrder,
+            quantity: item.total_quantity,
+            is_ad_hoc: Boolean(item.added_ad_hoc)
+          })
+        }
+      })
+  }
+
+  return remainingDraftItems
+}
+
 export const shoppingListService = {
   /**
    * Fetches lightweight summary of all active lists for the household (for tabs/chips/badges).
@@ -658,141 +835,41 @@ export const shoppingListService = {
     return true
   },
 
-  async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
+  async archiveActiveList(listId: string, householdId: string): Promise<DraftItem[]> {
     trackLocalListMutation(listId)
-    // 1. Fetch current list to capture its original name at moment of closing
-    const { data: currentList } = await supabase
-      .from('shopping_lists')
-      .select('name, original_name')
-      .eq('id', listId)
-      .maybeSingle()
 
-    const originalName = currentList?.original_name || currentList?.name || null
+    const { data: rpcData, error: rpcError } = await supabase.rpc('archive_shopping_list', {
+      p_list_id: listId,
+      p_household_id: householdId
+    })
 
-    // 2. Update status to 'archived' and record completion timestamp + original_name
-    const now = new Date().toISOString()
-    const { error } = await supabase
-      .from('shopping_lists')
-      .update({
-        status: 'archived',
-        is_default: false,
-        completed_at: now,
-        updated_at: now,
-        original_name: originalName
-      })
-      .eq('id', listId)
+    if (!rpcError && rpcData && typeof rpcData === 'object') {
+      const parsed = rpcData as unknown as ArchiveRpcResult
+      await dispatchArchiveNotification(listId, householdId, parsed.list_name)
 
-    if (error) {
-      console.error('Error archiving list:', error)
+      const unchecked = Array.isArray(parsed.unchecked_items) ? parsed.unchecked_items : []
+      return unchecked.map((item) => ({
+        id: item.id,
+        product_id: item.product_id,
+        name: item.name,
+        unit_type: item.unit_type || 'pcs',
+        category_id: item.category_id ?? undefined,
+        category_name: item.category_name || 'other',
+        sort_order: item.sort_order ?? 99,
+        quantity: Number(item.quantity || 0),
+        is_ad_hoc: Boolean(item.is_ad_hoc)
+      }))
+    }
+
+    if (rpcError) {
+      if (isMissingRpcError(rpcError)) {
+        return archiveActiveListLegacyFallback(listId, householdId)
+      }
+      console.error('Error archiving list via RPC:', rpcError)
       return []
     }
 
-    // Notify household members of list archive
-    try {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-      const clearedByName = user?.user_metadata?.name || user?.email?.split('@')[0] || translate('common.householdMember')
-      await notificationService.notify(
-        'LIST_CLEARED_OR_ARCHIVED',
-        {
-          listId,
-          listName: currentList?.name || translate('common.shoppingList'),
-          clearedByName,
-          action: 'archived'
-        },
-        _householdId
-      )
-    } catch (e) {
-      console.warn('[shoppingListService] Failed to dispatch archive push notification:', e)
-    }
-
-    // 2.5 Auto-ingest actually purchased items into pantry (ADR-008 §5.4.3)
-    try {
-      const { data: checkedItems } = await supabase
-        .from('shopping_list_items')
-        .select(`
-          id,
-          product_id,
-          total_quantity,
-          is_checked,
-          in_pantry,
-          added_ad_hoc,
-          category_id,
-          product:products(
-            id,
-            name,
-            unit_type,
-            category_id
-          )
-        `)
-        .eq('shopping_list_id', listId)
-        .eq('is_checked', true)
-
-      if (checkedItems && checkedItems.length > 0) {
-        // Items with in_pantry = true are excluded from auto-ingestion
-        const itemsToIngest = checkedItems
-          .filter((item: any) => !item.in_pantry)
-          .map((item: any) => ({
-            product_id: item.product_id || item.product?.id || null,
-            ad_hoc_name: !item.product_id && item.product?.name ? item.product.name : null,
-            quantity: item.total_quantity,
-            unit_type: item.product?.unit_type || 'pcs',
-            category_id: item.category_id || item.product?.category_id || null
-          }))
-
-        if (itemsToIngest.length > 0) {
-          await pantryService.batchIngestPurchasedItems(_householdId, itemsToIngest)
-        }
-      }
-    } catch (ingestErr) {
-      console.warn('[shoppingListService.archiveActiveList] Failed auto-ingesting into pantry:', ingestErr)
-    }
-
-    // 3. Fetch unchecked items (is_checked = false AND in_pantry = false)
-    const { data: uncheckedItems } = await supabase
-      .from('shopping_list_items')
-      .select(`
-        *,
-        category:product_categories(*),
-        product:products(
-          id,
-          name,
-          unit_type,
-          category_id,
-          category:product_categories(*)
-        )
-      `)
-      .eq('shopping_list_id', listId)
-      .eq('is_checked', false)
-
-    const remainingDraftItems: DraftItem[] = []
-
-    if (uncheckedItems && uncheckedItems.length > 0) {
-      uncheckedItems
-        .filter((item: any) => !item.in_pantry)
-        .forEach((item: any) => {
-          if (item.product) {
-            const catId = item.category_id ?? item.category?.id ?? item.product.category_id ?? item.product.category?.id ?? undefined
-            const catName = item.category?.name || item.product.category?.name || 'other'
-            const catSortOrder = item.category?.sort_order ?? item.product.category?.sort_order ?? 99
-
-            remainingDraftItems.push({
-              id: `archived_rem_${item.id}`,
-              product_id: item.product.id,
-              name: item.product.name,
-              unit_type: item.product.unit_type,
-              category_id: catId,
-              category_name: catName,
-              sort_order: catSortOrder,
-              quantity: item.total_quantity,
-              is_ad_hoc: item.added_ad_hoc
-            })
-          }
-        })
-    }
-
-    return remainingDraftItems
+    return archiveActiveListLegacyFallback(listId, householdId)
   },
 
   async getHistoryLists(householdId: string): Promise<HistoryShoppingList[]> {

@@ -211,121 +211,98 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ## 4. 🟡 Kategoria MEDIUM (Średni Priorytet)
 
 ### MED-01: Optymalizacja Wielkości Paczki (Bundle Size) i Lazy Loading Ciężkich Modułów
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Frontend / Wydajność / PWA
-* **Pliki:** [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx), [DesktopLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopLayout.tsx), [JsonRecipeImportDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/JsonRecipeImportDialog.tsx)
+* **Pliki implementacji:** [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx), [DesktopLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopLayout.tsx), [ProductsView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ProductsView.tsx), [HouseholdsDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/HouseholdsDialog.tsx), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx), [vite.config.ts](file:///d:/08_Git/SmartShopping/SmartShopping/vite.config.ts)
+* **Pliki testów:** [DesktopLayoutShortcut.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/__tests__/DesktopLayoutShortcut.test.tsx), [CalendarView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/__tests__/CalendarView.test.tsx), [DesktopCalendarView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/__tests__/DesktopCalendarView.test.tsx)
 * **Problem / Uzasadnienie:**
-  * Moduły takie jak `JsonRecipeImportDialog` (skrót Ctrl+Alt+P), rozbudowany kalendarz (`DesktopCalendarView`, `CalendarView`) oraz edytor alejek sklepowych są kompilowane w głównym bundle startowym.
-  * Zwiększa to początkowy czas ładowania (FCP/LCP) na słabszych urządzeniach mobilnych.
-* **Proponowane Rozwiązanie:**
-  1. Zastosowanie `React.lazy()` oraz `Suspense` dla komponentów dialogów, które nie są widoczne przy pierwszym załadowaniu:
-     - `JsonRecipeImportDialog`
-     - `CategoryManagerDialog` / `CategoryManagerSheet`
-     - Podwidoki kalendarza (`MonthCalendarGrid`, `WeekCalendarView`)
-* **Definition of Done (DoD):**
-  - Główny plik JS aplikacji zmniejsza wagę o min. 20-30%, a dialogi są pobierane w dedykowanych chunkach dopiero w momencie otwarcia.
+  * Moduły takie jak `JsonRecipeImportDialog` (skrót Ctrl+Alt+P), rozbudowany kalendarz (`DesktopCalendarView`, `CalendarView`) oraz wszystkie 14 widoków Mobile/Desktop i edytor alejek były kompilowane w jednym głównym bundle startowym (`1,035.90 kB`).
+* **Wdrożone Rozwiązanie:**
+  1. Wdrożono `React.lazy()` + `Suspense` w [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx) dla `DesktopLayout` oraz wszystkich 14 widoków Mobile i Desktop.
+  2. Przeniesiono ciężkie modale i podwidoki do ładowanych warunkowo na żądanie chunków: `JsonRecipeImportDialog`, `CategoryManagerDialog`/`Sheet`, `MonthCalendarGrid`, `WeekCalendarView`, `DayCalendarView` oraz `AddCalendarMealDialog`.
+  3. Skonfigurowano grupowanie vendorowe Rolldown (`output.codeSplitting`) w [vite.config.ts](file:///d:/08_Git/SmartShopping/SmartShopping/vite.config.ts) (`react-vendor`, `supabase-vendor`, `ui-vendor`).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Główny chunk wejściowy spadł z `1,035.90 kB` (`264.85 kB` gzip) do `134.02 kB` (`35.34 kB` gzip) – redukcja >87%, przy izolacji ciężkich dialogów i widoków do dedykowanych asynchronicznych paczek (0 ostrzeżeń rozmiaru paczki w `vite build`).
 
 ---
 
 ### MED-02: Mechanizm Retencji i Archiwizacji Starych Pozycji List Zakupowych
-* **Obszar:** Baza Danych / Supabase Performance
-* **Pliki:** [shopping_lists](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L103-L115), [shopping_list_items](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L117-L126)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
+* **Obszar:** Baza Danych / Supabase Performance (bez CRON — uruchamiane ręcznie)
+* **Pliki implementacji:** [20261110130000_shopping_list_items_retention.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110130000_shopping_list_items_retention.sql), [archive-old-shopping-items.sql](file:///d:/08_Git/SmartShopping/SmartShopping/scripts/archive-old-shopping-items.sql), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts)
+* **Pliki testów:** [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
 * **Problem / Uzasadnienie:**
-  * Każda zarchiwizowana lista zakupów pozostawia w bazie dziesiątki wierszy `shopping_list_items`.
-  * Po roku aktywnego użytkowania baza gospodarstwa może zawierać dziesiątki tysięcy rekordów, spowalniając zapytania relacyjne i obciążając darmowy limit Supabase.
-* **Proponowane Rozwiązanie:**
-  1. Opracowanie funkcji w bazie PostgreSQL (lub Edge Function wywoływanej przez cron), która:
-     - Pozostawia nagłówki zarchiwizowanych list (`shopping_lists`) dla celów statystycznych.
-     - Kompresuje lub przenosi pozycje starsze niż 12 miesięcy do tabeli archiwalnej `shopping_list_items_archive` lub generuje z nich zagregowany snapshot JSON w nagłówku listy.
-* **Definition of Done (DoD):**
-  - Skrypt migracyjny z procedurą czyszczącą oraz możliwość uruchomienia zadania cron w Supabase.
+  * Zarchiwizowane listy zakupów pozostawiają w tabeli `shopping_list_items` historyczne rekordy, które po wielu miesiącach obciążają zapytania i limity bazy.
+* **Wdrożone Rozwiązanie:**
+  1. Wdrożono migrację [20261110130000_shopping_list_items_retention.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110130000_shopping_list_items_retention.sql) dodającą `shopping_lists.archived_items_snapshot` (JSONB), tabelę archiwalną `shopping_list_items_archive` (z pełną izolacją RLS multi-tenant) oraz procedurę `public.archive_old_shopping_list_items(p_retention_months INT DEFAULT 12)` dostępną wyłącznie dla roli serwisowej (`REVOKE ALL FROM PUBLIC, anon, authenticated`).
+  2. Utworzono ręcznie uruchamiany skrypt SQL [archive-old-shopping-items.sql](file:///d:/08_Git/SmartShopping/SmartShopping/scripts/archive-old-shopping-items.sql) (z podglądem *dry-run* i instrukcją wywołania), **celowo bez harmonogramu CRON**.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Migracja i ręczny skrypt archiwizujący gotowe do wykonania w Supabase SQL Editor, a tabela `shopping_list_items_archive` zweryfikowana przez audyt RLS w `rlsSecurityAudit.test.ts`.
 
 ---
 
 ### MED-03: Opcja Ignorowania / Wyciszania Niepewności w Kalendarzu (Acknowledge Uncertainty ⚠️)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Biznes / UX / Kalendarz Posiłków (ADR-009)
-* **Pliki:** [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts)
-* **Problem / Uzasadnienie:**
-  * Wskaźnik niepewności (⚠️) pojawia się za każdym razem, gdy składnika dania brakuje w spiżarni lub na liście.
-  * Jeśli użytkownik świadomie decyduje się pominąć składnik (np. ma zamiennik w lodówce lub zje posiłek na mieście), ostrzeżenie pozostaje widoczne na stałe, wprowadzając szum wizualny.
-* **Proponowane Rozwiązanie:**
-  1. Dodanie przycisku *"Zrozumiałem / Ignoruj brak"* w oknie [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx).
-  2. Zapis flagi `is_uncertainty_dismissed: boolean` w obiekcie planu posiłku (`meal_plans`).
-  3. Wyczyszczenie wskaźnika ⚠️ po zatwierdzeniu przez użytkownika.
-* **Definition of Done (DoD):**
-  - Użytkownik może wyciszyć ostrzeżenie dla danego posiłku bez konieczności sztucznego wrzucania produktu do koszyka.
+* **Pliki implementacji:** [20261110132000_add_uncertainty_dismissed_to_meal_plans.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110132000_add_uncertainty_dismissed_to_meal_plans.sql), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts), [calendar.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/calendar.ts), [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx)
+* **Pliki testów:** [calendarStatus.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/calendarStatus.test.ts), [useMealPlanStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/useMealPlanStore.test.ts), [UncertaintyWarningModal.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/__tests__/UncertaintyWarningModal.test.tsx)
+* **Wdrożone Rozwiązanie:**
+  1. Dodano kolumnę `is_uncertainty_dismissed BOOLEAN NOT NULL DEFAULT FALSE` w `meal_plans` oraz akcję `dismissUncertainty(planId)` w [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts).
+  2. Zaktualizowano [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts) tak, aby zaakceptowane braki nie blokowały statusu posiłku alertem `uncertain`.
+  3. W [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx) (zarówno Desktop Dialog, jak i Mobile Sheet) dodano przycisk *"Zrozumiałem / Ignoruj brak"*.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Użytkownik wycisza alert ⚠️ jednym kliknięciem na Desktopie i Mobile, a testy logiki, store i UI przechodzą w 100%.
 
 ---
 
 ### MED-04: Inteligentne Przeliczanie Jednostek przy Częściowym Pokryciu ze Spiżarni
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Czyste Kalkulacje / Logika Biznesowa
-* **Pliki:** [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts), [PantryConfirmModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/PantryConfirmModal.tsx)
-* **Problem / Uzasadnienie:**
-  * Jeśli przepis wymaga np. 1 kg mąki, a w spiżarni zapisane jest 400 g, funkcja kalkulacji delty musi bezbłędnie przeliczyć jednostki wagowe/objętościowe (`kg` <-> `g`, `l` <-> `ml`).
-  * Obecnie kalkulacja delty działa najlepiej na identycznych jednostkach.
-* **Proponowane Rozwiązanie:**
-  1. Rozbudowa [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts) o uniwersalny konwerter jednostek zgodnych typologicznie.
-  2. Automatyczne sugerowanie brakującej ilości z zachowaniem jednostki bazowej produktu.
-* **Definition of Done (DoD):**
-  - 100% pokrycia testami przypadków mieszanych jednostek w `pantryCalculations.test.ts`.
+* **Pliki implementacji:** [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), [PantryConfirmModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/PantryConfirmModal.tsx)
+* **Pliki testów:** [pantryCalculations.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/pantryCalculations.test.ts)
+* **Wdrożone Rozwiązanie:**
+  1. Dodano funkcje `areUnitsCompatible` i `convertQuantity` (obsługujące rodziny wagowe `g`/`dag`/`kg`, objętościowe `ml`/`l` oraz sztukowe `pcs`/`szt`) i rozszerzono `calculatePartialDelta` oraz `matchHierarchicalPantry` w [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts).
+  2. Podpięto konwersję jednostek w [PantryConfirmModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/PantryConfirmModal.tsx) i [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), zabezpieczając odejmowanie przed jednostkami niezgodnymi typologicznie.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Kalkulator obsługuje wszystkie rodziny kompatybilnych jednostek i blokuje niespójne konwersje; 19 testów jednostkowych w `pantryCalculations.test.ts` przechodzi pomyślnie.
 
 ---
 
 ### MED-05: Półautomatyczny / Automatyczny Rozchód Spiżarni po Realizacji Posiłku (Pantry Consumption)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Logika Biznesowa / Spiżarnia & Kalendarz (ADR-008 & ADR-009)
-* **Pliki:** [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [MealDetailsSheet.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/MealDetailsSheet.tsx)
-* **Problem / Uzasadnienie:**
-  * W obecnej architekturze zamykanie listy zakupów automatycznie zasila stan spiżarni (`batchIngestPurchasedItems`).
-  * Brakuje jednak procesu odwrotnego: gdy domownik ugotuje zaplanowany w kalendarzu obiad (np. "Kurczak w warzywach" wymagający 500g piersi z kurczaka i 2 papryk), stan magazynowy tych produktów w spiżarni **nie ulega pomniejszeniu**.
-  * W efekcie bez żmudnego, ręcznego klikania minusów w zakładce Spiżarnia, stany posiadanych produktów rozjeżdżają się z rzeczywistością.
-* **Proponowane Rozwiązanie:**
-  1. Dodanie przycisku akcji *"Oznacz jako ugotowane / Zrealizuj posiłek"* w widoku dnia kalendarza oraz w szczegółach potrawy.
-  2. Wyświetlenie zwięzłego modalu / Bottom Sheet z listą składników dania i propozycją odliczenia ich ze spiżarni (z checkboxami umożliwiającymi odznaczenie składników, których nie zużyto).
-  3. Metoda `pantryService.deductMealIngredients(householdId, ingredients)` wykonująca pomniejszenie stanów magazynowych lub usunięcie pozycji o stanie <= 0.
-* **Definition of Done (DoD):**
-  - Użytkownik po ugotowaniu posiłku może jednym kliknięciem zdjąć proporcjonalną ilość składników ze spiżarni.
-  - Testy jednostkowe weryfikujące poprawność redukcji ilości i usuwania wyczerpanych pozycji.
+* **Pliki implementacji:** [pantryConsumption.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryConsumption.ts), [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts), [usePantryStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/usePantryStore.ts), [CookMealDeductModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/CookMealDeductModal.tsx), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [MealDetailsSheet.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/MealDetailsSheet.tsx)
+* **Pliki testów:** [pantryConsumption.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/pantryConsumption.test.ts), [usePantryStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/usePantryStore.test.ts), [CookMealDeductModal.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/__tests__/CookMealDeductModal.test.tsx)
+* **Wdrożone Rozwiązanie:**
+  1. Wdrożono czystą logikę kalkulacji rozchodu w [pantryConsumption.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryConsumption.ts) (z konwersją jednostek i zużyciem FIFO wariantów produktów ogólnych).
+  2. Dodano `pantryService.deductMealIngredients` oraz optymistyczną akcję z rollbackiem w [usePantryStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/usePantryStore.ts), usuwającą wyczerpane produkty (`<= 0`).
+  3. Utworzono Dual-Layout modal/sheet [CookMealDeductModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/CookMealDeductModal.tsx) (checkboxy wyboru składników), wywoływany zarówno z [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), jak i [MealDetailsSheet.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/MealDetailsSheet.tsx).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Pełny przepływ rozchodu ze spiżarni dostępny w Kalendarzu i Przepiśniku (Mobile & Desktop) z kompletem testów jednostkowych, store i UI.
 
 ---
 
 ### MED-06: Transakcyjna Archiwizacja Listy w Bazie PostgreSQL (Procedura RPC)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Backend / Spójność Danych / PostgreSQL
-* **Pliki:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), nowa migracja SQL
-* **Problem / Uzasadnienie:**
-  * Metoda [archiveActiveList](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts#L610) wykonuje sekwencję 4 niezależnych zapytań z poziomu klienta przeglądarki:
-    1. Aktualizacja statusu listy na `archived`.
-    2. Wysłanie powiadomienia push.
-    3. Pętla sekwencyjna `for ... await this.addOrIncrementItem` pobierająca i aktualizująca pozycje w spiżarni (do 50 zapytań HTTP!).
-    4. Zapytanie pobierające nieodhaczone artykuły.
-  * Jeśli podczas zamykania listy telefon straci połączenie w połowie pętli (np. w podziemnym garażu po zakupach), lista zostanie oznaczona jako archiwalna, ale spiżarnia zostanie zasilona tylko w połowie, a transakcja nie zostanie wycofana.
-* **Proponowane Rozwiązanie:**
-  1. Utworzenie procedury składowanej PostgreSQL `public.archive_shopping_list(p_list_id UUID, p_household_id UUID)`:
-     - W pojedynczej transakcji atomowej `BEGIN ... COMMIT`:
-       - Aktualizuje status listy na `archived` i ustawia `completed_at`.
-       - Wykonuje `INSERT INTO pantry_items ... ON CONFLICT (household_id, product_id) DO UPDATE SET quantity = pantry_items.quantity + EXCLUDED.quantity` dla kupionych pozycji (`is_checked = true AND in_pantry = false`).
-       - Zwraca rekordy nieodhaczone.
-  2. Zredukowanie metody klienckiej w `shoppingListService.ts` do pojedynczego wywołania `supabase.rpc('archive_shopping_list')`.
-* **Definition of Done (DoD):**
-  - Cała operacja archiwizacji i zasilenia spiżarni wykonuje się w pojedynczym zapytaniu sieciowym <100ms.
-  - Gwarancja braku niespójności danych przy zerwaniu połączenia.
+* **Pliki implementacji:** [20261110131000_archive_shopping_list_rpc.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110131000_archive_shopping_list_rpc.sql), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts), [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts)
+* **Pliki testów:** [shoppingListService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/shoppingListService.test.ts)
+* **Wdrożone Rozwiązanie:**
+  1. Utworzono atomową funkcję `SECURITY DEFINER` PostgreSQL `public.archive_shopping_list(p_list_id, p_household_id)` weryfikującą członkostwo `auth.uid()` w gospodarstwie, zamykającą listę z blokadą `FOR UPDATE`, agregującą i zasilającą `pantry_items` (`ON CONFLICT ... DO UPDATE`) oraz zwracającą niekupione pozycje w jednym zapytaniu.
+  2. Zrefaktoryzowano `shoppingListService.archiveActiveList` w [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts) do wywołania `supabase.rpc('archive_shopping_list', ...)` z bezpiecznym fallbackiem wyłącznie przy braku funkcji RPC (`PGRST202`/`42883`).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Transakcyjna archiwizacja w jednym wywołaniu sieciowym zweryfikowana testami jednostkowymi w `shoppingListService.test.ts`.
 
 ---
 
 ### MED-07: Zautomatyzowany Pipeline CI/CD (GitHub Actions)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Narzędzia / DevOps / Jakość Kodu
-* **Pliki:** `.github/workflows/ci.yml` (nowy plik)
-* **Problem / Uzasadnienie:**
-  * W repozytorium brak konfiguracji CI/CD (katalog `.github` nie istnieje).
-  * Cała weryfikacja jakościowa (274 testy Vitest, linter oxlint, typecheck `tsc -b`) spoczywa wyłącznie na manualnym uruchomieniu przez programistę przed commitem.
-  * Ryzyko przypadkowego wprowadzenia regresji, błędu typowania lub niedziałającego testu do gałęzi `main`.
-* **Proponowane Rozwiązanie:**
-  1. Utworzenie pliku workflow `.github/workflows/ci.yml` uruchamianego na `push` i `pull_request` dla gałęzi `main`.
-  2. Krokowe uruchamianie:
-     - `npm ci`
-     - `npm run lint` (oxlint)
-     - `npx tsc -b` (strict TypeScript check)
-     - `npm run test` (vitest run)
-* **Definition of Done (DoD):**
-  - Każdy Pull Request oraz push do gałęzi `main` jest automatycznie testowany na maszynie GitHub Actions z zielonym statusem.
+* **Pliki implementacji:** [ci.yml](file:///d:/08_Git/SmartShopping/SmartShopping/.github/workflows/ci.yml)
+* **Wdrożone Rozwiązanie:**
+  1. Utworzono workflow GitHub Actions [ci.yml](file:///d:/08_Git/SmartShopping/SmartShopping/.github/workflows/ci.yml) uruchamiany na `push` i `pull_request` dla gałęzi `main` z krokami: `npm ci`, `npm run lint`, `npx tsc -b`, `npm run test` oraz `npm run build`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Pełny pipeline bramy jakości gotowy do automatycznej weryfikacji każdego PR i pusha na `main`.
 
 ---
 
@@ -556,13 +533,13 @@ gantt
     HIGH-06 Stop Realtime Echo & Vibrate :done, 2026-11, 2d
     HIGH-03 RLS Multi-tenancy Audit      :done, 2026-11, 2d
     section Średnie (Backend & Biznes)
-    MED-07 Setup GitHub Actions CI/CD    :2026-11, 4d
-    MED-06 Transactional RPC Archive     :2026-12, 12d
-    MED-05 Deduct Pantry on Meal Cooked  :2026-12, 14d
-    MED-01 Bundle Size & Lazy Loading    :2026-12, 10d
-    MED-02 Data Retention Script         :2026-12, 10d
-    MED-03 Dismiss Uncertainty ⚠️        :2026-12, 7d
-    MED-04 Pantry Mixed Unit Math        :2026-12, 7d
+    MED-07 Setup GitHub Actions CI/CD    :done, 2026-11, 4d
+    MED-06 Transactional RPC Archive     :done, 2026-11, 12d
+    MED-05 Deduct Pantry on Meal Cooked  :done, 2026-11, 14d
+    MED-01 Bundle Size & Lazy Loading    :done, 2026-11, 10d
+    MED-02 Data Retention Script         :done, 2026-11, 10d
+    MED-03 Dismiss Uncertainty ⚠️        :done, 2026-11, 7d
+    MED-04 Pantry Mixed Unit Math        :done, 2026-11, 7d
     section Normalne (Higiena & PWA)
     NORM-05 Eliminate `any` in Services  :2026-11, 7d
     NORM-06 Sync PRD.md Specs            :2026-11, 3d
@@ -595,16 +572,19 @@ gantt
 | **HIGH-04** | ✅ Zrealizowane | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
 | **HIGH-05** | ✅ Zrealizowane | 🟠 High | Performance / React | 2 dni | Eliminacja kaskadowych przerenderowań dzięki selektorom Zustand i `useShallow`. |
 | **HIGH-06** | ✅ Zrealizowane | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
-| **MED-05** | ⏳ Oczekujące | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Automatyczne zdejmowanie składników ze spiżarni po ugotowaniu posiłku. |
-| **MED-06** | ⏳ Oczekujące | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 zapytaniu SQL. |
-| **MED-07** | ⏳ Oczekujące | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
+| **MED-01** | ✅ Zrealizowane | 🟡 Medium | Frontend / Bundle | 2-3 dni | Redukcja głównego chunka z 1,036 kB do 134 kB (`React.lazy` + Rolldown `codeSplitting`). |
+| **MED-02** | ✅ Zrealizowane | 🟡 Medium | Database / Retention | 1 dzień | Ręczny skrypt retencji `shopping_list_items_archive` i RPC archiwizujące (bez CRON). |
+| **MED-03** | ✅ Zrealizowane | 🟡 Medium | UX / Kalendarz | 1 dzień | Możliwość wyciszenia ostrzeżenia ⚠️ braków w `UncertaintyWarningModal`. |
+| **MED-04** | ✅ Zrealizowane | 🟡 Medium | Logika / Spiżarnia | 1 dzień | Konwersja jednostek wagowych, objętościowych i sztukowych w spiżarni i modalach. |
+| **MED-05** | ✅ Zrealizowane | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Zdejmowanie zużytych składników ze spiżarni po realizacji posiłku (`CookMealDeductModal`). |
+| **MED-06** | ✅ Zrealizowane | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 wywołaniu `archive_shopping_list`. |
+| **MED-07** | ✅ Zrealizowane | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
 | **NORM-05** | ⏳ Oczekujące | 🟢 Normal | TypeScript Quality | 1-2 dni | Czyste, silne typowanie joinów PostgREST bez użycia typu `any`. |
 | **NORM-06** | ⏳ Oczekujące | 🟢 Normal | Documentation | 0.5 dnia | Likwidacja driftu specyfikacji [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md) z kodem. |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
-> 1. Automatyzacja CI/CD (`MED-07`).  
-> 2. Transakcyjna archiwizacja i pętla rozchodu spiżarni (`MED-05`, `MED-06`).  
-> 3. Optymalizacja rozmiaru paczki i logika biznesowa (`MED-01`, `MED-02`, `MED-03`, `MED-04`).  
-> 4. Higiena typowania TypeScript oraz synchronizacja dokumentacji (`NORM-05`, `NORM-06`, `NORM-01`).
+> 1. Higiena typowania TypeScript oraz synchronizacja dokumentacji (`NORM-05`, `NORM-06`, `NORM-01`).  
+> 2. Separacja zapytań w kontekstach, Workbox offline caching, Realtime alejek i modułowość (`NORM-07`, `NORM-08`, `NORM-09`, `NORM-02`).  
+> 3. Dostępność i rozszerzenia spiżarni (`NORM-03`, `NORM-04`) oraz nowe moduły (`LOW-01`–`LOW-09`).

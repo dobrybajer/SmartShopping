@@ -48,6 +48,31 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "react-vendor",
+              test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+              priority: 30,
+            },
+            {
+              name: "supabase-vendor",
+              test: /node_modules[\\/]@supabase[\\/]/,
+              priority: 25,
+            },
+            {
+              name: "ui-vendor",
+              test: /node_modules[\\/](@radix-ui|lucide-react|clsx|tailwind-merge|class-variance-authority)[\\/]/,
+              priority: 20,
+            },
+          ],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

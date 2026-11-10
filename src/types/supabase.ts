@@ -414,6 +414,7 @@ export interface Database {
           updated_at: string | null
           completed_at: string | null
           preset_tags: string[] | null
+          archived_items_snapshot?: Json | null
         }
         Insert: {
           id?: string
@@ -427,6 +428,7 @@ export interface Database {
           updated_at?: string | null
           completed_at?: string | null
           preset_tags?: string[] | null
+          archived_items_snapshot?: Json | null
         }
         Update: {
           id?: string
@@ -440,6 +442,7 @@ export interface Database {
           updated_at?: string | null
           completed_at?: string | null
           preset_tags?: string[] | null
+          archived_items_snapshot?: Json | null
         }
         Relationships: [
           {
@@ -515,6 +518,70 @@ export interface Database {
             columns: ["meal_plan_item_id"]
             isOneToOne: false
             referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      shopping_list_items_archive: {
+        Row: {
+          id: string
+          shopping_list_id: string
+          product_id: string | null
+          category_id: number | null
+          total_quantity: number
+          is_checked: boolean | null
+          in_pantry: boolean | null
+          added_ad_hoc: boolean | null
+          meal_plan_item_id: string | null
+          updated_at: string | null
+          archived_at: string
+        }
+        Insert: {
+          id: string
+          shopping_list_id: string
+          product_id?: string | null
+          category_id?: number | null
+          total_quantity: number
+          is_checked?: boolean | null
+          in_pantry?: boolean | null
+          added_ad_hoc?: boolean | null
+          meal_plan_item_id?: string | null
+          updated_at?: string | null
+          archived_at?: string
+        }
+        Update: {
+          id?: string
+          shopping_list_id?: string
+          product_id?: string | null
+          category_id?: number | null
+          total_quantity?: number
+          is_checked?: boolean | null
+          in_pantry?: boolean | null
+          added_ad_hoc?: boolean | null
+          meal_plan_item_id?: string | null
+          updated_at?: string | null
+          archived_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_archive_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_archive_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_archive_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
             referencedColumns: ["id"]
           }
         ]
@@ -647,6 +714,7 @@ export interface Database {
           target_kcal: number | null
           notes: string | null
           sort_order: number
+          is_uncertainty_dismissed: boolean
           created_at: string
           updated_at: string
         }
@@ -662,6 +730,7 @@ export interface Database {
           target_kcal?: number | null
           notes?: string | null
           sort_order?: number
+          is_uncertainty_dismissed?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -677,6 +746,7 @@ export interface Database {
           target_kcal?: number | null
           notes?: string | null
           sort_order?: number
+          is_uncertainty_dismissed?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -710,6 +780,13 @@ export interface Database {
       create_household_with_member: {
         Args: {
           p_name: string
+        }
+        Returns: Json
+      }
+      archive_shopping_list: {
+        Args: {
+          p_list_id: string
+          p_household_id: string
         }
         Returns: Json
       }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import type { MemberDetail, InviteDetail } from '@/services/householdService'
@@ -12,8 +12,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
-import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
+
+const CategoryManagerSheet = lazy(() =>
+  import('@/components/dialogs/CategoryManagerSheet').then((m) => ({
+    default: m.CategoryManagerSheet
+  }))
+)
+const CategoryManagerDialog = lazy(() =>
+  import('@/components/dialogs/CategoryManagerDialog').then((m) => ({
+    default: m.CategoryManagerDialog
+  }))
+)
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
   Home,
@@ -579,20 +588,22 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({
         </div>
 
         {/* Category Manager Modal (Desktop Dialog / Mobile Sheet) */}
-        {household?.id && (
-          isDesktop ? (
-            <CategoryManagerDialog
-              open={isCategoryManagerOpen}
-              onOpenChange={setIsCategoryManagerOpen}
-              householdId={household.id}
-            />
-          ) : (
-            <CategoryManagerSheet
-              open={isCategoryManagerOpen}
-              onOpenChange={setIsCategoryManagerOpen}
-              householdId={household.id}
-            />
-          )
+        {household?.id && isCategoryManagerOpen && (
+          <Suspense fallback={null}>
+            {isDesktop ? (
+              <CategoryManagerDialog
+                open={isCategoryManagerOpen}
+                onOpenChange={setIsCategoryManagerOpen}
+                householdId={household.id}
+              />
+            ) : (
+              <CategoryManagerSheet
+                open={isCategoryManagerOpen}
+                onOpenChange={setIsCategoryManagerOpen}
+                householdId={household.id}
+              />
+            )}
+          </Suspense>
         )}
 
         {/* Delete Household Safety Confirmation Modal */}

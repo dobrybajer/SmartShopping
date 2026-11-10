@@ -45,6 +45,7 @@ describe('useMealPlanStore', () => {
     target_kcal: null,
     notes: null,
     sort_order: 0,
+    is_uncertainty_dismissed: false,
     created_at: '2026-10-07T00:00:00Z',
     updated_at: '2026-10-07T00:00:00Z',
     meal: {
@@ -185,5 +186,18 @@ describe('useMealPlanStore', () => {
     expect(draftItems).toHaveLength(1)
     expect(draftItems[0].product_id).toBe('prod-oats')
     expect(draftItems[0].quantity).toBe(50)
+  })
+
+  it('dismissUncertainty updates is_uncertainty_dismissed optimistically and persists via service (MED-03)', async () => {
+    vi.mocked(mealPlanService.updateMealPlan).mockResolvedValueOnce(true)
+    useMealPlanStore.setState({ mealPlans: [mockPlan] })
+
+    const success = await useMealPlanStore.getState().dismissUncertainty('plan-1')
+
+    expect(success).toBe(true)
+    expect(mealPlanService.updateMealPlan).toHaveBeenCalledWith('plan-1', {
+      is_uncertainty_dismissed: true
+    })
+    expect(useMealPlanStore.getState().mealPlans[0].is_uncertainty_dismissed).toBe(true)
   })
 })

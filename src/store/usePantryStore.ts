@@ -23,6 +23,9 @@ interface PantryStoreState {
     item: CreatePantryItemPayload,
     mode?: 'increment' | 'set'
   ) => Promise<boolean>
+  deductMealIngredients: (
+    updates: Array<{ pantryItemId: string; newQuantity: number }>
+  ) => Promise<boolean>
   syncFromRealtime: () => Promise<void>
 }
 
@@ -262,6 +265,50 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
 
     toast.error(translate('toasts.errorOccurred'))
     return false
+  },
+
+  deductMealIngredients: async (updates) => {
+    if (updates.length === 0) return true
+
+    const previousItems = get().pantryItems
+    const updateMap = new Map(updates.map((u) => [u.pantryItemId, u.newQuantity]))
+    const now = new Date().toISOString()
+
+    const updated = previousItems
+      .map((item) => {
+        if (!updateMap.has(item.id)) return item
+        const nextQty = Math.round((updateMap.get(item.id) ?? item.quantity) * 10) / 10
+        if (nextQty <= 0) return null
+        return { ...item, quantity: nextQty, updated_at: now }
+      })
+      .filter((item): item is PantryItemWithDetails => item !== null)
+
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
+    set({
+      pantryItems: updated,
+      pantryMapByProductId: byProduct,
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
+    })
+
+    const success = await pantryService.deductMealIngredients(updates)
+    if (!success) {
+      const {
+        byProduct: rollProduct,
+        byName: rollName,
+        byParent: rollParent
+      } = buildPantryMaps(previousItems)
+      set({
+        pantryItems: previousItems,
+        pantryMapByProductId: rollProduct,
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
+      })
+      toast.error(translate('toasts.errorOccurred'))
+      return false
+    }
+
+    return true
   },
 
   syncFromRealtime: async () => {

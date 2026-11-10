@@ -41,6 +41,7 @@ describe('DesktopCalendarView - Desktop User Flow Suite (ADR-009)', () => {
     target_kcal: 500,
     notes: null,
     sort_order: 0,
+    is_uncertainty_dismissed: false,
     created_at: '2026-10-07T00:00:00Z',
     updated_at: '2026-10-07T00:00:00Z',
     meal: null
@@ -76,10 +77,10 @@ describe('DesktopCalendarView - Desktop User Flow Suite (ADR-009)', () => {
     expect(screen.getByRole('button', { name: /dodaj posiłek/i })).toBeInTheDocument()
   })
 
-  it('Flow 02: in Week View, renders workweek columns and displays planned meal', () => {
+  it('Flow 02: in Week View, renders workweek columns and displays planned meal', async () => {
     render(<DesktopCalendarView />)
 
-    expect(screen.getByText('Pierogi z jagodami')).toBeInTheDocument()
+    expect(await screen.findByText('Pierogi z jagodami', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText(/2 porcji/)).toBeInTheDocument()
   })
 
