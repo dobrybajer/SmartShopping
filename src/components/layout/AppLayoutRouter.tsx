@@ -23,8 +23,10 @@ import { DesktopDraftView } from '@/components/layout/desktop/views/DesktopDraft
 import { DesktopActiveListView } from '@/components/layout/desktop/views/DesktopActiveListView'
 import { DesktopHistoryView } from '@/components/layout/desktop/views/DesktopHistoryView'
 import { DesktopPantryView } from '@/components/layout/desktop/views/DesktopPantryView'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 
 export const AppLayoutRouter: React.FC = () => {
+  useOfflineSync()
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
   const { draftItems } = useShoppingStore()
   const { t } = useTranslation()

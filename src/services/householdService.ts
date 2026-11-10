@@ -100,9 +100,20 @@ export const householdService = {
   async createHousehold(name: string, userId: string): Promise<Household | null> {
     try {
       const trimmedName = name.trim() || translate('common.defaultHouseholdName')
+
+      // 1. Try atomic PostgreSQL RPC function (SECURITY DEFINER) to safely bypass RLS restriction
+      const { data: rpcData, error: rpcError } = await supabase.rpc('create_household_with_member', {
+        p_name: trimmedName
+      })
+
+      if (!rpcError && rpcData) {
+        return rpcData as Household
+      }
+
+      // 2. Fallback for mock/local test environments without RPC function
       const newHouseholdId = crypto.randomUUID()
 
-      // 1. Insert household without .select() to avoid RLS SELECT rejection before membership exists
+      // Insert household without .select() to avoid RLS SELECT rejection before membership exists
       const { error: hError } = await supabase
         .from('households')
         .insert({
@@ -115,7 +126,7 @@ export const householdService = {
         return null
       }
 
-      // 2. Assign current user to household_members so RLS SELECT policy is satisfied
+      // Assign current user to household_members so RLS SELECT policy is satisfied
       const { error: mError } = await supabase
         .from('household_members')
         .insert({
@@ -127,7 +138,7 @@ export const householdService = {
         console.error('Error assigning member to new household:', mError)
       }
 
-      // 3. Fetch newly created household (RLS SELECT now passes)
+      // Fetch newly created household (RLS SELECT now passes)
       const { data: createdRow } = await supabase
         .from('households')
         .select('*')

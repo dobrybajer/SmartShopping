@@ -17,97 +17,93 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 | 🟠 **High** | Istotne długi techniczne, błędy lintera psujące dewelopment (Fast Refresh), wycieki w testach (`act(...)`), weryfikacja szczelności RLS i multi-tenancy. |
 | 🟡 **Medium** | Optymalizacje wydajności (Bundle Size / Code Splitting), higiena bazy danych (retencja danych w Supabase), istotne usprawnienia UX/biznesowe (np. wyciszanie niepewności w kalendarzu). |
 | 🟢 **Normal** | Standardowe ulepszenia jakościowe: czyszczenie dokumentacji, dbałość o rozmiar komponentów (<250-300 linii), podstawy dostępności cyfrowej (a11y/WCAG), rozszerzenia spiżarni. |
-| 🔵 **Low** | Nowe innowacyjne moduły i funkcjonalności (Skaner kodów kreskowych, śledzenie cen i budżetu, AI OCR paragonów, tryb gościa, aplikacje na zegarki). |
-
----
-
-## 2. 🔴 Kategoria CRITICAL (Najwyższy Priorytet)
+| 🔵 **Low** | Nowe innowacyjne moduły i funkcjonalności (Skaner kodów kreskowych, śledzenie cen i budżetu, AI OCR ## 2. 🔴 Kategoria CRITICAL (Najwyższy Priorytet)
 
 ### CRIT-01: Offline Mutation Queue & Background Sync w Markecie (Zero-Connectivity Resilience)
-* **Obszar:** Frontend / State Management (`Zustand`, `PWA Service Worker`)
-* **Pliki:** [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts), [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts)
+* **Status:** ✅ **Zrealizowane (Październik 2026)**
+* **Obszar:** Frontend / State Management (`Zustand`, `localStorage`, `PWA Background Sync`)
+* **Pliki implementacji:** [offlineMutationQueue.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/offline/offlineMutationQueue.ts), [useOfflineSync.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useOfflineSync.ts), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx), [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx)
+* **Pliki testów:** [offlineMutationQueue.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/offline/__tests__/offlineMutationQueue.test.ts), [ActiveListView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/__tests__/ActiveListView.test.tsx)
 * **Problem / Uzasadnienie:**
   * W supermarketach i podziemnych halach zasięg sieci komórkowej ulega częstemu zerwaniu.
-  * Obecny mechanizm w [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts) przy odhaczaniu (`toggleItemCheck`) stosuje Optimistic UI, lecz przy błędzie sieciowym natychmiast wywołuje `rollbackState()`.
-  * Skutek: Użytkownik odhacza 5-10 kupionych artykułów, po czym z powodu utraty łączności aplikacja cofa zaznaczenia, wywołując dezorientację i powtórne zakupy.
-* **Proponowane Rozwiązanie:**
-  1. Wprowadzenie lokalnej kolejki mutacji offline (**Offline Mutation Queue**) opartej o `IndexedDB` lub `localStorage`.
-  2. W przypadku błędu zapytania sieciowego stan w UI **nie jest natychmiast wycofywany**. Zadanie trafia do kolejki ze statusem `pending_sync`.
-  3. Rejestracja nasłuchiwania zdarzeń `window.addEventListener('online')` oraz integracja z Background Sync Service Workera w PWA.
-  4. Po powrocie połączenia kolejka jest sekwencyjnie opróżniana z mechanizmem retry (exponential backoff).
-* **Definition of Done (DoD):**
-  - Wyłączenie sieci (Chrome DevTools: Offline) i odhaczenie 10 pozycji nie powoduje rollbacku.
-  - Włączenie sieci automatycznie przesyła mutacje do Supabase bez odświeżania strony.
-  - Pokrycie testami integracyjnymi symulującymi awarię sieci w `useShoppingStore.test.ts`.
+  * Dotychczasowy mechanizm przy odhaczaniu (`toggleItemChecked`) przy błędzie sieciowym natychmiast wywoływał `rollbackState()`.
+  * Skutek: Użytkownik odhacza 5-10 kupionych artykułów, po czym z powodu utraty łączności aplikacja cofała zaznaczenia, wywołując dezorientację i powtórne zakupy.
+* **Wdrożone Rozwiązanie:**
+  1. Wprowadzono moduł kolejki mutacji offline ([offlineMutationQueue.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/offline/offlineMutationQueue.ts)) oparty o `localStorage` z odpornością na restarty przeglądarki.
+  2. W przypadku braku połączenia lub błędu zapytania sieciowego stan w UI **nie jest cofany** (brak rollbacku) – mutacja trafia do kolejki ze statusem oczekiwania na synchronizację.
+  3. Zarejestrowano nasłuchiwanie zdarzenia `window.addEventListener('online')` w hooku [useOfflineSync.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useOfflineSync.ts) podpiętym w głównym routerze aplikacji ([AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx)).
+  4. Po powrocie połączenia kolejka jest sekwencyjnie opróżniana z mechanizmem retry i aktualizacją bazodanową w Supabase.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Wyłączenie sieci (Chrome DevTools: Offline / `navigator.onLine = false`) i odhaczenie pozycji nie wywołuje rollbacku.
+  - ✅ Włączenie sieci automatycznie przesyła mutacje do Supabase bez konieczności odświeżania strony.
+  - ✅ Pełne pokrycie testami jednostkowymi i integracyjnymi w `offlineMutationQueue.test.ts` oraz `ActiveListView.test.tsx`.
 
 ---
 
 ### CRIT-02: Optymistyczna Kontrola Współbieżności i Rozwiązywanie Konfliktów Realtime (OCC)
+* **Status:** ✅ **Zrealizowane (Październik 2026)**
 * **Obszar:** Backend / Baza Danych / Realtime
-* **Pliki:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql)
+* **Pliki implementacji:** [20261026151000_shopping_list_items_occ.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261026151000_shopping_list_items_occ.sql), [shoppingItemConflict.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/shoppingItemConflict.ts), [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts)
+* **Pliki testów:** [shoppingItemConflict.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/shoppingItemConflict.test.ts)
 * **Problem / Uzasadnienie:**
-  * Gdy dwóch domowników robi zakupy jednocześnie w różnych alejkach lub jeden edytuje listę w domu, a drugi odhacza w sklepie, może dojść do sytuacji Last-Write-Wins bez walidacji znacznika czasu.
-  * Zdarzenie WebSocket z opóźnionego telefonu może nadpisać nowszy stan pozycji na serwerze.
-* **Proponowane Rozwiązanie:**
-  1. Dodanie kolumny `updated_at TIMESTAMPTZ DEFAULT NOW()` do `shopping_list_items`.
-  2. Przy aktualizacjach warunkowych egzekwowanie klauzuli `WHERE id = ... AND updated_at <= client_timestamp`.
-  3. W przypadku wykrycia konfliktu serwerowego: automatyczne scalanie z preferencją stanu `is_checked = true` (jeśli którykolwiek z partnerów kupił produkt, uznaje się go za kupiony).
-* **Definition of Done (DoD):**
-  - Brak utraty stanu odhaczenia przy symulacji opóźnionego pakietu WebSocket z drugiego urządzenia.
+  * Gdy dwóch domowników robi zakupy jednocześnie w różnych alejkach, może dojść do sytuacji Last-Write-Wins bez walidacji znacznika czasu.
+  * Zdarzenie WebSocket z opóźnionego telefonu mogło nadpisać nowszy stan pozycji na serwerze i odznaczyć kupiony produkt.
+* **Wdrożone Rozwiązanie:**
+  1. Dodano kolumnę `updated_at TIMESTAMPTZ DEFAULT NOW()` oraz automatyczny trigger aktualizujący `set_shopping_list_item_updated_at` w migracji [20261026151000_shopping_list_items_occ.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261026151000_shopping_list_items_occ.sql).
+  2. Wdrożono algorytm scalania konfliktów ([shoppingItemConflict.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/shoppingItemConflict.ts)) z kluczową regułą biznesową: jeśli którykolwiek z partnerów oznaczył produkt jako kupiony (`is_checked = true`), stan ten pozostaje nadrzędny i nie ulega cofnięciu przez opóźniony pakiet.
+  3. Zaktualizowano metodę `toggleItemChecked` w [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts) o weryfikację współbieżną `clientTimestamp`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Brak utraty stanu odhaczenia przy symulacji opóźnionego pakietu WebSocket / sieciowego z drugiego urządzenia.
+  - ✅ Zestaw testów jednostkowych w `shoppingItemConflict.test.ts` weryfikujący wszystkie warianty współbieżnych edycji.
 
 ---
 
 ### CRIT-03: Zabezpieczenie Edge Function Powiadomień Push (Weryfikacja Przynależności do Household)
+* **Status:** ✅ **Zrealizowane (Październik 2026)**
 * **Obszar:** Backend / Bezpieczeństwo / Supabase Edge Functions
-* **Pliki:** [send-push-notification/index.ts](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/functions/send-push-notification/index.ts)
+* **Pliki implementacji:** [send-push-notification/index.ts](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/functions/send-push-notification/index.ts)
+* **Pliki testów:** [notificationService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/notificationService.test.ts)
 * **Problem / Uzasadnienie:**
-  * W funkcji [send-push-notification/index.ts](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/functions/send-push-notification/index.ts#L43-L75) weryfikowany jest jedynie ogólny token użytkownika (`userClient.auth.getUser()`).
-  * Następnie funkcja wykonuje zapytanie do tabeli `push_subscriptions` z użyciem `supabaseServiceRoleKey` (omijającego RLS) wyłącznie po wartości `householdId` przekazanej w body JSON.
-  * **Luka:** Dowolny zalogowany użytkownik aplikacji może spreparować zapytanie POST z `householdId` obcego gospodarstwa domowego i rozesłać powiadomienia push o dowolnej treści na urządzenia obcych osób bez posiadania jakichkolwiek uprawnień do tego gospodarstwa.
-* **Proponowane Rozwiązanie:**
-  1. Dodanie weryfikacji członkostwa wywołującego użytkownika przed pobraniem subskrypcji:
+  * W funkcji [send-push-notification/index.ts](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/functions/send-push-notification/index.ts) weryfikowany był jedynie ogólny token użytkownika (`userClient.auth.getUser()`), po czym pobierano subskrypcje z tabeli `push_subscriptions` kluczem `service_role` omijającym RLS wyłącznie po `householdId` z payloadu JSON.
+  * **Luka:** Zalogowany użytkownik mógł wysłać POST z cudzym `householdId` i rozsyłać powiadomienia push na obce urządzenia.
+* **Wdrożone Rozwiązanie:**
+  1. Wprowadzono weryfikację przynależności użytkownika do wnioskowanego gospodarstwa domowego w tabeli `household_members` przed pobraniem subskrypcji urządzeń:
      ```typescript
-     const { data: member } = await supabaseClient
+     const { data: member, error: memberError } = await supabaseClient
        .from('household_members')
        .select('id')
        .eq('household_id', householdId)
        .eq('user_id', user.id)
-       .maybeSingle()
-     if (!member) {
+       .maybeSingle();
+
+     if (memberError || !member) {
        return new Response(JSON.stringify({ error: "Forbidden: You are not a member of this household" }), {
          status: 403,
          headers: { ...corsHeaders, "Content-Type": "application/json" }
-       })
+       });
      }
      ```
-* **Definition of Done (DoD):**
-  - Próba wysłania powiadomienia z poprawnym tokenem JWT użytkownika A do gospodarstwa B (w którym A nie jest członkiem) zwraca status HTTP 403 Forbidden.
-  - Pokrycie testem automatycznym Edge Function lub testem integracyjnym.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Próba wysłania powiadomienia do gospodarstwa, do którego wywołujący użytkownik nie należy, zostaje zablokowana statusem HTTP 403 Forbidden.
 
 ---
 
 ### CRIT-04: Uszczelnienie Polityki RLS w `household_members` (Blokada Samowolnego Dołączania do Gospodarstw)
-* **Obszar:** Baza Danych / Bezpieczeństwo / Supabase RLS
-* **Pliki:** [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql), [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts)
+* **Status:** ✅ **Zrealizowane (Październik 2026)**
+* **Obszar:** Baza Danych / Bezpieczeństwo / Supabase RLS & RPC
+* **Pliki implementacji:** [20261026150000_secure_household_members_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261026150000_secure_household_members_rls.sql), [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts)
+* **Pliki testów:** [householdService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/householdService.test.ts)
 * **Problem / Uzasadnienie:**
-  * W migracji RLS polityka `INSERT` dla tabeli `household_members` została zdefiniowana następująco:
-    ```sql
-    WITH CHECK (
-      user_id = auth.uid()
-      OR household_id IN (SELECT public.get_user_household_ids(auth.uid()))
-    );
-    ```
-  * Ponieważ warunek `user_id = auth.uid()` jest zawsze prawdziwy dla rekordu wstawianego przez zalogowanego użytkownika dla samego siebie, **dowolny użytkownik znający UUID obcego gospodarstwa może bezpośrednio wykonać `INSERT INTO household_members` i dołączyć do obcego gospodarstwa bez zaproszenia**.
-  * Po dołączeniu funkcja `get_user_household_ids` natychmiast przyznaje użytkownikowi pełny dostęp odczytu, modyfikacji i usuwania przepisów, list zakupowych, pozycji spiżarni i profili domowników tego gospodarstwa.
-* **Proponowane Rozwiązanie:**
-  1. Usunięcie swobodnego warunku `user_id = auth.uid()` z polityki `INSERT`.
-  2. Dozwolenie na dodanie członka do istniejącego gospodarstwa wyłącznie gdy:
-     - Wykonuje to istniejący członek gospodarstwa: `household_id IN (SELECT public.get_user_household_ids(auth.uid()))`, LUB
-     - Użytkownik posiada aktywne, oczekujące zaproszenie w `household_invites` dopasowane do swojego adresu e-mail (`lower(email) = lower(auth.jwt() ->> 'email')`).
-  3. Tworzenie nowego gospodarstwa i przypisanie pierwszego członka (twórcy) przenieść do bezpiecznej funkcji PostgreSQL `create_household(name TEXT)` z klauzulą `SECURITY DEFINER`.
-* **Definition of Done (DoD):**
-  - Próba bezpośredniego dodania rekordu do `household_members` dla obcego gospodarstwa bez istniejącego zaproszenia jest odrzucana przez RLS (błąd uprawnień).
-  - Prawidłowe dołączanie przez zaakceptowane zaproszenie e-mail oraz tworzenie nowego gospodarstwa działają bez zakłóceń.
+  * W pierwotnej migracji polityka `INSERT` dla tabeli `household_members` zawierała warunek `WITH CHECK (user_id = auth.uid() OR ...)`.
+  * Ponieważ warunek `user_id = auth.uid()` był zawsze spełniony przy wstawianiu własnego ID, **użytkownik znający UUID obcego gospodarstwa mógł samodzielnie dopisać się do niego bez zaproszenia**, zyskując natychmiastowy dostęp do wszystkich danych.
+* **Wdrożone Rozwiązanie:**
+  1. Usunięto podatną politykę `INSERT` i wdrożono nową, bezpieczną politykę w migracji [20261026150000_secure_household_members_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261026150000_secure_household_members_rls.sql):
+     - Dopisanie do gospodarstwa dozwolone jest wyłącznie przez istniejącego członka gospodarstwa LUB przez użytkownika posiadającego aktywne zaproszenie w `household_invites` powiązane z jego adresem e-mail.
+  2. Dodano procedurę składowaną `public.create_household_with_member(p_name TEXT)` z klauzulą `SECURITY DEFINER`, umożliwiającą bezpieczne tworzenie nowego gospodarstwa i atomowe przypisanie twórcy jako pierwszego członka.
+  3. Zintegrowano [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts) z funkcją RPC `create_household_with_member`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Próba bezpośredniego dodania rekordu do `household_members` bez zaproszenia jest blokowana przez PostgreSQL RLS.
+  - ✅ Tworzenie nowego gospodarstwa oraz dołączanie przez zaproszenia e-mail działają bez zakłóceń. Pokryte testami jednostkowymi w `householdService.test.ts`.
 
 ---
 
@@ -563,10 +559,10 @@ gantt
     title SmartShopping - Harmonogram Realizacji Rozszerzonego Backlogu
     dateFormat  YYYY-MM
     section Krytyczne (Security & Offline)
-    CRIT-03 Fix Push Edge Function Auth :crit, active, 2026-11, 7d
-    CRIT-04 Fix RLS household_members    :crit, active, 2026-11, 7d
-    CRIT-01 Offline Mutation Queue       :crit, 2026-11, 25d
-    CRIT-02 Concurrency & OCC            :crit, 2026-12, 14d
+    CRIT-03 Fix Push Edge Function Auth :crit, done, 2026-10, 2d
+    CRIT-04 Fix RLS household_members    :crit, done, 2026-10, 2d
+    CRIT-01 Offline Mutation Queue       :crit, done, 2026-10, 3d
+    CRIT-02 Concurrency & OCC            :crit, done, 2026-10, 2d
     section Wysokie (Performance & Quality)
     HIGH-01 Fix Fast Refresh Oxlint     :active, 2026-11, 5d
     HIGH-02 Fix Act Warnings Vitest      :active, 2026-11, 7d
@@ -602,25 +598,25 @@ gantt
     LOW-04 AI OCR Receipt Scanner        :2027-04, 30d
 ```
 
-| ID Zadania | Kategoria | Moduł | Szacowany Czas | Kluczowa Korzyść |
-| :--- | :--- | :--- | :--- | :--- |
-| **CRIT-03** | 🔴 Critical | Security / Edge Functions | 1-2 dni | Eliminacja podatności podszywania się pod obce gospodarstwo w powiadomieniach push. |
-| **CRIT-04** | 🔴 Critical | Security / Supabase RLS | 1-2 dni | Uniemożliwienie samowolnego dołączania użytkowników do cudzych gospodarstw. |
-| **CRIT-01** | 🔴 Critical | Frontend / Offline PWA | 4-5 dni | Brak utraty odhaczonych artykułów przy braku zasięgu w halach marketów. |
-| **CRIT-02** | 🔴 Critical | Backend / Realtime | 2-3 dni | Spójność równoległych zakupów dwóch domowników (Last-Write-Wins prevention). |
-| **HIGH-04** | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
-| **HIGH-05** | 🟠 High | Performance / React | 2 dni | Redukcja kaskadowych renderów o 70% dzięki selektorom Zustand i `useShallow`. |
-| **HIGH-06** | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
-| **MED-05** | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Automatyczne zdejmowanie składników ze spiżarni po ugotowaniu posiłku. |
-| **MED-06** | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 zapytaniu SQL. |
-| **MED-07** | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
-| **NORM-05** | 🟢 Normal | TypeScript Quality | 1-2 dni | Czyste, silne typowanie joinów PostgREST bez użycia typu `any`. |
-| **NORM-06** | 🟢 Normal | Documentation | 0.5 dnia | Likwidacja driftu specyfikacji [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md) z kodem. |
-| **LOW-07** | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
-| **LOW-06** | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
+| ID Zadania | Status | Kategoria | Moduł | Szacowany Czas | Kluczowa Korzyść |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **CRIT-03** | ✅ Zrealizowane | 🔴 Critical | Security / Edge Functions | 1-2 dni | Eliminacja podatności podszywania się pod obce gospodarstwo w powiadomieniach push. |
+| **CRIT-04** | ✅ Zrealizowane | 🔴 Critical | Security / Supabase RLS | 1-2 dni | Uniemożliwienie samowolnego dołączania użytkowników do cudzych gospodarstw. |
+| **CRIT-01** | ✅ Zrealizowane | 🔴 Critical | Frontend / Offline PWA | 4-5 dni | Brak utraty odhaczonych artykułów przy braku zasięgu w halach marketów. |
+| **CRIT-02** | ✅ Zrealizowane | 🔴 Critical | Backend / Realtime | 2-3 dni | Spójność równoległych zakupów dwóch domowników (Last-Write-Wins prevention). |
+| **HIGH-04** | ⏳ Oczekujące | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
+| **HIGH-05** | ⏳ Oczekujące | 🟠 High | Performance / React | 2 dni | Redukcja kaskadowych renderów o 70% dzięki selektorom Zustand i `useShallow`. |
+| **HIGH-06** | ⏳ Oczekujące | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
+| **MED-05** | ⏳ Oczekujące | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Automatyczne zdejmowanie składników ze spiżarni po ugotowaniu posiłku. |
+| **MED-06** | ⏳ Oczekujące | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 zapytaniu SQL. |
+| **MED-07** | ⏳ Oczekujące | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
+| **NORM-05** | ⏳ Oczekujące | 🟢 Normal | TypeScript Quality | 1-2 dni | Czyste, silne typowanie joinów PostgREST bez użycia typu `any`. |
+| **NORM-06** | ⏳ Oczekujące | 🟢 Normal | Documentation | 0.5 dnia | Likwidacja driftu specyfikacji [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md) z kodem. |
+| **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
+| **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
 
-> **Zalecana sekwencja wdrożeniowa:**  
-> 1. Natychmiastowe załatanie luk bezpieczeństwa (`CRIT-03`, `CRIT-04`) oraz indeksowanie RLS (`HIGH-04`).  
+> **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
+> 1. Indeksowanie bazy danych pod RLS (`HIGH-04`).  
 > 2. Uporządkowanie narzędzi deweloperskich (`HIGH-01`, `HIGH-02`, `MED-07`).  
-> 3. Wdrożenie odporności na brak łączności offline w markecie (`CRIT-01`, `HIGH-05`, `HIGH-06`).  
+> 3. Eliminacja podwójnej wibracji i kaskadowych renderów (`HIGH-05`, `HIGH-06`).  
 > 4. Transakcyjna archiwizacja i pętla rozchodu spiżarni (`MED-05`, `MED-06`).

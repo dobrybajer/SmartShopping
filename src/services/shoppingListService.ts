@@ -555,17 +555,52 @@ export const shoppingListService = {
     return true
   },
 
-  async toggleItemChecked(itemId: string, isChecked: boolean): Promise<boolean> {
-    const { error } = await supabase
-      .from('shopping_list_items')
-      .update({ is_checked: isChecked })
-      .eq('id', itemId)
+  async toggleItemChecked(
+    itemId: string,
+    isChecked: boolean,
+    clientTimestamp?: string
+  ): Promise<boolean> {
+    try {
+      const nowIso = new Date().toISOString()
 
-    if (error) {
-      console.error('Error updating item checked status:', error)
+      // OCC Concurrency Check (CRIT-02):
+      // If user is attempting to uncheck (isChecked === false) and provided a clientTimestamp,
+      // verify if another user checked it on the server after clientTimestamp.
+      if (!isChecked && clientTimestamp) {
+        const { data: serverItem } = await supabase
+          .from('shopping_list_items')
+          .select('is_checked, updated_at')
+          .eq('id', itemId)
+          .maybeSingle()
+
+        if (
+          serverItem &&
+          serverItem.is_checked &&
+          serverItem.updated_at &&
+          serverItem.updated_at > clientTimestamp
+        ) {
+          console.warn(`[OCC Conflict] Item ${itemId} was checked concurrently. Preserving is_checked = true.`)
+          return true
+        }
+      }
+
+      const { error } = await supabase
+        .from('shopping_list_items')
+        .update({
+          is_checked: isChecked,
+          updated_at: nowIso
+        })
+        .eq('id', itemId)
+
+      if (error) {
+        console.error('Error updating item checked status:', error)
+        return false
+      }
+      return true
+    } catch (err) {
+      console.error('Error in toggleItemChecked:', err)
       return false
     }
-    return true
   },
 
   async toggleItemInPantry(itemId: string, inPantry: boolean): Promise<boolean> {

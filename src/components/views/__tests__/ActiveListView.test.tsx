@@ -4,6 +4,7 @@ import { ActiveListView } from '../ActiveListView'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { shoppingListService } from '@/services/shoppingListService'
 import { useI18nStore } from '@/i18n'
+import { getPendingMutations, clearOfflineQueue } from '@/lib/offline/offlineMutationQueue'
 
 vi.mock('@/context/AuthContext', () => ({
   useAuth: () => ({
@@ -119,6 +120,7 @@ const sampleListDetails2 = {
 describe('ActiveListView - Multi-Active List Navigation & Management Flow', () => {
   beforeEach(() => {
     localStorage.clear()
+    clearOfflineQueue()
     useI18nStore.getState().setLanguage('pl')
     useShoppingStore.setState({
       activeHouseholdId: 'household-123',
@@ -176,5 +178,26 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
     fireEvent.click(checkboxes[0])
 
     expect(toggleSpy).toHaveBeenCalledWith('item-1', true)
+  })
+
+  it('Flow 04: when network request fails, item remains checked and is enqueued into offline queue (CRIT-01)', async () => {
+    vi.spyOn(shoppingListService, 'toggleItemChecked').mockResolvedValue(false)
+    render(<ActiveListView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Mleko 3.2%')).toBeInTheDocument()
+    })
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0])
+
+    // Wait a tick for async dispatch
+    await waitFor(() => {
+      const pending = getPendingMutations()
+      expect(pending.some((m) => m.itemId === 'item-1' && m.payload.isChecked === true)).toBe(true)
+    })
+
+    // UI maintains checked state, no rollback
+    expect(checkboxes[0]).toBeChecked()
   })
 })

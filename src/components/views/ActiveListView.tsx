@@ -36,6 +36,7 @@ import { useCategoryStore } from '@/store/useCategoryStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
+import { enqueueMutation } from '@/lib/offline/offlineMutationQueue'
 import {
   sortActiveLists,
   findDefaultOrFirstListId
@@ -138,36 +139,53 @@ export const ActiveListView: React.FC = () => {
   const handleToggleCheck = async (itemId: string, currentStatus: boolean) => {
     if (!activeList) return
 
-    // Optimistic UI update
-    const previousItems = activeList.items
+    const targetItem = activeList.items.find((i) => i.id === itemId)
+    const newChecked = !currentStatus
+
+    // Optimistic UI update - never roll back on market connectivity loss (CRIT-01)
     const updatedItems = activeList.items.map((item) =>
-      item.id === itemId ? { ...item, is_checked: !currentStatus } : item
+      item.id === itemId
+        ? { ...item, is_checked: newChecked, updated_at: new Date().toISOString() }
+        : item
     )
     setActiveList({ ...activeList, items: updatedItems })
 
-    const success = await shoppingListService.toggleItemChecked(itemId, !currentStatus)
-    if (!success) {
-      setActiveList({ ...activeList, items: previousItems })
-    } else if (household) {
-      // Update summary badge
-      shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
+    if (isOffline) {
+      enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
+      return
+    }
 
-      // If all items on active list are completed, notify household members
-      const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
-      if (allDone && !currentStatus) {
-        const completedByName = userProfile?.name || user?.email?.split('@')[0] || 'Domownik'
-        notificationService
-          .notify(
-            'LIST_COMPLETED',
-            {
-              listId: activeList.id,
-              listName: activeList.name || 'Lista zakupów',
-              completedByName
-            },
-            household.id
-          )
-          .catch(() => {})
+    try {
+      const success = targetItem?.updated_at
+        ? await shoppingListService.toggleItemChecked(itemId, newChecked, targetItem.updated_at)
+        : await shoppingListService.toggleItemChecked(itemId, newChecked)
+      if (!success) {
+        // Network or server error - save to offline queue without rolling back UI (CRIT-01)
+        enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
+      } else if (household) {
+        // Update summary badge
+        shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
+
+        // If all items on active list are completed, notify household members
+        const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
+        if (allDone && newChecked) {
+          const completedByName = userProfile?.name || user?.email?.split('@')[0] || 'Domownik'
+          notificationService
+            .notify(
+              'LIST_COMPLETED',
+              {
+                listId: activeList.id,
+                listName: activeList.name || 'Lista zakupów',
+                completedByName
+              },
+              household.id
+            )
+            .catch(() => {})
+        }
       }
+    } catch {
+      enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
     }
   }
 
@@ -175,15 +193,24 @@ export const ActiveListView: React.FC = () => {
     if (!activeList) return
     const newQty = getNextQuantity(item.total_quantity, item.product?.unit_type, 'increase')
 
-    const previousItems = activeList.items
     const updatedItems = activeList.items.map((i) =>
       i.id === item.id ? { ...i, total_quantity: newQty } : i
     )
     setActiveList({ ...activeList, items: updatedItems })
 
-    const success = await shoppingListService.updateItemQuantity(item.id, newQty)
-    if (!success) {
-      setActiveList({ ...activeList, items: previousItems })
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
+    if (isOffline) {
+      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
+      return
+    }
+
+    try {
+      const success = await shoppingListService.updateItemQuantity(item.id, newQty)
+      if (!success) {
+        enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
+      }
+    } catch {
+      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
     }
   }
 
@@ -197,15 +224,24 @@ export const ActiveListView: React.FC = () => {
       return
     }
 
-    const previousItems = activeList.items
     const updatedItems = activeList.items.map((i) =>
       i.id === item.id ? { ...i, total_quantity: newQty } : i
     )
     setActiveList({ ...activeList, items: updatedItems })
 
-    const success = await shoppingListService.updateItemQuantity(item.id, newQty)
-    if (!success) {
-      setActiveList({ ...activeList, items: previousItems })
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
+    if (isOffline) {
+      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
+      return
+    }
+
+    try {
+      const success = await shoppingListService.updateItemQuantity(item.id, newQty)
+      if (!success) {
+        enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
+      }
+    } catch {
+      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
     }
   }
 

@@ -462,6 +462,7 @@ export interface Database {
           category_id?: number | null
           in_pantry: boolean | null
           meal_plan_item_id?: string | null
+          updated_at?: string | null
         }
         Insert: {
           id?: string
@@ -473,6 +474,7 @@ export interface Database {
           category_id?: number | null
           in_pantry?: boolean | null
           meal_plan_item_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -484,6 +486,7 @@ export interface Database {
           category_id?: number | null
           in_pantry?: boolean | null
           meal_plan_item_id?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -703,7 +706,14 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      create_household_with_member: {
+        Args: {
+          p_name: string
+        }
+        Returns: Json
+      }
+    }
     Enums: {
       unit_enum: UnitEnum
       list_status_enum: ListStatusEnum

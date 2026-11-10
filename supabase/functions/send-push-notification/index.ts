@@ -61,6 +61,21 @@ serve(async (req) => {
       );
     }
 
+    // Verify user is a member of the requested household (CRIT-03)
+    const { data: member, error: memberError } = await supabaseClient
+      .from("household_members")
+      .select("id")
+      .eq("household_id", householdId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (memberError || !member) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: You are not a member of this household" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 1. Fetch subscriptions for household
     // If includeSender is false (default for broadcast events), suppress the sender's own device
     let query = supabaseClient
