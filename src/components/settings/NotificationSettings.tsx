@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useShallow } from 'zustand/react/shallow'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -33,7 +34,21 @@ export const NotificationSettings: React.FC = () => {
     unsubscribe,
     sendTestNotification,
     setNotifySelf
-  } = useNotificationStore()
+  } = useNotificationStore(
+    useShallow((state) => ({
+      permission: state.permission,
+      isSubscribed: state.isSubscribed,
+      isLoading: state.isLoading,
+      isIosSafariNonPwa: state.isIosSafariNonPwa,
+      notifySelf: state.notifySelf,
+      error: state.error,
+      checkStatus: state.checkStatus,
+      subscribe: state.subscribe,
+      unsubscribe: state.unsubscribe,
+      sendTestNotification: state.sendTestNotification,
+      setNotifySelf: state.setNotifySelf
+    }))
+  )
 
   const [testSuccess, setTestSuccess] = useState(false)
   const [isTesting, setIsTesting] = useState(false)

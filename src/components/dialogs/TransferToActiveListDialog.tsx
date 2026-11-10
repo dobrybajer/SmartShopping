@@ -21,8 +21,9 @@ import {
   CheckCircle2
 } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   shoppingListService,
   type ShoppingListSummary
@@ -48,7 +49,12 @@ export const TransferToActiveListDialog: React.FC<TransferToActiveListDialogProp
 }) => {
   const { household } = useAuth()
   const { t, formatQuantity } = useTranslation()
-  const { selectedActiveListId, setSelectedActiveListId } = useShoppingStore()
+  const { selectedActiveListId, setSelectedActiveListId } = useShoppingStore(
+    useShallow((state) => ({
+      selectedActiveListId: state.selectedActiveListId,
+      setSelectedActiveListId: state.setSelectedActiveListId
+    }))
+  )
 
   const [activeLists, setActiveLists] = useState<ShoppingListSummary[]>([])
   const [mode, setMode] = useState<'existing' | 'new'>('existing')

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import { notificationService } from '@/services/notificationService'
@@ -37,6 +38,8 @@ import { usePantryStore } from '@/store/usePantryStore'
 import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import { enqueueMutation } from '@/lib/offline/offlineMutationQueue'
+import { createActiveListRealtimeHandlers } from '@/lib/realtime/activeListDiff'
+import { trackLocalItemMutation } from '@/lib/realtime/localMutationTracker'
 import {
   sortActiveLists,
   findDefaultOrFirstListId
@@ -44,15 +47,34 @@ import {
 
 export const DesktopActiveListView: React.FC = () => {
   const { household, userProfile, user } = useAuth()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore()
-  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories
+    }))
+  )
+  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryMapByAdHocName: state.pantryMapByAdHocName,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const {
     setDraftItems,
     draftItems,
     setSelectedActiveListId,
     activeListsSummary,
     setActiveListsSummary
-  } = useShoppingStore()
+  } = useShoppingStore(
+    useShallow((state) => ({
+      setDraftItems: state.setDraftItems,
+      draftItems: state.draftItems,
+      setSelectedActiveListId: state.setSelectedActiveListId,
+      activeListsSummary: state.activeListsSummary,
+      setActiveListsSummary: state.setActiveListsSummary
+    }))
+  )
   const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
 
   const [activeList, setActiveList] = useState<ActiveListWithDetails | null>(null)
@@ -122,25 +144,30 @@ export const DesktopActiveListView: React.FC = () => {
   }
 
   // 4. Realtime subscription
-  useActiveListRealtime(household?.id ?? null, activeList?.id ?? null, () => {
-    if (household) {
-      shoppingListService.getActiveListsSummary(household.id).then((summaries) => {
-        const sorted = sortActiveLists(summaries)
-        setActiveListsSummary(sorted)
-        if (activeList?.id) {
-          shoppingListService.getListWithDetails(activeList.id).then((fresh) => {
-            if (fresh) setActiveList(fresh)
-          })
-        }
-      })
-    }
-  })
+  const activeListRef = useRef<ActiveListWithDetails | null>(activeList)
+  useEffect(() => {
+    activeListRef.current = activeList
+  }, [activeList])
+
+  useActiveListRealtime(
+    household?.id ?? null,
+    activeList?.id ?? null,
+    createActiveListRealtimeHandlers({
+      householdId: household?.id,
+      getActiveList: () => activeListRef.current,
+      setActiveList,
+      setActiveListsSummary
+    })
+  )
 
   const handleToggleCheck = async (itemId: string, currentStatus: boolean) => {
     if (!activeList) return
 
     const targetItem = activeList.items.find((i) => i.id === itemId)
     const newChecked = !currentStatus
+
+    // Register local mutation immediately so returning Realtime WebSocket echo won't re-vibrate or refetch (HIGH-06)
+    trackLocalItemMutation(itemId, { is_checked: newChecked })
 
     // Optimistic UI update - never roll back on market connectivity loss (CRIT-01)
     const updatedItems = activeList.items.map((item) =>
@@ -191,6 +218,7 @@ export const DesktopActiveListView: React.FC = () => {
   const handleIncrease = async (item: ActiveListItemWithProduct) => {
     if (!activeList) return
     const newQty = getNextQuantity(item.total_quantity, item.product?.unit_type, 'increase')
+    trackLocalItemMutation(item.id, { total_quantity: newQty })
 
     const updatedItems = activeList.items.map((i) =>
       i.id === item.id ? { ...i, total_quantity: newQty } : i
@@ -222,6 +250,8 @@ export const DesktopActiveListView: React.FC = () => {
       setIsDeleteItemModalOpen(true)
       return
     }
+
+    trackLocalItemMutation(item.id, { total_quantity: newQty })
 
     const updatedItems = activeList.items.map((i) =>
       i.id === item.id ? { ...i, total_quantity: newQty } : i

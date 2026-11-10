@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import type { MemberDetail, InviteDetail } from '@/services/householdService'
 import {

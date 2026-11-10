@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import type { PantryItemWithDetails } from '@/types/pantry'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
@@ -30,8 +31,21 @@ export const PantryView: React.FC = () => {
     loadPantryItems,
     updatePantryQuantity,
     deletePantryItem
-  } = usePantryStore()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore()
+  } = usePantryStore(
+    useShallow((state) => ({
+      pantryItems: state.pantryItems,
+      isLoading: state.isLoading,
+      loadPantryItems: state.loadPantryItems,
+      updatePantryQuantity: state.updatePantryQuantity,
+      deletePantryItem: state.deletePantryItem
+    }))
+  )
+  const { categoriesByHousehold, loadCategories } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories
+    }))
+  )
   const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
 
   const [searchQuery, setSearchQuery] = useState('')

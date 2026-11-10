@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { usePantryStore } from '@/store/usePantryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { productService, type Product, type ProductCategory } from '@/services/productService'
@@ -42,7 +43,13 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
     pantryMapByProductId,
     pantryMapByAdHocName,
     addOrIncrementItem
-  } = usePantryStore()
+  } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryMapByAdHocName: state.pantryMapByAdHocName,
+      addOrIncrementItem: state.addOrIncrementItem
+    }))
+  )
   const { t, formatUnit, formatQuantity } = useTranslation()
 
   const [name, setName] = useState('')

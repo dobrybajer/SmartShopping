@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { JsonRecipeImportDialog } from '../JsonRecipeImportDialog'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { productService } from '@/services/productService'
 import { mealService } from '@/services/mealService'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 vi.mock('@/services/productService')
 vi.mock('@/services/mealService')
 

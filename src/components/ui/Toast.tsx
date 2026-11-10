@@ -1,5 +1,6 @@
 import React from 'react'
 import { useToastStore, type ToastType } from '@/store/useToastStore'
+import { useShallow } from 'zustand/react/shallow'
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,7 +19,12 @@ const COLOR_STYLES: Record<ToastType, string> = {
 }
 
 export const Toaster: React.FC = () => {
-  const { toasts, removeToast } = useToastStore()
+  const { toasts, removeToast } = useToastStore(
+    useShallow((state) => ({
+      toasts: state.toasts,
+      removeToast: state.removeToast
+    }))
+  )
 
   if (toasts.length === 0) return null
 

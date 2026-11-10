@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import type { SupportedLanguage } from '@/i18n/types'
 import { Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'

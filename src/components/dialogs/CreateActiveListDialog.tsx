@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { PlusCircle } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { shoppingListService } from '@/services/shoppingListService'
 import { formatDate } from '@/lib/utils'
 

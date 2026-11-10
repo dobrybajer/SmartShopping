@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NotificationPromptBanner } from '../NotificationPromptBanner'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useNotificationStore } from '@/store/useNotificationStore'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 
 describe('NotificationPromptBanner - Soft-Prompt User Flow Tests (ADR-007)', () => {
   const mockHousehold = { id: 'hh-banner-1', name: 'Dom Rodzinny' }

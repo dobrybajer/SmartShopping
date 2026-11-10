@@ -35,7 +35,7 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
 }) => {
   const { t } = useTranslation()
   const { isDesktop } = useDeviceLayout()
-  const { restoreMissingIngredient } = useMealPlanStore()
+  const restoreMissingIngredient = useMealPlanStore((state) => state.restoreMissingIngredient)
 
   const [restoredIds, setRestoredIds] = React.useState<Set<string>>(new Set())
 

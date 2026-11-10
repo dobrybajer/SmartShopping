@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useTranslation } from '@/i18n'
@@ -25,8 +25,8 @@ import { cn } from '@/lib/utils'
 
 export const DesktopCookbookView: React.FC = () => {
   const { household } = useAuth()
-  const { addMealToDraft } = useShoppingStore()
-  const { pantryMapByProductId } = usePantryStore()
+  const addMealToDraft = useShoppingStore((state) => state.addMealToDraft)
+  const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
   const { t } = useTranslation()
 
   const [meals, setMeals] = useState<MealWithIngredients[]>([])

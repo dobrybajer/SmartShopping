@@ -27,9 +27,9 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   onOpenDayView
 }) => {
   const { t } = useTranslation()
-  const { mealPlans } = useMealPlanStore()
-  const { pantryItems } = usePantryStore()
-  const { draftItems } = useShoppingStore()
+  const mealPlans = useMealPlanStore((state) => state.mealPlans)
+  const pantryItems = usePantryStore((state) => state.pantryItems)
+  const draftItems = useShoppingStore((state) => state.draftItems)
 
   // Track the currently viewed month & year
   const initialDateObj = new Date(selectedDate + 'T00:00:00')

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
+import { useShallow } from 'zustand/react/shallow'
 import { DayCalendarView } from '@/components/calendar/DayCalendarView'
 import { WeekCalendarView } from '@/components/calendar/WeekCalendarView'
 import { MonthCalendarGrid } from '@/components/calendar/MonthCalendarGrid'
@@ -20,7 +21,16 @@ export const CalendarView: React.FC = () => {
     setSelectedDate,
     loadMealPlans,
     setupRealtimeSubscription
-  } = useMealPlanStore()
+  } = useMealPlanStore(
+    useShallow((state) => ({
+      viewMode: state.viewMode,
+      setViewMode: state.setViewMode,
+      selectedDate: state.selectedDate,
+      setSelectedDate: state.setSelectedDate,
+      loadMealPlans: state.loadMealPlans,
+      setupRealtimeSubscription: state.setupRealtimeSubscription
+    }))
+  )
 
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [addMealDate, setAddMealDate] = useState(selectedDate)

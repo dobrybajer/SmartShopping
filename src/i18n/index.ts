@@ -118,7 +118,8 @@ export const translate = (
 }
 
 export const useTranslation = () => {
-  const { language, setLanguage } = useI18nStore()
+  const language = useI18nStore((state) => state.language)
+  const setLanguage = useI18nStore((state) => state.setLanguage)
   const currentDict = translations[language] || translations.en
 
   const t = useCallback(

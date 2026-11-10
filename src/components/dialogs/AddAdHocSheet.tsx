@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
@@ -35,7 +35,7 @@ interface AddAdHocSheetProps {
 export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange }) => {
   const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
-  const { addAdHocToDraft } = useShoppingStore()
+  const addAdHocToDraft = useShoppingStore((state) => state.addAdHocToDraft)
   const { t, formatUnit } = useTranslation()
   
   const [name, setName] = useState('')

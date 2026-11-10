@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import { productService } from '@/services/productService'

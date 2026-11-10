@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { HouseholdsDialog } from '../HouseholdsDialog'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 vi.mock('@/hooks/useDeviceLayout', () => ({
   useDeviceLayout: () => ({ isDesktop: true })
 }))
@@ -41,8 +41,12 @@ describe('HouseholdsDialog Flow - Top Creation, Inline Rename & Switching', () =
     } as any)
   })
 
-  it('Flow 01: Places "Utwórz Nowe Gospodarstwo" at top and does not render separate "Aktywne Gospodarstwo" card', () => {
+  it('Flow 01: Places "Utwórz Nowe Gospodarstwo" at top and does not render separate "Aktywne Gospodarstwo" card', async () => {
     render(<HouseholdsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockGetHouseholdMembers).toHaveBeenCalledWith('hh-1')
+    })
 
     // Should NOT render separate "Aktywne Gospodarstwo" section
     expect(screen.queryByText('Aktywne Gospodarstwo')).not.toBeInTheDocument()
@@ -69,8 +73,12 @@ describe('HouseholdsDialog Flow - Top Creation, Inline Rename & Switching', () =
     })
   })
 
-  it('Flow 03: Switches active household when clicking on a household row', () => {
+  it('Flow 03: Switches active household when clicking on a household row', async () => {
     render(<HouseholdsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockGetHouseholdMembers).toHaveBeenCalledWith('hh-1')
+    })
 
     // Click on the second household row
     const secondRow = screen.getByText('Domek Letniskowy')
@@ -102,8 +110,12 @@ describe('HouseholdsDialog Flow - Top Creation, Inline Rename & Switching', () =
     })
   })
 
-  it('Flow 05: Opens DeleteHouseholdDialog when clicking trash icon on a household row', () => {
+  it('Flow 05: Opens DeleteHouseholdDialog when clicking trash icon on a household row', async () => {
     render(<HouseholdsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockGetHouseholdMembers).toHaveBeenCalledWith('hh-1')
+    })
 
     const deleteButtons = screen.getAllByTitle(/Usuń gospodarstwo|Delete household/i)
     expect(deleteButtons.length).toBe(3)
@@ -129,8 +141,12 @@ describe('HouseholdsDialog Flow - Top Creation, Inline Rename & Switching', () =
     })
   })
 
-  it('Flow 07: Triggers drag and drop reordering and invokes reorderHouseholds', () => {
+  it('Flow 07: Triggers drag and drop reordering and invokes reorderHouseholds', async () => {
     render(<HouseholdsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(mockGetHouseholdMembers).toHaveBeenCalledWith('hh-1')
+    })
 
     const draggableCards = screen.getAllByTitle(/Przeciągnij, aby zmienić kolejność/i)
     expect(draggableCards.length).toBe(2) // non-default households hh-2 and hh-3

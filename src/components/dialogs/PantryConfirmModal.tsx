@@ -3,6 +3,7 @@ import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import { shoppingListService } from '@/services/shoppingListService'
 import { calculatePantryFreshness, calculatePartialDelta } from '@/lib/calculations/pantryCalculations'
 import { toast } from '@/store/useToastStore'
@@ -76,8 +77,23 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
     removeByProductOrName,
     addOrIncrementItem,
     activeHouseholdId
-  } = usePantryStore()
-  const { removeFromDraft, updateDraftQuantity } = useShoppingStore()
+  } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryMapByAdHocName: state.pantryMapByAdHocName,
+      pantryItemsByParentId: state.pantryItemsByParentId,
+      verifyPantryItem: state.verifyPantryItem,
+      removeByProductOrName: state.removeByProductOrName,
+      addOrIncrementItem: state.addOrIncrementItem,
+      activeHouseholdId: state.activeHouseholdId
+    }))
+  )
+  const { removeFromDraft, updateDraftQuantity } = useShoppingStore(
+    useShallow((state) => ({
+      removeFromDraft: state.removeFromDraft,
+      updateDraftQuantity: state.updateDraftQuantity
+    }))
+  )
 
   // Find existing pantry record or aggregated child variants
   const childPantryItems = productId ? pantryItemsByParentId[productId] || [] : []

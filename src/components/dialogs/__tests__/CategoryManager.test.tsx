@@ -46,7 +46,7 @@ describe('CategoryManager User Flows (Mobile & Desktop)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useCategoryStore).mockReturnValue({
+    const mockState = {
       categoriesByHousehold: {
         'hh-123': mockCategories
       },
@@ -57,7 +57,9 @@ describe('CategoryManager User Flows (Mobile & Desktop)', () => {
       createCustomCategory: mockCreateCustom,
       updateCustomCategory: mockUpdateCustom,
       deleteCustomCategory: mockDeleteCustom
-    } as any)
+    }
+    vi.mocked(useCategoryStore).mockImplementation(((selector?: (s: any) => any) =>
+      selector ? selector(mockState) : mockState) as any)
   })
 
   it('Flow 01: Renders category list with correct global vs custom badges and permissions', () => {

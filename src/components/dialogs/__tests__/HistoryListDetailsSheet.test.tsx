@@ -7,7 +7,7 @@ import { useCategoryStore } from '@/store/useCategoryStore'
 import { useI18nStore } from '@/i18n'
 import type { ShoppingList, ActiveListWithDetails } from '@/services/shoppingListService'
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     household: { id: 'household-123', name: 'Dom Testowy' },
     user: { id: 'user-1' }

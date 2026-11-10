@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, ActiveListItemWithProduct, HistoryShoppingList } from '@/services/shoppingListService'
@@ -29,8 +30,18 @@ import { cn } from '@/lib/utils'
 
 export const DesktopHistoryView: React.FC = () => {
   const { household } = useAuth()
-  const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore()
+  const { addItemToDraft, addMultipleToDraft } = useShoppingStore(
+    useShallow((state) => ({
+      addItemToDraft: state.addItemToDraft,
+      addMultipleToDraft: state.addMultipleToDraft
+    }))
+  )
+  const { categoriesByHousehold, loadCategories } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories
+    }))
+  )
   const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
   const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])

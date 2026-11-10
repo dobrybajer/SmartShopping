@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CalendarView } from '../CalendarView'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import type { MealPlanItem } from '@/types/calendar'
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: vi.fn()
 }))
 

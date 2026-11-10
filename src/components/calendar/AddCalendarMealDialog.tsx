@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react'
 import type { MealPlanItem, CreateCalendarMealInput } from '@/types/calendar'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { mealService, type MealCategory } from '@/services/mealService'
 import {
@@ -41,7 +42,12 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
   const { t } = useTranslation()
   const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
-  const { addMealPlan, updateMealPlan } = useMealPlanStore()
+  const { addMealPlan, updateMealPlan } = useMealPlanStore(
+    useShallow((state) => ({
+      addMealPlan: state.addMealPlan,
+      updateMealPlan: state.updateMealPlan
+    }))
+  )
 
   const [availableMeals, setAvailableMeals] = useState<MealWithIngredients[]>([])
   const [mealCategories, setMealCategories] = useState<MealCategory[]>([])

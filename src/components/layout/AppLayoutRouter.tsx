@@ -28,7 +28,7 @@ import { useOfflineSync } from '@/hooks/useOfflineSync'
 export const AppLayoutRouter: React.FC = () => {
   useOfflineSync()
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
-  const { draftItems } = useShoppingStore()
+  const draftItems = useShoppingStore((state) => state.draftItems)
   const { t } = useTranslation()
   const [activeTab, setActiveTabState] = useState<TabType>(() => {
     try {

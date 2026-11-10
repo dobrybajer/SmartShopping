@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AddMealSheet } from '../AddMealSheet'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { productService } from '@/services/productService'
 import { mealService } from '@/services/mealService'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 vi.mock('@/hooks/useDeviceLayout', () => ({
   useDeviceLayout: () => ({ isDesktop: true, isMobile: false })
 }))

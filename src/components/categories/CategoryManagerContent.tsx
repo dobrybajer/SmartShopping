@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from '@/i18n'
 import { useCategoryStore } from '@/store/useCategoryStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   validateCategoryName,
   resolveCategoriesWithSettings,
@@ -45,7 +46,18 @@ export const CategoryManagerContent: React.FC<CategoryManagerContentProps> = ({
     createCustomCategory,
     updateCustomCategory,
     deleteCustomCategory
-  } = useCategoryStore()
+  } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories,
+      subscribeRealtime: state.subscribeRealtime,
+      reorderCategories: state.reorderCategories,
+      toggleVisibility: state.toggleVisibility,
+      createCustomCategory: state.createCustomCategory,
+      updateCustomCategory: state.updateCustomCategory,
+      deleteCustomCategory: state.deleteCustomCategory
+    }))
+  )
 
   // Load categories and subscribe to realtime changes
   useEffect(() => {

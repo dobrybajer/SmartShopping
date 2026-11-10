@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
@@ -44,7 +44,7 @@ export const DesktopProductsView: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
 
   // Pantry Integration (Phase 4)
-  const { pantryMapByProductId } = usePantryStore()
+  const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
   const [pantryProduct, setPantryProduct] = useState<Product | null>(null)
   const [isAddPantryOpen, setIsAddPantryOpen] = useState(false)
 

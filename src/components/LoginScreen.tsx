@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { AppLogo } from '@/components/ui/AppLogo'

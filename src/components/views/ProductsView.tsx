@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { productService } from '@/services/productService'
 import type { Product } from '@/services/productService'
@@ -9,6 +9,7 @@ import { CategoryManagerSheet } from '@/components/dialogs/CategoryManagerSheet'
 import { CategoryManagerDialog } from '@/components/dialogs/CategoryManagerDialog'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { usePantryStore } from '@/store/usePantryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 import { AddPantryItemDialog } from '@/components/dialogs/AddPantryItemDialog'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
@@ -36,7 +37,12 @@ export const ProductsView: React.FC = () => {
   const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
   const { t, formatUnit, formatQuantity } = useTranslation()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore()
+  const { categoriesByHousehold, loadCategories } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories
+    }))
+  )
 
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,7 +60,7 @@ export const ProductsView: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Pantry Integration (Phase 4)
-  const { pantryMapByProductId } = usePantryStore()
+  const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
   const [pantryProduct, setPantryProduct] = useState<Product | null>(null)
   const [isAddPantryOpen, setIsAddPantryOpen] = useState(false)
 

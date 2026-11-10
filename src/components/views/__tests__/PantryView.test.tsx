@@ -7,7 +7,7 @@ import { useI18nStore } from '@/i18n'
 import type { PantryItemWithDetails } from '@/types/pantry'
 import { pantryService } from '@/services/pantryService'
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     household: { id: 'hh-123', name: 'Dom Testowy' },
     user: { id: 'user-1' }

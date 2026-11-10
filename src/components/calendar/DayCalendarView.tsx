@@ -4,6 +4,7 @@ import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   calculateMealPlanStatus,
   calculateDayMacros
@@ -44,9 +45,17 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
     duplicateMealPlan,
     transferMealToDraft,
     transferDayToDraft
-  } = useMealPlanStore()
-  const { pantryItems } = usePantryStore()
-  const { draftItems } = useShoppingStore()
+  } = useMealPlanStore(
+    useShallow((state) => ({
+      mealPlans: state.mealPlans,
+      deleteMealPlan: state.deleteMealPlan,
+      duplicateMealPlan: state.duplicateMealPlan,
+      transferMealToDraft: state.transferMealToDraft,
+      transferDayToDraft: state.transferDayToDraft
+    }))
+  )
+  const pantryItems = usePantryStore((state) => state.pantryItems)
+  const draftItems = useShoppingStore((state) => state.draftItems)
 
   // Modals state
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)

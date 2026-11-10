@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useShoppingStore } from '@/store/useShoppingStore'
-import { useAuth } from '@/context/AuthContext'
+import { useShallow } from 'zustand/react/shallow'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import type { DraftItem } from '@/store/useShoppingStore'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,8 +40,22 @@ export const DesktopDraftView: React.FC<DesktopDraftViewProps> = ({
     removeFromDraft,
     removeMultipleFromDraft,
     clearDraft
-  } = useShoppingStore()
-  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore()
+  } = useShoppingStore(
+    useShallow((state) => ({
+      draftItems: state.draftItems,
+      updateDraftQuantity: state.updateDraftQuantity,
+      removeFromDraft: state.removeFromDraft,
+      removeMultipleFromDraft: state.removeMultipleFromDraft,
+      clearDraft: state.clearDraft
+    }))
+  )
+  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryMapByAdHocName: state.pantryMapByAdHocName,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const { household } = useAuth()
   const { t, formatUnit, formatQuantity } = useTranslation()
 

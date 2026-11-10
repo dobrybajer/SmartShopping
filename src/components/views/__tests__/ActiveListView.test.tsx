@@ -3,10 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ActiveListView } from '../ActiveListView'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { shoppingListService } from '@/services/shoppingListService'
+import { notificationService } from '@/services/notificationService'
 import { useI18nStore } from '@/i18n'
 import { getPendingMutations, clearOfflineQueue } from '@/lib/offline/offlineMutationQueue'
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     household: { id: 'household-123', name: 'Dom Testowy' },
     user: { id: 'user-1' }
@@ -130,6 +131,7 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
     vi.clearAllMocks()
 
     vi.spyOn(shoppingListService, 'getActiveListsSummary').mockResolvedValue(sampleSummaries)
+    vi.spyOn(notificationService, 'notify').mockResolvedValue(undefined as any)
     vi.spyOn(shoppingListService, 'getListWithDetails').mockImplementation(async (id: string) => {
       if (id === 'list-2') return sampleListDetails2 as any
       return sampleListDetails1 as any
@@ -178,6 +180,9 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
     fireEvent.click(checkboxes[0])
 
     expect(toggleSpy).toHaveBeenCalledWith('item-1', true)
+    await waitFor(() => {
+      expect(shoppingListService.getActiveListsSummary).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('Flow 04: when network request fails, item remains checked and is enqueued into offline queue (CRIT-01)', async () => {

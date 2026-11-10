@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 export const CookbookView: React.FC = () => {
   const { household } = useAuth()
   const { t } = useTranslation()
-  const { pantryMapByProductId } = usePantryStore()
+  const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')

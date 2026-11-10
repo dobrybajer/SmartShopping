@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { shoppingListService } from '@/services/shoppingListService'
 import type { ShoppingList, ActiveListWithDetails, ActiveListItemWithProduct } from '@/services/shoppingListService'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import type { AddToDraftPayload } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import type { AisleGroup } from '@/lib/calculations/categorySorting'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
@@ -50,8 +51,18 @@ export const HistoryListDetailsSheet: React.FC<HistoryListDetailsSheetProps> = (
   onListDeleted
 }) => {
   const { household } = useAuth()
-  const { addItemToDraft, addMultipleToDraft } = useShoppingStore()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore()
+  const { addItemToDraft, addMultipleToDraft } = useShoppingStore(
+    useShallow((state) => ({
+      addItemToDraft: state.addItemToDraft,
+      addMultipleToDraft: state.addMultipleToDraft
+    }))
+  )
+  const { categoriesByHousehold, loadCategories } = useCategoryStore(
+    useShallow((state) => ({
+      categoriesByHousehold: state.categoriesByHousehold,
+      loadCategories: state.loadCategories
+    }))
+  )
   const { t, formatQuantity, formatDate, formatTime } = useTranslation()
 
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)

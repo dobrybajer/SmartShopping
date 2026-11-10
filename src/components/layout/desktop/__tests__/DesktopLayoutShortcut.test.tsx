@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { DesktopLayout } from '../DesktopLayout'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { productService } from '@/services/productService'
 import { mealService } from '@/services/mealService'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 vi.mock('@/services/productService')
 vi.mock('@/services/mealService')
 

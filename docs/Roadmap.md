@@ -17,7 +17,11 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 | 🟠 **High** | Istotne długi techniczne, błędy lintera psujące dewelopment (Fast Refresh), wycieki w testach (`act(...)`), weryfikacja szczelności RLS i multi-tenancy. |
 | 🟡 **Medium** | Optymalizacje wydajności (Bundle Size / Code Splitting), higiena bazy danych (retencja danych w Supabase), istotne usprawnienia UX/biznesowe (np. wyciszanie niepewności w kalendarzu). |
 | 🟢 **Normal** | Standardowe ulepszenia jakościowe: czyszczenie dokumentacji, dbałość o rozmiar komponentów (<250-300 linii), podstawy dostępności cyfrowej (a11y/WCAG), rozszerzenia spiżarni. |
-| 🔵 **Low** | Nowe innowacyjne moduły i funkcjonalności (Skaner kodów kreskowych, śledzenie cen i budżetu, AI OCR ## 2. 🔴 Kategoria CRITICAL (Najwyższy Priorytet)
+| 🔵 **Low** | Nowe innowacyjne moduły i funkcjonalności (Skaner kodów kreskowych, śledzenie cen i budżetu, AI OCR paragonów, tryb gościa, aplikacje na zegarki). |
+
+---
+
+## 2. 🔴 Kategoria CRITICAL (Najwyższy Priorytet)
 
 ### CRIT-01: Offline Mutation Queue & Background Sync w Markecie (Zero-Connectivity Resilience)
 * **Status:** ✅ **Zrealizowane (Październik 2026)**
@@ -110,116 +114,97 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ## 3. 🟠 Kategoria HIGH (Wysoki Priorytet)
 
 ### HIGH-01: Likwidacja Ostrzeżeń Fast Refresh w Linterze (`oxlint`)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Frontend / Tooling / Developer Experience
-* **Pliki:** [button.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/button.tsx), [badge.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/badge.tsx), [AuthContext.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/context/AuthContext.tsx)
+* **Pliki implementacji:** [button.variants.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/button.variants.ts), [button.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/button.tsx), [badge.variants.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/badge.variants.ts), [badge.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/badge.tsx), [authContextDef.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/context/authContextDef.ts), [AuthContext.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/context/AuthContext.tsx), [useAuth.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useAuth.ts)
 * **Problem / Uzasadnienie:**
-  * Linter `oxlint` zwraca 3 ostrzeżenia reguły `react(only-export-components)`:
-    - `src/components/ui/button.tsx`: eksport komponentu `Button` i obiektu `buttonVariants`.
-    - `src/components/ui/badge.tsx`: eksport komponentu `Badge` i obiektu `badgeVariants`.
-    - `src/context/AuthContext.tsx`: eksport `AuthProvider` i hooka `useAuth`.
-  * Skutek: Naruszenie mechanizmu React Hot Module Replacement (HMR). Przy edycji tych plików w trakcie pracy cały stan aplikacji ulega zresetowaniu zamiast szybkiego odświeżenia.
-* **Proponowane Rozwiązanie:**
-  1. Wydzielenie definicji wariantów stylów CVA do dedykowanych plików, np. `src/components/ui/button.variants.ts` oraz `src/components/ui/badge.variants.ts`.
-  2. Wydzielenie hooka `useAuth` do dedykowanego pliku `src/hooks/useAuth.ts`.
-* **Definition of Done (DoD):**
-  - Polecenie `npm run lint` wykonuje się z wynikiem `0 warnings and 0 errors`.
+  * Linter `oxlint` zwracał 3 ostrzeżenia reguły `react(only-export-components)` dla `button.tsx`, `badge.tsx` i `AuthContext.tsx`.
+  * Skutek: Naruszenie mechanizmu React Hot Module Replacement (HMR) i reset stanu aplikacji przy edycji plików.
+* **Wdrożone Rozwiązanie:**
+  1. Wydzielono warianty CVA do plików [button.variants.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/button.variants.ts) oraz [badge.variants.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/ui/badge.variants.ts).
+  2. Wydzielono definicję kontekstu do [authContextDef.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/context/authContextDef.ts) oraz hooka `useAuth` do [useAuth.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useAuth.ts), aktualizując importy i mocki w całym repozytorium.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Polecenie `npm run lint` wykonuje się z wynikiem `0 warnings and 0 errors`.
 
 ---
 
 ### HIGH-02: Eliminacja Ostrzeżeń `act(...)` w Środowisku Testowym Vitest
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Testy Automatyczne / Vitest
-* **Pliki:** [CalendarView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/__tests__/CalendarView.test.tsx), [AddMealSheet.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/__tests__/AddMealSheet.test.tsx)
+* **Pliki:** [NotificationSettings.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/settings/__tests__/NotificationSettings.test.tsx), [AccountDetailsTheme.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/__tests__/AccountDetailsTheme.test.tsx), [HouseholdsDialog.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/__tests__/HouseholdsDialog.test.tsx), [ActiveListView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/__tests__/ActiveListView.test.tsx)
 * **Problem / Uzasadnienie:**
-  * Podczas uruchamiania `npm run test` w konsoli pojawiają się liczne ostrzeżenia: `An update to CalendarView inside a test was not wrapped in act(...)` oraz `An update to AddCalendarMealDialog inside a test was not wrapped in act(...)`.
-  * Skutek: Asynchroniczne aktualizacje stanu Zustand w testach nie są poprawnie spłukiwane (flushed), co spowalnia działanie testów (obecnie ~38 sekund) i grozi tzw. "flaky tests" na maszynach CI/CD.
-* **Proponowane Rozwiązanie:**
-  1. Prawidłowe użycie `await waitFor(() => ...)` przy asynchronicznych akcjach otwierania/zamykania arkuszy i dialogów.
-  2. Owinięcie asynchronicznych dispatchy ze store'a w `act(async () => ...)`.
-  3. Upewnienie się, że mocki timerów (`vi.useFakeTimers()`) i czyszczenie subskrypcji w `afterEach` są poprawnie zadeklarowane.
-* **Definition of Done (DoD):**
-  - Uruchomienie `npm run test` przechodzi bez żadnych komunikatów na strumieniu `stderr` dotyczących `act(...)`.
+  * Podczas uruchamiania `npm run test` w strumieniu `stderr` pojawiały się ostrzeżenia `An update to ... inside a test was not wrapped in act(...)` (z nieoczekiwanych efektów montowania `checkStatus()`, `getHouseholdMembers()` oraz `getActiveListsSummary()` / realnego `notificationService.notify()`).
+* **Wdrożone Rozwiązanie:**
+  1. W testach `NotificationSettings.test.tsx` i `AccountDetailsTheme.test.tsx` zabezpieczono i spłukano wywołanie `checkStatus()` z `useEffect`.
+  2. W `HouseholdsDialog.test.tsx` dodano oczekiwanie na rozwiązanie asynchronicznego `getHouseholdMembers()` przez `await waitFor(...)`.
+  3. W `ActiveListView.test.tsx` zamockowano `notificationService.notify` i zaczekano na odświeżenie podsumowania po przełączeniu checkboxa.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Uruchomienie `npm run test` przechodzi całkowicie czysto bez ostrzeżeń `act(...)` na strumieniu `stderr`.
 
 ---
 
 ### HIGH-03: RLS Security Audit & Household Multi-Tenancy Cross-Leakage Tests
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Bezpieczeństwo / Supabase RLS
-* **Pliki:** [20261007000000_add_calendar_meal_plans.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261007000000_add_calendar_meal_plans.sql), [20260901000000_add_pantry_module.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260901000000_add_pantry_module.sql)
+* **Pliki implementacji:** [20261110121000_rls_security_audit_hardening.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110121000_rls_security_audit_hardening.sql)
+* **Pliki testów:** [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
 * **Problem / Uzasadnienie:**
-  * Nowe moduły (`meal_plans`, `pantry_items`, `push_subscriptions`) korzystają z polityk opartych o `get_user_household_ids(auth.uid())`.
-  * Brakuje automatycznego testu weryfikującego, czy użytkownik A należący do gospodarstwa H1 może w jakichkolwiek warunkach odczytać, zmodyfikować lub usunąć rekordy gospodarstwa H2 (np. poprzez bezpośrednie zapytanie z podmienionym ID).
-* **Proponowane Rozwiązanie:**
-  1. Stworzenie zestawu testów bezpieczeństwa (np. test integracyjny API z dwoma różnymi tokenami JWT z różnych gospodarstw).
-  2. Weryfikacja klauzul `WITH CHECK` we wszystkich politykach `INSERT` i `UPDATE`.
-* **Definition of Done (DoD):**
-  - Dedykowany test bezpieczeństwa weryfikujący brak wycieku danych między gospodarstwami kończy się powodzeniem (100% odmów dostępu 403/pusty wynik).
+  * Audyt wszystkich 18 migracji wykrył luki i braki w klauzulach RLS:
+    - `push_subscriptions` UPDATE `WITH CHECK` sprawdzał wyłącznie `auth.uid() = user_id` bez weryfikacji `household_id`, umożliwiając przeniesienie własnej subskrypcji na cudze gospodarstwo i podsłuch powiadomień push.
+    - `meal_ingredients` UPDATE nie posiadał jawnej klauzuli `WITH CHECK`.
+    - `meal_plans` nie zawierał roli `TO authenticated` ani walidacji własności `meal_id` w `WITH CHECK`.
+    - `shopping_list_items` nie weryfikował własności `meal_plan_item_id` w `WITH CHECK`.
+    - `users` SELECT pozwalał na odczyt profilu przez nieaktualne pole `users.household_id` po usunięciu z `household_members`.
+* **Wdrożone Rozwiązanie:**
+  1. Wdrożono migrację uszczelniającą [20261110121000_rls_security_audit_hardening.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110121000_rls_security_audit_hardening.sql).
+  2. Utworzono zautomatyzowany audyt migracji i symulację izolacji multi-tenancy w [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Wszystkie tabele `public` posiadają aktywne RLS, jawne polityki `TO authenticated` oraz walidację `WITH CHECK`, a testy cross-leakage przechodzą w 100%.
 
 ---
 
 ### HIGH-04: Indeksowanie Bazy Danych pod Funkcję RLS `get_user_household_ids` i Klucze Obce
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Baza Danych / Wydajność / Indeksy PostgreSQL
-* **Pliki:** [20260814000000_household_and_user_enhancements.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260814000000_household_and_user_enhancements.sql), [20260812220820_init_schema.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260812220820_init_schema.sql)
+* **Pliki implementacji:** [20261110120000_add_rls_and_fk_indexes.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110120000_add_rls_and_fk_indexes.sql)
+* **Pliki testów:** [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
 * **Problem / Uzasadnienie:**
-  * W tabeli `household_members` istnieje klucz unikalny `CONSTRAINT unique_household_member UNIQUE (household_id, user_id)`. Tworzy on indeks kompozytowy z wiodącą kolumną `household_id`.
-  * Funkcja pomocnicza RLS `public.get_user_household_ids(user_uuid UUID)` wykonuje zapytanie:
-    ```sql
-    SELECT household_id FROM public.household_members WHERE user_id = user_uuid;
-    ```
-  * W PostgreSQL indeks z `household_id` jako pierwszym polem nie może być optymalnie wykorzystany dla warunku `WHERE user_id = ...`.
-  * Ponieważ funkcja ta jest ewaluowana dla niemal każdego wiersza w każdej tabeli objętej RLS (`meals`, `products`, `shopping_lists`, `pantry_items`, `meal_plans`), brak indeksu wiodącego po `user_id` skutkuje sekwencyjnym przeszukiwaniem i spowolnieniem każdego zapytania w aplikacji.
-  * Dodatkowo klucze obce nie posiadają dedykowanych indeksów B-tree: `meal_ingredients(meal_id)`, `meal_ingredients(product_id)`, `meals(household_id)`, `products(household_id)`.
-* **Proponowane Rozwiązanie:**
-  1. Przygotowanie nowej migracji SQL dodającej indeksy wydajnościowe:
-     ```sql
-     CREATE INDEX IF NOT EXISTS idx_household_members_user_id ON public.household_members(user_id);
-     CREATE INDEX IF NOT EXISTS idx_meal_ingredients_meal_id ON public.meal_ingredients(meal_id);
-     CREATE INDEX IF NOT EXISTS idx_meal_ingredients_product_id ON public.meal_ingredients(product_id);
-     CREATE INDEX IF NOT EXISTS idx_meals_household_id ON public.meals(household_id);
-     CREATE INDEX IF NOT EXISTS idx_products_household_id ON public.products(household_id);
-     ```
-* **Definition of Done (DoD):**
-  - Wykonanie `EXPLAIN ANALYZE` dla zapytania w `get_user_household_ids` wykazuje `Index Scan using idx_household_members_user_id` o stałym czasie O(1).
-  - Wdrożenie migracji SQL do katalogu `supabase/migrations/`.
+  * Indeks unikalny `(household_id, user_id)` na `household_members` nie był optymalny dla `WHERE user_id = user_uuid` w funkcji `get_user_household_ids`, a klucze obce w `meal_ingredients`, `meals`, `products`, `shopping_list_items` i `pantry_items` nie miały dedykowanych indeksów B-tree.
+* **Wdrożone Rozwiązanie:**
+  1. Utworzono migrację [20261110120000_add_rls_and_fk_indexes.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110120000_add_rls_and_fk_indexes.sql) dodającą `idx_household_members_user_id`, `idx_meal_ingredients_meal_id`, `idx_meal_ingredients_product_id`, `idx_meals_household_id`, `idx_products_household_id` oraz indeksy pozostałych kluczy obcych.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Migracja SQL wdrożona i zweryfikowana automatycznie w `rlsSecurityAudit.test.ts`.
 
 ---
 
 ### HIGH-05: Eliminacja Kaskadowych Przerenderowań Zustand (Selektory i `useShallow`)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Frontend / Wydajność / React Rendering
-* **Pliki:** [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx), [DraftView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/DraftView.tsx), [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx), [ProductsView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ProductsView.tsx), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx), [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx)
+* **Pliki implementacji:** Wszystkie widoki Mobile i Desktop, `App.tsx`, `AppLayoutRouter.tsx`, `src/i18n/index.ts`, dialogi, komponenty kalendarza oraz `Toast.tsx`
+* **Pliki testów:** [zustandSelectors.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/zustandSelectors.test.tsx)
 * **Problem / Uzasadnienie:**
-  * W większości widoków i podkomponentów stan ze sklepów Zustand pobierany jest przez bezpośrednią destrukturyzację bez selektora, np.:
-    ```typescript
-    const { draftItems } = useShoppingStore()
-    const { pantryMapByProductId } = usePantryStore()
-    ```
-  * W bibliotece Zustand wywołanie hooka bez selektora subskrybuje komponent na **jakąkolwiek** zmianę w całym obiekcie stanu (np. zmiana `selectedActiveListId`, `isSyncing`, modyfikacja dowolnego artykułu w spiżarni czy aktualizacja podsumowania list).
-  * Skutek: Odhaczenie jednej pozycji na liście w markecie wywołuje natychmiastowe kaskadowe przerenderowanie kilkunastu ciężkich widoków w tle, powodując mikrozacięcia (jank) animacji i steperów na telefonach.
-* **Proponowane Rozwiązanie:**
-  1. Wprowadzenie selektorów atomowych:
-     ```typescript
-     const draftItems = useShoppingStore((state) => state.draftItems)
-     const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
-     ```
-  2. W przypadku pobierania wielu pól jednocześnie użycie hooka `useShallow` z `zustand/react/shallow`.
-* **Definition of Done (DoD):**
-  - Profiler React DevTools wykazuje spadek zbędnych renderów komponentów tła o min. 70% podczas interakcji z listą zakupów i spiżarnią.
+  * Komponenty pobierały stan ze sklepów Zustand bez selektorów (`useShoppingStore()`, `usePantryStore()`, itd.), powodując kaskadowe przerenderowania widoków przy każdej zmianie dowolnego pola w store.
+* **Wdrożone Rozwiązanie:**
+  1. Zastąpiono wszystkie wywołania bez selektorów w całej warstwie UI selektorami atomowymi oraz `useShallow` z `zustand/react/shallow`.
+  2. Dodano testy izolacji renderowania i automatyczną straż statyczną w [zustandSelectors.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/zustandSelectors.test.tsx).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Zero wywołań `use*Store()` bez selektora w całym katalogu `src/` i potwierdzony brak kaskadowych przerenderowań w testach.
 
 ---
 
 ### HIGH-06: Eliminacja Realtime Echo i Podwójnej Wibracji przy Odhaczaniu Pozycji
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Frontend / Realtime / UX
-* **Pliki:** [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx), [useActiveListRealtime.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListRealtime.ts)
+* **Pliki implementacji:** [localMutationTracker.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/localMutationTracker.ts), [activeListDiff.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/activeListDiff.ts), [useActiveListRealtime.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListRealtime.ts), [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx)
+* **Pliki testów:** [realtimeEchoAndDiff.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/__tests__/realtimeEchoAndDiff.test.ts)
 * **Problem / Uzasadnienie:**
-  * Gdy użytkownik zaznacza checkbox artykułu, interfejs wykonuje natychmiastową wibrację haptic i aktualizację optymistyczną, po czym wysyła żądanie do Supabase.
-  * Serwer Supabase emituje zdarzenie WebSocket `UPDATE on shopping_list_items`, które wraca do tego samego urządzenia (klienta nadawcy).
-  * Hook [useActiveListRealtime.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListRealtime.ts#L33-L41) przy odebraniu zdarzenia wywołuje **drugą wibrację telefonu** (`navigator.vibrate([25, 40, 25])`) oraz zleca **dwa pełne zapytania sieciowe** (`getActiveListsSummary` i `getListWithDetails`).
-  * Na wolnym łączu mobilnym w markecie powoduje to zjawisko "podskakiwania" listy oraz zbędny transfer danych.
-* **Proponowane Rozwiązanie:**
-  1. Dołączanie unikalnego identyfikatora klienta (`clientId`) do lokalnych mutacji lub śledzenie ostatnio modyfikowanych `itemId` z oknem czasowym (debouncing 1500ms).
-  2. Wykluczenie ponownej wibracji na urządzeniu, które samo zainicjowało zmianę stanu checkboxa.
-  3. Aplikowanie pojedynczego diffa w stanie listy (`activeList.items`) zamiast ponownego pobierania całej struktury relacyjnej z bazy przy każdym odhaczeniu.
-* **Definition of Done (DoD):**
-  - Kliknięcie checkboxa przez użytkownika wywołuje dokładnie 1 impuls wibracyjny.
-  - Odhaczenie pozycji nie wyzwala ponownego pobierania `getListWithDetails` dla urządzenia nadawcy.
+  * Powracające zdarzenie WebSocket `UPDATE on shopping_list_items` dla lokalnie odhaczonej pozycji wyzwalało drugą wibrację telefonu i dwa pełne zapytania `getActiveListsSummary` + `getListWithDetails`.
+* **Wdrożone Rozwiązanie:**
+  1. Utworzono tracker lokalnych mutacji ([localMutationTracker.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/localMutationTracker.ts)) z oknem czasowym TTL 2500ms i weryfikacją zgodności zmienionych pól (aby nie tłumić równoległej zmiany partnera na tym samym produkcie).
+  2. Zaktualizowano [useActiveListRealtime.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListRealtime.ts), aby tłumił wibrację i pełne refetchowanie dla echa nadawcy, oraz wdrożono współdzielony mechanizm pojedynczego diffa w pamięci ([activeListDiff.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/activeListDiff.ts)) z poszanowaniem reguł OCC (`resolveShoppingItemConflict`).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Kliknięcie checkboxa wywołuje dokładnie 1 impuls wibracyjny i 0 ponownych pobrań `getListWithDetails` na urządzeniu nadawcy.
+  - ✅ Zdalne aktualizacje partnera aplikują pojedynczy diff w locie, pokryte w `realtimeEchoAndDiff.test.ts`.
 
 ---
 
@@ -564,12 +549,12 @@ gantt
     CRIT-01 Offline Mutation Queue       :crit, done, 2026-10, 3d
     CRIT-02 Concurrency & OCC            :crit, done, 2026-10, 2d
     section Wysokie (Performance & Quality)
-    HIGH-01 Fix Fast Refresh Oxlint     :active, 2026-11, 5d
-    HIGH-02 Fix Act Warnings Vitest      :active, 2026-11, 7d
-    HIGH-04 RLS User Index & FK Indexes  :2026-11, 5d
-    HIGH-05 Zustand Selectors & Shallow  :2026-11, 10d
-    HIGH-06 Stop Realtime Echo & Vibrate :2026-11, 7d
-    HIGH-03 RLS Multi-tenancy Audit      :2026-11, 10d
+    HIGH-01 Fix Fast Refresh Oxlint     :done, 2026-11, 2d
+    HIGH-02 Fix Act Warnings Vitest      :done, 2026-11, 2d
+    HIGH-04 RLS User Index & FK Indexes  :done, 2026-11, 1d
+    HIGH-05 Zustand Selectors & Shallow  :done, 2026-11, 2d
+    HIGH-06 Stop Realtime Echo & Vibrate :done, 2026-11, 2d
+    HIGH-03 RLS Multi-tenancy Audit      :done, 2026-11, 2d
     section Średnie (Backend & Biznes)
     MED-07 Setup GitHub Actions CI/CD    :2026-11, 4d
     MED-06 Transactional RPC Archive     :2026-12, 12d
@@ -604,9 +589,12 @@ gantt
 | **CRIT-04** | ✅ Zrealizowane | 🔴 Critical | Security / Supabase RLS | 1-2 dni | Uniemożliwienie samowolnego dołączania użytkowników do cudzych gospodarstw. |
 | **CRIT-01** | ✅ Zrealizowane | 🔴 Critical | Frontend / Offline PWA | 4-5 dni | Brak utraty odhaczonych artykułów przy braku zasięgu w halach marketów. |
 | **CRIT-02** | ✅ Zrealizowane | 🔴 Critical | Backend / Realtime | 2-3 dni | Spójność równoległych zakupów dwóch domowników (Last-Write-Wins prevention). |
-| **HIGH-04** | ⏳ Oczekujące | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
-| **HIGH-05** | ⏳ Oczekujące | 🟠 High | Performance / React | 2 dni | Redukcja kaskadowych renderów o 70% dzięki selektorom Zustand i `useShallow`. |
-| **HIGH-06** | ⏳ Oczekujące | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
+| **HIGH-01** | ✅ Zrealizowane | 🟠 High | Tooling / Linter | 0.5 dnia | Czysty kod `0 warnings` w `oxlint` i działający React Fast Refresh (HMR). |
+| **HIGH-02** | ✅ Zrealizowane | 🟠 High | Testing / Vitest | 1 dzień | Wyeliminowanie ostrzeżeń `act(...)` i stabilne testy jednostkowe/integracyjne. |
+| **HIGH-03** | ✅ Zrealizowane | 🟠 High | Security / Supabase RLS | 1-2 dni | Audyt i domknięcie luk multi-tenancy (m.in. `push_subscriptions`, `users`, FK). |
+| **HIGH-04** | ✅ Zrealizowane | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
+| **HIGH-05** | ✅ Zrealizowane | 🟠 High | Performance / React | 2 dni | Eliminacja kaskadowych przerenderowań dzięki selektorom Zustand i `useShallow`. |
+| **HIGH-06** | ✅ Zrealizowane | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
 | **MED-05** | ⏳ Oczekujące | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Automatyczne zdejmowanie składników ze spiżarni po ugotowaniu posiłku. |
 | **MED-06** | ⏳ Oczekujące | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 zapytaniu SQL. |
 | **MED-07** | ⏳ Oczekujące | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
@@ -616,7 +604,7 @@ gantt
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
-> 1. Indeksowanie bazy danych pod RLS (`HIGH-04`).  
-> 2. Uporządkowanie narzędzi deweloperskich (`HIGH-01`, `HIGH-02`, `MED-07`).  
-> 3. Eliminacja podwójnej wibracji i kaskadowych renderów (`HIGH-05`, `HIGH-06`).  
-> 4. Transakcyjna archiwizacja i pętla rozchodu spiżarni (`MED-05`, `MED-06`).
+> 1. Automatyzacja CI/CD (`MED-07`).  
+> 2. Transakcyjna archiwizacja i pętla rozchodu spiżarni (`MED-05`, `MED-06`).  
+> 3. Optymalizacja rozmiaru paczki i logika biznesowa (`MED-01`, `MED-02`, `MED-03`, `MED-04`).  
+> 4. Higiena typowania TypeScript oraz synchronizacja dokumentacji (`NORM-05`, `NORM-06`, `NORM-01`).

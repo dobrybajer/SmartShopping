@@ -1,14 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { AccountDetailsDialog } from '../AccountDetailsDialog'
 import { ThemeProvider, THEME_STORAGE_KEY } from '@/theme'
+import { useNotificationStore } from '@/store/useNotificationStore'
 
 // Mock AuthContext
 const mockUpdateUserProfileName = vi.fn().mockResolvedValue(true)
 const mockUpdateUserLanguage = vi.fn().mockResolvedValue(true)
 const mockUpdateUserTheme = vi.fn().mockResolvedValue(true)
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     user: { id: 'user-123', email: 'test@example.com', created_at: '2026-08-20T12:00:00Z' },
     userProfile: { id: 'user-123', name: 'John Doe', email: 'test@example.com', language: 'pl', theme: 'oled-black' },
@@ -34,14 +35,20 @@ describe('AccountDetailsDialog Theme Selector User Flows (ADR-004)', () => {
     } else {
       vi.spyOn(navigator, 'vibrate').mockReturnValue(true)
     }
+
+    useNotificationStore.setState({
+      checkStatus: vi.fn().mockResolvedValue(undefined)
+    })
   })
 
-  it('renders all 6 curated theme swatch cards inside AccountDetailsDialog', () => {
-    render(
-      <ThemeProvider>
-        <AccountDetailsDialog open={true} onOpenChange={vi.fn()} />
-      </ThemeProvider>
-    )
+  it('renders all 6 curated theme swatch cards inside AccountDetailsDialog', async () => {
+    await act(async () => {
+      render(
+        <ThemeProvider>
+          <AccountDetailsDialog open={true} onOpenChange={vi.fn()} />
+        </ThemeProvider>
+      )
+    })
 
     // Verify all 6 themes are rendered by their accessible radio buttons
     const themeRadios = screen.getAllByRole('radio')

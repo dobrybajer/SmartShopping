@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import { SwipeToDismiss } from '@/components/ui/SwipeToDismiss'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,8 +28,22 @@ export const DraftView: React.FC<DraftViewProps> = ({ onActiveListCreated }) => 
     removeMultipleFromDraft,
     updateDraftQuantity,
     clearDraft
-  } = useShoppingStore()
-  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore()
+  } = useShoppingStore(
+    useShallow((state) => ({
+      draftItems: state.draftItems,
+      removeFromDraft: state.removeFromDraft,
+      removeMultipleFromDraft: state.removeMultipleFromDraft,
+      updateDraftQuantity: state.updateDraftQuantity,
+      clearDraft: state.clearDraft
+    }))
+  )
+  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryMapByAdHocName: state.pantryMapByAdHocName,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const { t, formatUnit, formatQuantity } = useTranslation()
   const [unselectedIds, setUnselectedIds] = useState<Set<string>>(new Set())
   const [isAdHocOpen, setIsAdHocOpen] = useState(false)

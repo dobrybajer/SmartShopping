@@ -1,41 +1,15 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import {
   householdService,
   type Household,
-  type UserProfile,
-  type MemberDetail,
-  type InviteDetail
+  type UserProfile
 } from '@/services/householdService'
 import { useI18nStore } from '@/i18n'
 import type { SupportedLanguage } from '@/i18n/types'
 import { sortHouseholdsWithDefault } from '@/lib/calculations/householdSorting'
-
-interface AuthContextType {
-  user: User | null
-  userProfile: UserProfile | null
-  session: Session | null
-  household: Household | null
-  userHouseholds: Household[]
-  loading: boolean
-  signInWithGoogle: () => Promise<void>
-  signOut: () => Promise<void>
-  switchHousehold: (householdId: string) => Promise<void>
-  updateUserProfileName: (name: string) => Promise<boolean>
-  updateUserLanguage: (lang: SupportedLanguage) => Promise<boolean>
-  updateUserTheme: (theme: string) => Promise<boolean>
-  updateHouseholdName: (householdId: string, name: string) => Promise<boolean>
-  setDefaultHousehold: (householdId: string | null) => Promise<boolean>
-  reorderHouseholds: (orderedHouseholdIds: string[]) => void
-  createHousehold: (name: string) => Promise<Household | null>
-  deleteHousehold: (householdId: string) => Promise<boolean>
-  addUserToHousehold: (householdId: string, email: string) => Promise<{ success: boolean; message: string }>
-  getHouseholdMembers: (householdId: string) => Promise<{ members: MemberDetail[]; invites: InviteDetail[] }>
-  refreshData: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+import { AuthContext } from './authContextDef'
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
@@ -468,12 +442,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   )
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
 }

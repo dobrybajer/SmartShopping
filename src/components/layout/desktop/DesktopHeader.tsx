@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio, FileCode2 } from 'lucide-react'
 import { cn } from '@/lib/utils'

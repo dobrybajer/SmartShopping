@@ -7,6 +7,10 @@ import { sortHistoryListsByCompletionDate } from '@/lib/calculations/historyStat
 import { notificationService } from './notificationService'
 import { pantryService } from './pantryService'
 import { translate } from '@/i18n'
+import {
+  trackLocalItemMutation,
+  trackLocalListMutation
+} from '@/lib/realtime/localMutationTracker'
 
 const isUuid = (val?: string | null): val is string =>
   !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
@@ -351,6 +355,10 @@ export const shoppingListService = {
 
     // 1. Update existing items
     for (const update of itemsToUpdate) {
+      trackLocalItemMutation(update.id, {
+        total_quantity: update.total_quantity,
+        is_checked: update.is_checked
+      })
       await supabase
         .from('shopping_list_items')
         .update({
@@ -441,6 +449,7 @@ export const shoppingListService = {
     }
 
     // 3. Touch updated_at on the shopping list
+    trackLocalListMutation(listId)
     await supabase
       .from('shopping_lists')
       .update({ updated_at: new Date().toISOString() })
@@ -478,6 +487,7 @@ export const shoppingListService = {
    * Sets a specific active list as the default list for the household.
    */
   async setDefaultActiveList(listId: string, householdId: string): Promise<boolean> {
+    trackLocalListMutation(listId)
     // 1. Unset all other lists
     const { error: unsetErr } = await supabase
       .from('shopping_lists')
@@ -504,6 +514,7 @@ export const shoppingListService = {
   },
 
   async updateListName(listId: string, name: string): Promise<boolean> {
+    trackLocalListMutation(listId)
     const { data: currentList } = await supabase
       .from('shopping_lists')
       .select('status, name, original_name')
@@ -532,6 +543,7 @@ export const shoppingListService = {
   },
 
   async deleteShoppingList(listId: string): Promise<boolean> {
+    trackLocalListMutation(listId)
     // 1. Delete associated items
     const { error: itemsErr } = await supabase
       .from('shopping_list_items')
@@ -561,6 +573,7 @@ export const shoppingListService = {
     clientTimestamp?: string
   ): Promise<boolean> {
     try {
+      trackLocalItemMutation(itemId, { is_checked: isChecked })
       const nowIso = new Date().toISOString()
 
       // OCC Concurrency Check (CRIT-02):
@@ -604,6 +617,7 @@ export const shoppingListService = {
   },
 
   async toggleItemInPantry(itemId: string, inPantry: boolean): Promise<boolean> {
+    trackLocalItemMutation(itemId, { in_pantry: inPantry })
     const { error } = await supabase
       .from('shopping_list_items')
       .update({ in_pantry: inPantry })
@@ -617,6 +631,7 @@ export const shoppingListService = {
   },
 
   async updateItemQuantity(itemId: string, totalQuantity: number): Promise<boolean> {
+    trackLocalItemMutation(itemId, { total_quantity: totalQuantity })
     const { error } = await supabase
       .from('shopping_list_items')
       .update({ total_quantity: totalQuantity })
@@ -630,6 +645,7 @@ export const shoppingListService = {
   },
 
   async deleteListItem(itemId: string): Promise<boolean> {
+    trackLocalItemMutation(itemId)
     const { error } = await supabase
       .from('shopping_list_items')
       .delete()
@@ -643,6 +659,7 @@ export const shoppingListService = {
   },
 
   async archiveActiveList(listId: string, _householdId: string): Promise<DraftItem[]> {
+    trackLocalListMutation(listId)
     // 1. Fetch current list to capture its original name at moment of closing
     const { data: currentList } = await supabase
       .from('shopping_lists')

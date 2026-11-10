@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
+import { useShallow } from 'zustand/react/shallow'
 import { resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
 import { matchHierarchicalPantry } from '@/lib/calculations/pantryCalculations'
 import { useTranslation } from '@/i18n'
@@ -36,8 +37,13 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   open,
   onOpenChange
 }) => {
-  const { addMealToDraft } = useShoppingStore()
-  const { pantryMapByProductId, pantryItemsByParentId } = usePantryStore()
+  const addMealToDraft = useShoppingStore((state) => state.addMealToDraft)
+  const { pantryMapByProductId, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const { isDesktop } = useDeviceLayout()
   const { t, formatQuantity } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')

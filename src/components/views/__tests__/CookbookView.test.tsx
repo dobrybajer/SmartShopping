@@ -7,7 +7,7 @@ import { mealService } from '@/services/mealService'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
 import type { PantryItemWithDetails } from '@/types/pantry'
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     household: { id: 'hh-123', name: 'Dom Testowy' },
     user: { id: 'user-1' }

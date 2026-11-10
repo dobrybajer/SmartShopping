@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import { NotificationSettings } from '../NotificationSettings'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useNotificationStore } from '@/store/useNotificationStore'
 
-vi.mock('@/context/AuthContext')
+vi.mock('@/hooks/useAuth')
 
 describe('NotificationSettings - Component & User Flow Tests (ADR-007)', () => {
   const mockHousehold = { id: 'hh-settings-1', name: 'Dom Testowy' }
+  const checkStatusSpy = vi.fn().mockResolvedValue(undefined)
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -22,13 +23,15 @@ describe('NotificationSettings - Component & User Flow Tests (ADR-007)', () => {
       isSubscribed: false,
       isLoading: false,
       isIosSafariNonPwa: false,
-      error: null
+      error: null,
+      checkStatus: checkStatusSpy
     })
   })
 
   it('Flow 01: Renders header, description, and status badge (Wymaga włączenia)', () => {
     render(<NotificationSettings />)
 
+    expect(checkStatusSpy).toHaveBeenCalledTimes(1)
     expect(screen.getByText(/Powiadomienia Web Push|Web Push Notifications/i)).toBeInTheDocument()
     expect(screen.getByText(/Wymaga włączenia|Needs Permission/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Włącz powiadomienia|Enable/i })).toBeInTheDocument()

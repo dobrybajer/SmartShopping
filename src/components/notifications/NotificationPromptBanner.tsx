@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { useNotificationStore } from '@/store/useNotificationStore'
+import { useShallow } from 'zustand/react/shallow'
 import { Button } from '@/components/ui/button'
 import { BellRing, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,14 @@ export const NotificationPromptBanner: React.FC<NotificationPromptBannerProps> =
 }) => {
   const { household } = useAuth()
   const { t } = useTranslation()
-  const { permission, isSubscribed, isLoading, subscribe } = useNotificationStore()
+  const { permission, isSubscribed, isLoading, subscribe } = useNotificationStore(
+    useShallow((state) => ({
+      permission: state.permission,
+      isSubscribed: state.isSubscribed,
+      isLoading: state.isLoading,
+      subscribe: state.subscribe
+    }))
+  )
 
   const [dismissed, setDismissed] = useState<boolean>(true)
 

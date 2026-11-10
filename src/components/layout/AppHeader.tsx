@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import { AppLogo } from '@/components/ui/AppLogo'
 import { AccountDetailsDialog } from '@/components/dialogs/AccountDetailsDialog'

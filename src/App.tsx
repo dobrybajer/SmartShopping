@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAuth } from '@/context/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { usePantryRealtime } from '@/hooks/usePantryRealtime'
@@ -10,8 +10,8 @@ import { Toaster } from '@/components/ui/Toast'
 
 export default function App() {
   const { user, loading, household } = useAuth()
-  const { setActiveHousehold } = useShoppingStore()
-  const { setActiveHousehold: setPantryHousehold } = usePantryStore()
+  const setActiveHousehold = useShoppingStore((state) => state.setActiveHousehold)
+  const setPantryHousehold = usePantryStore((state) => state.setActiveHousehold)
   const { t, language } = useTranslation()
 
   usePantryRealtime(household?.id ?? null, () => {
