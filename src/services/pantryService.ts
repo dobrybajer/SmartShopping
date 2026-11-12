@@ -83,6 +83,7 @@ export const pantryService = {
             unit_type: unit_type || existing.unit_type,
             last_purchased_at: payload.last_purchased_at || now,
             last_verified_at: payload.last_verified_at || now,
+            ...(payload.expiration_date !== undefined ? { expiration_date: payload.expiration_date } : {}),
             updated_at: now
           })
           .eq('id', existing.id)
@@ -118,6 +119,7 @@ export const pantryService = {
           unit_type: unit_type || 'pcs',
           last_purchased_at: payload.last_purchased_at || now,
           last_verified_at: payload.last_verified_at || now,
+          expiration_date: payload.expiration_date ?? null,
           updated_at: now
         })
         .select(`
@@ -189,6 +191,25 @@ export const pantryService = {
 
     if (error) {
       console.error('[pantryService.verifyItem] Error:', error)
+      return false
+    }
+    return true
+  },
+
+  /**
+   * Updates or clears the optional expiration date (YYYY-MM-DD) for a pantry item.
+   */
+  async updateExpirationDate(itemId: string, expirationDate: string | null): Promise<boolean> {
+    const { error } = await supabase
+      .from('pantry_items')
+      .update({
+        expiration_date: expirationDate,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', itemId)
+
+    if (error) {
+      console.error('[pantryService.updateExpirationDate] Error:', error)
       return false
     }
     return true

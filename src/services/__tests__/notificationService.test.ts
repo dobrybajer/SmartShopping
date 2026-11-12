@@ -21,7 +21,7 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(supabase.auth.getUser).mockResolvedValue({
-      data: { user: mockUser as any },
+      data: { user: mockUser as never },
       error: null
     })
   })
@@ -36,7 +36,7 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
     const upsertMock = vi.fn().mockResolvedValue({ error: null })
     vi.mocked(supabase.from).mockReturnValue({
       upsert: upsertMock
-    } as any)
+    } as never)
 
     const sub = await notificationService.subscribe(mockHouseholdId)
     expect(sub).toBeDefined()
@@ -60,14 +60,14 @@ describe('notificationService - Universal Dispatch & Web Push Subscription (ADR-
       endpoint: 'https://fcm.googleapis.com/fcm/send/test-sub-token',
       unsubscribe: vi.fn().mockResolvedValue(true)
     }
-    vi.spyOn(readySW.pushManager, 'getSubscription').mockResolvedValue(mockSub as any)
+    vi.spyOn(readySW.pushManager, 'getSubscription').mockResolvedValue(mockSub as never)
 
     const deleteEqMock = vi.fn().mockResolvedValue({ error: null })
     vi.mocked(supabase.from).mockReturnValue({
       delete: vi.fn().mockReturnValue({
         eq: deleteEqMock
       })
-    } as any)
+    } as never)
 
     const success = await notificationService.unsubscribe()
     expect(success).toBe(true)

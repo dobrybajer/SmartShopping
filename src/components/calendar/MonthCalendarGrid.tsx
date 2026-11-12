@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
@@ -22,6 +22,12 @@ function formatDateISO(year: number, monthIndex: number, day: number): string {
   return `${year}-${m}-${d}`
 }
 
+function shiftISODate(iso: string, deltaDays: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + deltaDays)
+  return formatDateISO(dt.getFullYear(), dt.getMonth(), dt.getDate())
+}
+
 export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   selectedDate,
   onOpenDayView
@@ -31,12 +37,21 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   const pantryItems = usePantryStore((state) => state.pantryItems)
   const draftItems = useShoppingStore((state) => state.draftItems)
 
-  // Track the currently viewed month & year
   const initialDateObj = new Date(selectedDate + 'T00:00:00')
   const [viewYear, setViewYear] = useState(initialDateObj.getFullYear())
-  const [viewMonth, setViewMonth] = useState(initialDateObj.getMonth()) // 0-indexed
+  const [viewMonth, setViewMonth] = useState(initialDateObj.getMonth())
+  const [focusedDate, setFocusedDate] = useState(selectedDate)
+  const shouldFocusRef = useRef(false)
+  const cellRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   const todayStr = new Date().toISOString().split('T')[0]
+
+  useEffect(() => {
+    if (shouldFocusRef.current) {
+      cellRefs.current[focusedDate]?.focus()
+      shouldFocusRef.current = false
+    }
+  }, [focusedDate, viewYear, viewMonth])
 
   const shiftMonth = (delta: number) => {
     let nextMonth = viewMonth + delta
@@ -52,27 +67,66 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
     setViewYear(nextYear)
   }
 
-  // Days in month calculation
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1)
   const lastDayOfMonth = new Date(viewYear, viewMonth + 1, 0)
   const totalDays = lastDayOfMonth.getDate()
 
-  // Day of week for 1st day (0 = Sunday, 1 = Monday, etc.)
-  // We want Monday = 0, Sunday = 6
   let startingDayOfWeek = firstDayOfMonth.getDay() - 1
-  if (startingDayOfWeek === -1) startingDayOfWeek = 6 // Sunday is last
+  if (startingDayOfWeek === -1) startingDayOfWeek = 6
 
   const monthTitle = firstDayOfMonth.toLocaleDateString(undefined, {
     month: 'long',
     year: 'numeric'
   })
 
-  // Weekday abbreviations (Pn, Wt, Śr, Czw, Pt, So, Nd)
   const weekDayHeaders = Array.from({ length: 7 }, (_, i) => {
-    // 2026-10-05 was a Monday
     const d = new Date(2026, 9, 5 + i)
     return d.toLocaleDateString(undefined, { weekday: 'short' })
   })
+
+  const totalCells = Math.ceil((startingDayOfWeek + totalDays) / 7) * 7
+  const weeks: Array<Array<{ iso: string; dayNum: number } | null>> = []
+  for (let idx = 0; idx < totalCells; idx += 7) {
+    const row: Array<{ iso: string; dayNum: number } | null> = []
+    for (let col = 0; col < 7; col++) {
+      const dayNum = idx + col - startingDayOfWeek + 1
+      if (dayNum < 1 || dayNum > totalDays) {
+        row.push(null)
+      } else {
+        row.push({ dayNum, iso: formatDateISO(viewYear, viewMonth, dayNum) })
+      }
+    }
+    weeks.push(row)
+  }
+
+  const handleCellKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, currentIso: string) => {
+    let delta = 0
+    if (e.key === 'ArrowLeft') delta = -1
+    else if (e.key === 'ArrowRight') delta = 1
+    else if (e.key === 'ArrowUp') delta = -7
+    else if (e.key === 'ArrowDown') delta = 7
+    else if (e.key === 'Home') {
+      const dt = new Date(currentIso + 'T00:00:00')
+      const mondayOffset = dt.getDay() === 0 ? -6 : 1 - dt.getDay()
+      delta = mondayOffset
+    } else if (e.key === 'End') {
+      const dt = new Date(currentIso + 'T00:00:00')
+      const sundayOffset = dt.getDay() === 0 ? 0 : 7 - dt.getDay()
+      delta = sundayOffset
+    } else {
+      return
+    }
+
+    e.preventDefault()
+    const nextIso = shiftISODate(currentIso, delta)
+    const [ny, nm] = nextIso.split('-').map(Number)
+    shouldFocusRef.current = true
+    setFocusedDate(nextIso)
+    if (ny !== viewYear || nm - 1 !== viewMonth) {
+      setViewYear(ny)
+      setViewMonth(nm - 1)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 pb-12">
@@ -81,15 +135,14 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
         <button
           type="button"
           onClick={() => shiftMonth(-1)}
-          className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-          title="Poprzedni miesiąc"
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+          title={t('calendar.prevMonth')}
+          aria-label={t('calendar.prevMonth')}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <span className="text-sm font-bold capitalize text-foreground px-2">
-          {monthTitle}
-        </span>
+        <span className="text-sm font-bold capitalize text-foreground px-2">{monthTitle}</span>
 
         <div className="flex items-center gap-1.5">
           <Button
@@ -99,8 +152,9 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
               const now = new Date()
               setViewYear(now.getFullYear())
               setViewMonth(now.getMonth())
+              setFocusedDate(todayStr)
             }}
-            className="text-xs text-primary font-semibold rounded-lg h-8"
+            className="text-xs text-primary font-semibold rounded-lg min-h-[44px] px-3"
           >
             {t('calendar.today')}
           </Button>
@@ -108,21 +162,26 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
           <button
             type="button"
             onClick={() => shiftMonth(1)}
-            className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-            title="Następny miesiąc"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+            title={t('calendar.nextMonth')}
+            aria-label={t('calendar.nextMonth')}
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* 2. Month Grid */}
-      <div className="p-3 rounded-2xl bg-card border border-border shadow-xs flex flex-col gap-2">
-        {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 gap-1 text-center">
+      {/* 2. Accessible WAI-ARIA Month Grid */}
+      <div
+        role="grid"
+        aria-label={monthTitle}
+        className="p-3 rounded-2xl bg-card border border-border shadow-xs flex flex-col gap-2"
+      >
+        <div role="row" className="grid grid-cols-7 gap-1 text-center">
           {weekDayHeaders.map((dayName, idx) => (
             <span
               key={idx}
+              role="columnheader"
               className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground py-1"
             >
               {dayName}
@@ -130,84 +189,103 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
           ))}
         </div>
 
-        {/* Calendar cells */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Blank placeholders before 1st of month */}
-          {Array.from({ length: startingDayOfWeek }).map((_, idx) => (
-            <div key={`blank-${idx}`} className="h-14 sm:h-20 rounded-xl bg-muted/10 opacity-30" />
-          ))}
-
-          {/* Month days */}
-          {Array.from({ length: totalDays }, (_, i) => {
-            const dayNum = i + 1
-            const iso = formatDateISO(viewYear, viewMonth, dayNum)
-            const isToday = iso === todayStr
-            const isPast = iso < todayStr
-
-            const plansForDay = mealPlans.filter((p) => p.date === iso)
-            const macros = calculateDayMacros(plansForDay)
-
-            // Gather status dots
-            const statusList = plansForDay.map((p) => {
-              return calculateMealPlanStatus(p, {
-                pantryItems,
-                draftItems,
-                isPastDate: isPast
-              }).status
-            })
-
-            return (
-              <button
-                key={iso}
-                type="button"
-                onClick={() => onOpenDayView(iso)}
-                className={cn(
-                  "h-14 sm:h-20 rounded-xl p-1 sm:p-2 border transition-all cursor-pointer flex flex-col justify-between items-start text-left group",
-                  isToday
-                    ? "border-primary bg-primary/10 shadow-xs"
-                    : plansForDay.length > 0
-                    ? "border-border/80 bg-background/80 hover:border-primary/50"
-                    : "border-border/40 hover:border-border/80 hover:bg-muted/20"
-                )}
-              >
-                {/* Top row: day number + kcal */}
-                <div className="w-full flex items-center justify-between">
-                  <span
-                    className={cn(
-                      "text-xs font-bold leading-none",
-                      isToday ? "text-primary" : "text-foreground"
-                    )}
-                  >
-                    {dayNum}
-                  </span>
-
-                  {macros.kcal > 0 && (
-                    <span className="hidden sm:inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-500">
-                      <Flame className="w-2.5 h-2.5 fill-amber-500/20" />
-                      {macros.kcal}
-                    </span>
-                  )}
-                </div>
-
-                {/* Bottom: Meal status dots */}
-                <div className="w-full flex items-center gap-1 overflow-hidden pt-1">
-                  {statusList.map((st, dotIdx) => (
-                    <span
-                      key={dotIdx}
-                      className={cn(
-                        "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0",
-                        st === 'uncertain' && "bg-rose-500 animate-pulse",
-                        st === 'bought' && "bg-emerald-500",
-                        st === 'in_list' && "bg-amber-500",
-                        st === 'in_draft' && "bg-sky-500",
-                        st === 'planned' && "bg-muted-foreground/60"
-                      )}
+        <div className="flex flex-col gap-1">
+          {weeks.map((week, wIdx) => (
+            <div key={`week-${wIdx}`} role="row" className="grid grid-cols-7 gap-1">
+              {week.map((cell, cIdx) => {
+                if (!cell) {
+                  return (
+                    <div
+                      key={`blank-${wIdx}-${cIdx}`}
+                      role="gridcell"
+                      aria-disabled="true"
+                      className="h-14 sm:h-20 rounded-xl bg-muted/10 opacity-30"
                     />
-                  ))}
-                </div>
-              </button>
-            )
-          })}
+                  )
+                }
+
+                const { iso, dayNum } = cell
+                const isToday = iso === todayStr
+                const isSelected = iso === selectedDate
+                const isPast = iso < todayStr
+                const plansForDay = mealPlans.filter((p) => p.date === iso)
+                const macros = calculateDayMacros(plansForDay)
+
+                const statusList = plansForDay.map(
+                  (p) =>
+                    calculateMealPlanStatus(p, {
+                      pantryItems,
+                      draftItems,
+                      isPastDate: isPast
+                    }).status
+                )
+
+                const isTabStop =
+                  focusedDate.startsWith(`${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`)
+                    ? focusedDate === iso
+                    : dayNum === 1
+
+                return (
+                  <div key={iso} role="gridcell" aria-selected={isSelected}>
+                    <button
+                      ref={(el) => {
+                        cellRefs.current[iso] = el
+                      }}
+                      type="button"
+                      tabIndex={isTabStop ? 0 : -1}
+                      aria-current={isToday ? 'date' : undefined}
+                      aria-label={`${iso}${macros.kcal > 0 ? `, ${macros.kcal} kcal` : ''}`}
+                      onKeyDown={(e) => handleCellKeyDown(e, iso)}
+                      onFocus={() => setFocusedDate(iso)}
+                      onClick={() => onOpenDayView(iso)}
+                      className={cn(
+                        'w-full h-14 sm:h-20 rounded-xl p-1 sm:p-2 border transition-all cursor-pointer flex flex-col justify-between items-start text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                        isToday
+                          ? 'border-primary bg-primary/10 shadow-xs'
+                          : plansForDay.length > 0
+                            ? 'border-border/80 bg-background/80 hover:border-primary/50'
+                            : 'border-border/40 hover:border-border/80 hover:bg-muted/20'
+                      )}
+                    >
+                      <div className="w-full flex items-center justify-between">
+                        <span
+                          className={cn(
+                            'text-xs font-bold leading-none',
+                            isToday ? 'text-primary' : 'text-foreground'
+                          )}
+                        >
+                          {dayNum}
+                        </span>
+
+                        {macros.kcal > 0 && (
+                          <span className="hidden sm:inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-500">
+                            <Flame className="w-2.5 h-2.5 fill-amber-500/20" />
+                            {macros.kcal}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="w-full flex items-center gap-1 overflow-hidden pt-1">
+                        {statusList.map((st, dotIdx) => (
+                          <span
+                            key={dotIdx}
+                            className={cn(
+                              'w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0',
+                              st === 'uncertain' && 'bg-rose-500 animate-pulse',
+                              st === 'bought' && 'bg-emerald-500',
+                              st === 'in_list' && 'bg-amber-500',
+                              st === 'in_draft' && 'bg-sky-500',
+                              st === 'planned' && 'bg-muted-foreground/60'
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </div>

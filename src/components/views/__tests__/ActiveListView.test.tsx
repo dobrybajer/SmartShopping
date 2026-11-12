@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ActiveListView } from '../ActiveListView'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useCategoryStore } from '@/store/useCategoryStore'
 import { shoppingListService } from '@/services/shoppingListService'
 import { notificationService } from '@/services/notificationService'
 import { useI18nStore } from '@/i18n'
@@ -204,5 +205,20 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
 
     // UI maintains checked state, no rollback
     expect(checkboxes[0]).toBeChecked()
+  })
+
+  it('Flow 05 (NORM-09): subscribes to category/aisle realtime updates on mount and cleans up on unmount', async () => {
+    const unsubscribeSpy = vi.fn()
+    const subscribeSpy = vi.fn().mockReturnValue(unsubscribeSpy)
+    useCategoryStore.setState({ subscribeRealtime: subscribeSpy })
+
+    const { unmount } = render(<ActiveListView />)
+
+    await waitFor(() => {
+      expect(subscribeSpy).toHaveBeenCalledWith('household-123')
+    })
+
+    unmount()
+    expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
   })
 })

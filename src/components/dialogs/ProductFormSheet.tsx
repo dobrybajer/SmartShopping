@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/hooks/useAuth'
+import React from 'react'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
-import { productService } from '@/services/productService'
-import type { Product, ProductCategory } from '@/services/productService'
+import { useProductForm } from '@/hooks/useProductForm'
+import type { Product } from '@/services/productService'
 import type { UnitEnum } from '@/types/supabase'
+import { ProductMacroFields } from '@/components/products/ProductMacroFields'
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Save, Plus, Minus, Flame, Utensils, Tag, Scale, Package, Sparkles, FolderTree, Info, Layers } from 'lucide-react'
+import { Save, Flame, Utensils, Tag, Scale, Package, FolderTree, Info, Layers } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ProductFormSheetProps {
@@ -40,173 +40,14 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
   initialName = '',
   onProductSaved
 }) => {
-  const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
-  const { t, formatUnit, formatQuantity } = useTranslation()
-  const isEditing = !!productToEdit
+  const { t, formatUnit } = useTranslation()
+  const form = useProductForm({ open, onOpenChange, productToEdit, initialName, onProductSaved })
 
-  const [categories, setCategories] = useState<ProductCategory[]>([])
-  const [parentProducts, setParentProducts] = useState<Product[]>([])
-  const [name, setName] = useState('')
-  const [categoryId, setCategoryId] = useState<number | ''>('')
-  const [unitType, setUnitType] = useState<UnitEnum>('pcs')
-  const [isGeneral, setIsGeneral] = useState(false)
-  const [parentId, setParentId] = useState<string>('')
-  const [isFood, setIsFood] = useState(true)
-
-  // Macronutrients
-  const [kcal, setKcal] = useState<number | ''>(0)
-  const [protein, setProtein] = useState<number | ''>(0)
-  const [carbs, setCarbs] = useState<number | ''>(0)
-  const [fat, setFat] = useState<number | ''>(0)
-
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-
-  // Load product categories and parent products
-  useEffect(() => {
-    async function loadData() {
-      const [catData, prodData] = await Promise.all([
-        productService.getCategories(household?.id),
-        productService.getProducts(household?.id)
-      ])
-      setCategories(catData)
-      // Available parent products must be general and not the product itself
-      setParentProducts(
-        prodData.filter((p) => p.is_general && (!productToEdit || p.id !== productToEdit.id))
-      )
-    }
-    if (open) {
-      loadData()
-    }
-  }, [household?.id, open, productToEdit])
-
-  // Sync form state when productToEdit changes or sheet opens
-  useEffect(() => {
-    if (open) {
-      if (productToEdit) {
-        setName(productToEdit.name)
-        setCategoryId(productToEdit.category_id || '')
-        setUnitType(productToEdit.unit_type)
-        setIsGeneral(!!productToEdit.is_general)
-        setParentId(productToEdit.parent_id || '')
-        const hasMacros = (productToEdit.kcal_per_100 ?? 0) > 0 || (productToEdit.protein_per_100 ?? 0) > 0
-        setIsFood(hasMacros)
-        setKcal(productToEdit.kcal_per_100 ?? 0)
-        setProtein(productToEdit.protein_per_100 ?? 0)
-        setCarbs(productToEdit.carbs_per_100 ?? 0)
-        setFat(productToEdit.fat_per_100 ?? 0)
-      } else {
-        setName(initialName ? initialName.trim() : '')
-        setCategoryId('')
-        setUnitType('pcs')
-        setIsGeneral(false)
-        setParentId('')
-        setIsFood(true)
-        setKcal(0)
-        setProtein(0)
-        setCarbs(0)
-        setFat(0)
-      }
-      setErrorMsg('')
-    }
-  }, [open, productToEdit, initialName])
-
-  const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }
-
-  const handleStepValue = (
-    setter: React.Dispatch<React.SetStateAction<number | ''>>,
-    curr: number | '',
-    step: number,
-    min = 0
-  ) => {
-    const val = typeof curr === 'number' ? curr : 0
-    const nextVal = Math.max(min, Math.round((val + step) * 10) / 10)
-    setter(nextVal)
-  }
-
-  const handleNumericInput = (
-    setter: React.Dispatch<React.SetStateAction<number | ''>>,
-    valueStr: string
-  ) => {
-    if (valueStr === '') {
-      setter('')
-      return
-    }
-    const parsed = parseFloat(valueStr)
-    if (!isNaN(parsed) && parsed >= 0) {
-      setter(parsed)
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!name.trim()) {
-      setErrorMsg(t('dialogs.productForm.nameLabel'))
-      return
-    }
-
-    if (!isEditing && !household) {
-      setErrorMsg(t('dialogs.households.switchHousehold'))
-      return
-    }
-
-    setIsSubmitting(true)
-    setErrorMsg('')
-
-    try {
-      if (isEditing && productToEdit) {
-        const updated = await productService.updateProduct(productToEdit.id, {
-          name: name.trim(),
-          category_id: categoryId === '' ? null : Number(categoryId),
-          unit_type: unitType,
-          is_general: isGeneral,
-          parent_id: isGeneral ? null : (parentId ? parentId : null),
-          kcal_per_100: isGeneral ? null : (isFood ? (typeof kcal === 'number' ? kcal : 0) : null),
-          protein_per_100: isGeneral ? null : (isFood ? (typeof protein === 'number' ? protein : 0) : null),
-          carbs_per_100: isGeneral ? null : (isFood ? (typeof carbs === 'number' ? carbs : 0) : null),
-          fat_per_100: isGeneral ? null : (isFood ? (typeof fat === 'number' ? fat : 0) : null)
-        })
-
-        if (updated) {
-          onProductSaved?.(updated)
-          onOpenChange(false)
-        } else {
-          setErrorMsg(t('toasts.errorOccurred'))
-        }
-      } else if (household) {
-        const created = await productService.createProduct({
-          household_id: household.id,
-          name: name.trim(),
-          category_id: categoryId === '' ? undefined : Number(categoryId),
-          unit_type: unitType,
-          is_general: isGeneral,
-          parent_id: isGeneral ? null : (parentId ? parentId : null),
-          kcal_per_100: isGeneral ? undefined : (isFood ? (typeof kcal === 'number' ? kcal : 0) : undefined),
-          protein_per_100: isGeneral ? undefined : (isFood ? (typeof protein === 'number' ? protein : 0) : undefined),
-          carbs_per_100: isGeneral ? undefined : (isFood ? (typeof carbs === 'number' ? carbs : 0) : undefined),
-          fat_per_100: isGeneral ? undefined : (isFood ? (typeof fat === 'number' ? fat : 0) : undefined)
-        })
-
-        if (created) {
-          onProductSaved?.(created)
-          onOpenChange(false)
-        } else {
-          setErrorMsg(t('toasts.errorOccurred'))
-        }
-      }
-    } catch {
-      setErrorMsg(t('toasts.errorOccurred'))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const unitSuffix = unitType === 'pcs' ? formatQuantity(1, 'pcs') : `100 ${formatUnit(unitType)}`
+  const title = form.isEditing
+    ? t('dialogs.productForm.editTitle')
+    : t('dialogs.productForm.addTitle')
+  const subtitle = form.isEditing ? t('products.subtitle') : t('products.householdProduct')
 
   const headerContent = (
     <div className="flex items-center gap-2.5">
@@ -214,26 +55,21 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
         <Package className="w-5 h-5" />
       </div>
       <div>
-        <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-          {isEditing ? t('dialogs.productForm.editTitle') : t('dialogs.productForm.addTitle')}
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {isEditing ? t('products.subtitle') : t('products.householdProduct')}
-        </p>
+        <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">{title}</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
     </div>
   )
 
   const formBody = (
-    <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0">
+    <form onSubmit={form.handleSubmit} className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5 scrollbar-thin">
-        {errorMsg && (
+        {form.errorMsg && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-xs text-destructive font-medium">
-            {errorMsg}
+            {form.errorMsg}
           </div>
         )}
 
-        {/* Product Hierarchy Level (General vs Specific) */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <Layers className="w-3.5 h-3.5 text-primary" />
@@ -242,10 +78,10 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           <div className="grid grid-cols-2 gap-2 p-1 bg-background border border-border rounded-xl">
             <button
               type="button"
-              onClick={() => setIsGeneral(false)}
+              onClick={() => form.setIsGeneral(false)}
               className={cn(
                 'py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]',
-                !isGeneral
+                !form.isGeneral
                   ? 'bg-primary text-primary-foreground shadow'
                   : 'text-muted-foreground hover:text-foreground'
               )}
@@ -256,12 +92,12 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
             <button
               type="button"
               onClick={() => {
-                setIsGeneral(true)
-                setParentId('')
+                form.setIsGeneral(true)
+                form.setParentId('')
               }}
               className={cn(
                 'py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]',
-                isGeneral
+                form.isGeneral
                   ? 'bg-primary text-primary-foreground shadow'
                   : 'text-muted-foreground hover:text-foreground'
               )}
@@ -272,7 +108,6 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </div>
         </div>
 
-        {/* Product Name */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-primary" />
@@ -280,29 +115,28 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </label>
           <Input
             placeholder={t('dialogs.productForm.namePlaceholder')}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={form.name}
+            onChange={(e) => form.setName(e.target.value)}
             className="bg-background border-input focus-visible:ring-primary text-sm h-11"
-            autoFocus={!isEditing}
+            autoFocus={!form.isEditing}
           />
         </div>
 
-        {/* Parent product dropdown (only for specific products) */}
-        {!isGeneral && (
+        {!form.isGeneral && (
           <div className="space-y-1.5 animate-in fade-in-50 duration-200">
             <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <FolderTree className="w-3.5 h-3.5 text-primary" />
               <span>{t('dialogs.productForm.parentSelectLabel')}</span>
             </label>
             <select
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
+              value={form.parentId}
+              onChange={(e) => form.setParentId(e.target.value)}
               className="w-full h-11 px-3 py-2 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             >
               <option value="" className="bg-card text-foreground">
                 {t('products.noParent')}
               </option>
-              {parentProducts.map((p) => (
+              {form.parentProducts.map((p) => (
                 <option key={p.id} value={p.id} className="bg-card text-foreground">
                   {p.name}
                 </option>
@@ -311,8 +145,7 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </div>
         )}
 
-        {/* General product info notice */}
-        {isGeneral && (
+        {form.isGeneral && (
           <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 text-xs text-foreground flex items-start gap-2.5 animate-in fade-in-50 duration-200">
             <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <div className="space-y-0.5">
@@ -324,7 +157,6 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           </div>
         )}
 
-        {/* Category and Unit */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -332,14 +164,16 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               <span>{t('dialogs.productForm.categoryLabel')}</span>
             </label>
             <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : '')}
+              value={form.categoryId}
+              onChange={(e) => form.setCategoryId(e.target.value ? Number(e.target.value) : '')}
               className="w-full h-11 px-3 py-2 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             >
-              <option value="" className="bg-card text-foreground">{t('common.select')}</option>
-              {categories.map((cat) => (
+              <option value="" className="bg-card text-foreground">
+                {t('common.select')}
+              </option>
+              {form.categories.map((cat) => (
                 <option key={cat.id} value={cat.id} className="bg-card text-foreground">
-                  {getCategoryLabel(cat.name)}
+                  {form.getCategoryLabel(cat.name)}
                 </option>
               ))}
             </select>
@@ -351,19 +185,24 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               <span>{t('dialogs.productForm.unitLabel')}</span>
             </label>
             <select
-              value={unitType}
-              onChange={(e) => setUnitType(e.target.value as UnitEnum)}
+              value={form.unitType}
+              onChange={(e) => form.setUnitType(e.target.value as UnitEnum)}
               className="w-full h-11 px-3 py-2 bg-background border border-input rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary"
             >
-              <option value="pcs" className="bg-card text-foreground">pcs ({formatUnit('pcs')})</option>
-              <option value="g" className="bg-card text-foreground">g ({formatUnit('g')})</option>
-              <option value="ml" className="bg-card text-foreground">ml ({formatUnit('ml')})</option>
+              <option value="pcs" className="bg-card text-foreground">
+                pcs ({formatUnit('pcs')})
+              </option>
+              <option value="g" className="bg-card text-foreground">
+                g ({formatUnit('g')})
+              </option>
+              <option value="ml" className="bg-card text-foreground">
+                ml ({formatUnit('ml')})
+              </option>
             </select>
           </div>
         </div>
 
-        {/* Is food? (Only for specific products) */}
-        {!isGeneral && (
+        {!form.isGeneral && (
           <div className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3 animate-in fade-in-50 duration-200">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
@@ -371,187 +210,31 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
               </div>
               <div>
                 <div className="text-xs font-bold text-foreground">{t('products.macrosPer100')}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {t('cookbook.macros')}
-                </div>
+                <div className="text-[11px] text-muted-foreground">{t('cookbook.macros')}</div>
               </div>
             </div>
 
             <Checkbox
               id="isFood"
-              checked={isFood}
-              onCheckedChange={(checked) => setIsFood(!!checked)}
+              checked={form.isFood}
+              onCheckedChange={(checked) => form.setIsFood(!!checked)}
               className="data-[state=checked]:bg-primary data-[state=checked]:border-primary h-5 w-5 rounded-md"
             />
           </div>
         )}
 
-        {/* Macro inputs */}
-        {!isGeneral && isFood && (
-          <div className="space-y-3.5 p-4 rounded-2xl bg-background border border-border animate-in fade-in-50 zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-1 border-b border-border">
-              <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                {t('products.macrosPer100')} ({unitSuffix})
-              </span>
-              <span className="text-[10px] text-muted-foreground">±100 kcal, ±1 P/C/F</span>
-            </div>
-
-            {/* Kcal */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-28">
-                <span className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  <Flame className="w-3.5 h-3.5 text-amber-400" />
-                  {t('dialogs.productForm.kcalLabel')}
-                </span>
-                <span className="text-[10px] text-muted-foreground">{t('common.kcal')}</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setKcal, kcal, -100)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  min={0}
-                  step={1}
-                  placeholder="0"
-                  value={kcal}
-                  onChange={(e) => handleNumericInput(setKcal, e.target.value)}
-                  className="h-9 bg-background border-input text-center font-bold text-primary text-sm focus-visible:ring-primary rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setKcal, kcal, 100)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Protein */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-28">
-                <span className="text-xs font-semibold text-blue-400">{t('dialogs.productForm.proteinLabel')}</span>
-                <span className="text-[10px] text-muted-foreground ml-1">g</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setProtein, protein, -1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="0"
-                  value={protein}
-                  onChange={(e) => handleNumericInput(setProtein, e.target.value)}
-                  className="h-9 bg-background border-input text-center font-semibold text-blue-400 text-sm focus-visible:ring-primary rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setProtein, protein, 1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Carbs */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-28">
-                <span className="text-xs font-semibold text-amber-400">{t('dialogs.productForm.carbsLabel')}</span>
-                <span className="text-[10px] text-muted-foreground ml-1">g</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setCarbs, carbs, -1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="0"
-                  value={carbs}
-                  onChange={(e) => handleNumericInput(setCarbs, e.target.value)}
-                  className="h-9 bg-background border-input text-center font-semibold text-amber-400 text-sm focus-visible:ring-primary rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setCarbs, carbs, 1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Fat */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-28">
-                <span className="text-xs font-semibold text-rose-400">{t('dialogs.productForm.fatLabel')}</span>
-                <span className="text-[10px] text-muted-foreground ml-1">g</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setFat, fat, -1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </Button>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  placeholder="0"
-                  value={fat}
-                  onChange={(e) => handleNumericInput(setFat, e.target.value)}
-                  className="h-9 bg-background border-input text-center font-semibold text-rose-400 text-sm focus-visible:ring-primary rounded-lg"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleStepValue(setFat, fat, 1)}
-                  className="h-9 w-9 bg-card border-border hover:bg-muted text-foreground shrink-0 rounded-lg cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </div>
-          </div>
+        {!form.isGeneral && form.isFood && (
+          <ProductMacroFields
+            unitSuffix={form.unitSuffix}
+            kcal={form.kcal}
+            setKcal={form.setKcal}
+            protein={form.protein}
+            setProtein={form.setProtein}
+            carbs={form.carbs}
+            setCarbs={form.setCarbs}
+            fat={form.fat}
+            setFat={form.setFat}
+          />
         )}
       </div>
 
@@ -560,22 +243,24 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           type="button"
           variant="outline"
           onClick={() => onOpenChange(false)}
-          disabled={isSubmitting}
+          disabled={form.isSubmitting}
           className="flex-1 border-border bg-card hover:bg-muted text-foreground rounded-xl h-11 cursor-pointer"
         >
           {t('common.cancel')}
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting || !name.trim()}
+          disabled={form.isSubmitting || !form.name.trim()}
           className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl h-11 flex items-center justify-center gap-1.5 shadow-lg cursor-pointer disabled:opacity-50"
         >
-          {isSubmitting ? (
+          {form.isSubmitting ? (
             <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>{isEditing ? t('dialogs.productForm.submitEdit') : t('dialogs.productForm.submitAdd')}</span>
+              <span>
+                {form.isEditing ? t('dialogs.productForm.submitEdit') : t('dialogs.productForm.submitAdd')}
+              </span>
             </>
           )}
         </Button>
@@ -591,12 +276,8 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
           className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
         >
           <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-            <DialogTitle className="sr-only">
-              {isEditing ? t('dialogs.productForm.editTitle') : t('dialogs.productForm.addTitle')}
-            </DialogTitle>
-            <DialogDescription className="sr-only">
-              {isEditing ? t('products.subtitle') : t('products.householdProduct')}
-            </DialogDescription>
+            <DialogTitle className="sr-only">{title}</DialogTitle>
+            <DialogDescription className="sr-only">{subtitle}</DialogDescription>
             {headerContent}
           </DialogHeader>
           {formBody}
@@ -612,12 +293,8 @@ export const ProductFormSheet: React.FC<ProductFormSheetProps> = ({
         className="h-[90vh] sm:h-[85vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden"
       >
         <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-          <SheetTitle className="sr-only">
-            {isEditing ? t('dialogs.productForm.editTitle') : t('dialogs.productForm.addTitle')}
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            {isEditing ? t('products.subtitle') : t('products.householdProduct')}
-          </SheetDescription>
+          <SheetTitle className="sr-only">{title}</SheetTitle>
+          <SheetDescription className="sr-only">{subtitle}</SheetDescription>
           {headerContent}
         </SheetHeader>
         {formBody}

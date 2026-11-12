@@ -79,17 +79,24 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   }
 
   return (
-    <nav className="bg-card/95 backdrop-blur-md border-t border-border px-1 py-1.5 flex items-center justify-around sticky bottom-0 z-30 select-none shadow-2xl">
+    <nav
+      aria-label={t('navigation.mainMenu')}
+      className="bg-card/95 backdrop-blur-md border-t border-border px-1 py-1.5 flex items-center justify-around sticky bottom-0 z-30 select-none shadow-2xl"
+    >
       {items.map((item) => {
         const Icon = item.icon
         const isActive = activeTab === item.id
+        const ariaLabel = item.badge && item.badge > 0 ? `${item.label} (${item.badge})` : item.label
 
         return (
           <button
             key={item.id}
+            type="button"
             onClick={() => handleSelect(item.id)}
+            aria-current={isActive ? 'page' : undefined}
+            aria-label={ariaLabel}
             className={cn(
-              "flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1 max-w-[56px]",
+              "flex flex-col items-center justify-center min-h-[44px] py-1 px-0.5 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1 max-w-[56px]",
               isActive
                 ? "text-primary font-semibold"
                 : "text-muted-foreground hover:text-foreground"

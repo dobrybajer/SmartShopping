@@ -39,7 +39,7 @@ export const HistoryView: React.FC = () => {
 
   const handleListUpdated = (updatedList: ShoppingList) => {
     setHistoryLists((prev) =>
-      prev.map((item) => (item.id === updatedList.id ? updatedList : item))
+      prev.map((item) => (item.id === updatedList.id ? { ...item, ...updatedList } : item))
     )
     setSelectedList(updatedList)
   }

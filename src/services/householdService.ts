@@ -22,6 +22,18 @@ export interface InviteDetail {
   createdAt: string | null
 }
 
+interface HouseholdMembershipJoinRow {
+  household_id: string
+  households: Household | null
+}
+
+interface HouseholdMemberJoinRow {
+  id: string
+  user_id: string
+  created_at: string | null
+  users: UserProfile | null
+}
+
 export const householdService = {
   /**
    * Fetches all households associated with the given user
@@ -39,7 +51,8 @@ export const householdService = {
       }
 
       const households: Household[] = []
-      data?.forEach((item: any) => {
+      const rows = (data ?? []) as unknown as HouseholdMembershipJoinRow[]
+      rows.forEach((item) => {
         if (item.households) {
           households.push(item.households)
         }
@@ -278,7 +291,8 @@ export const householdService = {
       }
 
       const members: MemberDetail[] = []
-      memberRows?.forEach((row: any) => {
+      const joinedRows = (memberRows ?? []) as unknown as HouseholdMemberJoinRow[]
+      joinedRows.forEach((row) => {
         const u = row.users
         members.push({
           id: row.id,

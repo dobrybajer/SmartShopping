@@ -21,7 +21,8 @@ vi.mock('@/services/pantryService', () => ({
     updateQuantity: vi.fn(),
     verifyItem: vi.fn(),
     deletePantryItem: vi.fn(),
-    removeByProductOrName: vi.fn()
+    removeByProductOrName: vi.fn(),
+    updateExpirationDate: vi.fn()
   }
 }))
 
@@ -202,6 +203,31 @@ describe('PantryView - Inventory Management & Freshness Verification Flows', () 
 
     await waitFor(() => {
       expect(screen.getByText('Wybierz produkt z katalogu lub dodaj artykuł domowy')).toBeInTheDocument()
+      expect(screen.getByLabelText('Data ważności (opcjonalna)')).toBeInTheDocument()
     })
+  })
+
+  it('Flow 05 (NORM-04): shows "Kończy się termin" red badge for items expiring < 48h and supports expiry sort', async () => {
+    const tomorrow = new Date(Date.now() + 1000 * 60 * 60 * 24)
+    const tomorrowIso = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(
+      tomorrow.getDate()
+    ).padStart(2, '0')}`
+
+    const itemsWithExpiry = [
+      { ...sampleItems[0], expiration_date: '2026-12-28' },
+      { ...sampleItems[1], expiration_date: tomorrowIso }
+    ]
+    vi.mocked(pantryService.getPantryItems).mockResolvedValueOnce(itemsWithExpiry)
+    usePantryStore.setState({ pantryItems: itemsWithExpiry })
+
+    render(<PantryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Kończy się termin')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Wg daty ważności/i }))
+    expect(screen.getByText('Chleb')).toBeInTheDocument()
+    expect(screen.getByText('Mleko')).toBeInTheDocument()
   })
 })

@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import {
   areUnitsCompatible,
+  calculateExpiryStatus,
   calculatePantryFreshness,
   calculatePartialDelta,
   convertQuantity,
-  matchHierarchicalPantry
+  matchHierarchicalPantry,
+  sortPantryItemsByExpiry
 } from '../pantryCalculations'
 
 describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () => {
@@ -251,6 +253,49 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
       const match = matchHierarchicalPantry(generalMilk, {}, { 'prod-milk': [childMilk as never] })
       expect(match.totalQuantity).toBe(500)
       expect(match.unitType).toBe('ml')
+    })
+  })
+
+  describe('calculateExpiryStatus & sortPantryItemsByExpiry (NORM-04)', () => {
+    const today = new Date(2026, 10, 11, 12, 0, 0) // 2026-11-11
+
+    it('detects expired, expiring_soon (<48h), upcoming (2-7d), ok, and null expiration dates', () => {
+      expect(calculateExpiryStatus(null, today).level).toBe('none')
+
+      const expired = calculateExpiryStatus('2026-11-10', today)
+      expect(expired.level).toBe('expired')
+      expect(expired.isAlert).toBe(true)
+      expect(expired.messageKey).toBe('pantry.expiry.expired')
+
+      const todayExpiry = calculateExpiryStatus('2026-11-11', today)
+      expect(todayExpiry.level).toBe('expiring_soon')
+      expect(todayExpiry.isAlert).toBe(true)
+      expect(todayExpiry.messageKey).toBe('pantry.expiry.expiringSoon')
+
+      const tomorrowExpiry = calculateExpiryStatus('2026-11-12', today)
+      expect(tomorrowExpiry.level).toBe('expiring_soon')
+      expect(tomorrowExpiry.isAlert).toBe(true)
+
+      const fiveDays = calculateExpiryStatus('2026-11-16', today)
+      expect(fiveDays.level).toBe('upcoming')
+      expect(fiveDays.daysRemaining).toBe(5)
+      expect(fiveDays.isAlert).toBe(false)
+
+      const twoWeeks = calculateExpiryStatus('2026-11-25', today)
+      expect(twoWeeks.level).toBe('ok')
+      expect(twoWeeks.isAlert).toBe(false)
+    })
+
+    it('sorts items chronologically by soonest expiration date with undated items at the end', () => {
+      const items = [
+        { id: '1', expiration_date: null, product: { name: 'Ziemniaki' } },
+        { id: '2', expiration_date: '2026-11-20', product: { name: 'Masło' } },
+        { id: '3', expiration_date: '2026-11-11', product: { name: 'Mleko' } },
+        { id: '4', expiration_date: null, product: { name: 'Cebula' } }
+      ] as never
+
+      const sorted = sortPantryItemsByExpiry(items)
+      expect(sorted.map((i) => i.id)).toEqual(['3', '2', '4', '1'])
     })
   })
 })

@@ -74,7 +74,7 @@ export const THEMES: ThemeConfig[] = [
     preview: {
       background: '#f8fafc',
       card: '#ffffff',
-      primary: '#059669', // Deep Emerald
+      primary: '#0e7650', // Deep Emerald (WCAG AA compliant)
       accent: '#f1f5f9',
       border: '#e2e8f0'
     }
@@ -92,4 +92,118 @@ export function isValidTheme(themeId: string | null | undefined): themeId is The
 
 export function getThemeConfig(themeId: ThemeId): ThemeConfig {
   return THEMES.find((t) => t.id === themeId) || THEMES[0]
+}
+
+export type HslTuple = [number, number, number]
+
+export interface ThemeHslPalette {
+  background: HslTuple
+  foreground: HslTuple
+  card: HslTuple
+  cardForeground: HslTuple
+  popover: HslTuple
+  popoverForeground: HslTuple
+  primary: HslTuple
+  primaryForeground: HslTuple
+  secondary: HslTuple
+  secondaryForeground: HslTuple
+  mutedForeground: HslTuple
+  destructive: HslTuple
+  destructiveForeground: HslTuple
+}
+
+/**
+ * Canonical HSL palettes synchronized with `src/index.css` for automated WCAG 2.1 AA contrast validation.
+ */
+export const THEME_HSL_TOKENS: Record<ThemeId, ThemeHslPalette> = {
+  'oled-black': {
+    background: [0, 0, 0],
+    foreground: [210, 40, 98],
+    card: [0, 0, 5],
+    cardForeground: [210, 40, 98],
+    popover: [0, 0, 5],
+    popoverForeground: [210, 40, 98],
+    primary: [158, 64, 52],
+    primaryForeground: [0, 0, 0],
+    secondary: [240, 3.7, 15.9],
+    secondaryForeground: [210, 40, 98],
+    mutedForeground: [240, 5, 64.9],
+    destructive: [0, 62.8, 30.6],
+    destructiveForeground: [210, 40, 98]
+  },
+  'midnight-blue': {
+    background: [222, 47, 5],
+    foreground: [210, 40, 98],
+    card: [222, 47, 9],
+    cardForeground: [210, 40, 98],
+    popover: [222, 47, 9],
+    popoverForeground: [210, 40, 98],
+    primary: [199, 89, 48],
+    primaryForeground: [222, 47, 5],
+    secondary: [217, 33, 17],
+    secondaryForeground: [210, 40, 98],
+    mutedForeground: [215, 20, 65],
+    destructive: [0, 62.8, 30.6],
+    destructiveForeground: [210, 40, 98]
+  },
+  'forest-sage': {
+    background: [150, 40, 4],
+    foreground: [140, 20, 96],
+    card: [150, 35, 8],
+    cardForeground: [140, 20, 96],
+    popover: [150, 35, 8],
+    popoverForeground: [140, 20, 96],
+    primary: [152, 57, 53],
+    primaryForeground: [150, 40, 4],
+    secondary: [150, 25, 15],
+    secondaryForeground: [140, 20, 96],
+    mutedForeground: [145, 15, 60],
+    destructive: [0, 62.8, 30.6],
+    destructiveForeground: [140, 20, 96]
+  },
+  'warm-amber': {
+    background: [24, 25, 4],
+    foreground: [35, 30, 96],
+    card: [24, 22, 8],
+    cardForeground: [35, 30, 96],
+    popover: [24, 22, 8],
+    popoverForeground: [35, 30, 96],
+    primary: [38, 92, 50],
+    primaryForeground: [24, 25, 4],
+    secondary: [24, 18, 15],
+    secondaryForeground: [35, 30, 96],
+    mutedForeground: [30, 15, 60],
+    destructive: [0, 62.8, 30.6],
+    destructiveForeground: [35, 30, 96]
+  },
+  'cyberpunk-violet': {
+    background: [270, 35, 4],
+    foreground: [270, 30, 96],
+    card: [270, 30, 9],
+    cardForeground: [270, 30, 96],
+    popover: [270, 30, 9],
+    popoverForeground: [270, 30, 96],
+    primary: [270, 95, 75],
+    primaryForeground: [270, 35, 4],
+    secondary: [270, 25, 18],
+    secondaryForeground: [270, 30, 96],
+    mutedForeground: [270, 15, 65],
+    destructive: [0, 62.8, 30.6],
+    destructiveForeground: [270, 30, 96]
+  },
+  'clean-light': {
+    background: [210, 40, 98],
+    foreground: [222, 47, 11],
+    card: [0, 0, 100],
+    cardForeground: [222, 47, 11],
+    popover: [0, 0, 100],
+    popoverForeground: [222, 47, 11],
+    primary: [158, 78, 26],
+    primaryForeground: [0, 0, 100],
+    secondary: [210, 40, 96.1],
+    secondaryForeground: [222, 47, 11],
+    mutedForeground: [215.4, 18, 40],
+    destructive: [0, 74, 43],
+    destructiveForeground: [210, 40, 98]
+  }
 }

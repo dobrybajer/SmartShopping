@@ -648,6 +648,7 @@ export interface Database {
           unit_type: UnitEnum
           last_purchased_at: string | null
           last_verified_at: string | null
+          expiration_date?: string | null
           created_at: string
           updated_at: string
         }
@@ -661,6 +662,7 @@ export interface Database {
           unit_type?: UnitEnum
           last_purchased_at?: string | null
           last_verified_at?: string | null
+          expiration_date?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -674,6 +676,7 @@ export interface Database {
           unit_type?: UnitEnum
           last_purchased_at?: string | null
           last_verified_at?: string | null
+          expiration_date?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -11,7 +11,8 @@ vi.mock('@/services/pantryService', () => ({
     verifyItem: vi.fn(),
     deletePantryItem: vi.fn(),
     removeByProductOrName: vi.fn(),
-    deductMealIngredients: vi.fn()
+    deductMealIngredients: vi.fn(),
+    updateExpirationDate: vi.fn()
   }
 }))
 
@@ -259,5 +260,25 @@ describe('usePantryStore', () => {
     expect(failResult).toBe(false)
     expect(usePantryStore.getState().pantryItems).toHaveLength(1)
     expect(usePantryStore.getState().pantryMapByProductId['prod-200']?.quantity).toBe(300)
+  })
+
+  it('Flow 09 (NORM-04): updateExpirationDate updates expiration_date optimistically and rolls back on failure', async () => {
+    usePantryStore.setState({
+      pantryItems: [mockPantryItem],
+      pantryMapByProductId: { 'prod-100': mockPantryItem },
+      pantryMapByAdHocName: {},
+      pantryItemsByParentId: {},
+      activeHouseholdId: 'hh-1'
+    })
+
+    vi.mocked(pantryService.updateExpirationDate).mockResolvedValueOnce(true)
+    const ok = await usePantryStore.getState().updateExpirationDate('pantry-1', '2026-11-12')
+    expect(ok).toBe(true)
+    expect(usePantryStore.getState().pantryItems[0].expiration_date).toBe('2026-11-12')
+
+    vi.mocked(pantryService.updateExpirationDate).mockResolvedValueOnce(false)
+    const fail = await usePantryStore.getState().updateExpirationDate('pantry-1', null)
+    expect(fail).toBe(false)
+    expect(usePantryStore.getState().pantryItems[0].expiration_date).toBe('2026-11-12')
   })
 })

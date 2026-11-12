@@ -5,7 +5,34 @@ import type {
   UpdateCalendarMealInput,
   MissingIngredient
 } from '@/types/calendar'
-import type { AddToDraftPayload } from '@/store/useShoppingStore'
+import type { AddToDraftPayload, MealIngredientWithProduct, MealWithIngredients, Product } from '@/store/useShoppingStore'
+
+type RawMealPlanIngredientRow = Omit<MealIngredientWithProduct, 'product'> & {
+  product: Product | null
+}
+
+type RawMealPlanMealJoinRow = Omit<MealWithIngredients, 'ingredients'> & {
+  ingredients: RawMealPlanIngredientRow[] | null
+}
+
+type RawMealPlanRow = Omit<MealPlanItem, 'meal'> & {
+  meal: RawMealPlanMealJoinRow | null
+}
+
+function mapMealPlanRow(row: RawMealPlanRow): MealPlanItem {
+  return {
+    ...row,
+    meal: row.meal
+      ? {
+          ...row.meal,
+          ingredients: (row.meal.ingredients || []).map((ing) => ({
+            ...ing,
+            product: ing.product || null
+          }))
+        }
+      : null
+  }
+}
 
 export const mealPlanService = {
   /**
@@ -61,18 +88,8 @@ export const mealPlanService = {
       return []
     }
 
-    return (data || []).map((row: any) => ({
-      ...row,
-      meal: row.meal
-        ? {
-            ...row.meal,
-            ingredients: (row.meal.ingredients || []).map((ing: any) => ({
-              ...ing,
-              product: ing.product || null
-            }))
-          }
-        : null
-    }))
+    const rows = (data ?? []) as unknown as RawMealPlanRow[]
+    return rows.map(mapMealPlanRow)
   },
 
   /**
@@ -123,18 +140,7 @@ export const mealPlanService = {
       return null
     }
 
-    return {
-      ...(data as any),
-      meal: (data as any).meal
-        ? {
-            ...(data as any).meal,
-            ingredients: ((data as any).meal.ingredients || []).map((ing: any) => ({
-              ...ing,
-              product: ing.product || null
-            }))
-          }
-        : null
-    }
+    return mapMealPlanRow(data as unknown as RawMealPlanRow)
   },
 
   /**

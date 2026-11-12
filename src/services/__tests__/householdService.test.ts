@@ -15,7 +15,7 @@ describe('householdService - RLS Security & Household Creation (CRIT-04)', () =>
         created_at: '2026-10-26T12:00:00Z'
       },
       error: null
-    } as any)
+    } as never)
 
     const result = await householdService.createHousehold('Bezpieczne Gospodarstwo', 'user-1')
 
@@ -33,9 +33,9 @@ describe('householdService - RLS Security & Household Creation (CRIT-04)', () =>
     vi.spyOn(supabase, 'rpc').mockResolvedValue({
       data: null,
       error: { message: 'function not found' }
-    } as any)
+    } as never)
 
-    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+    vi.spyOn(supabase, 'from').mockImplementation(((table: string) => {
       if (table === 'households') {
         return {
           insert: vi.fn().mockResolvedValue({ error: null }),
@@ -50,15 +50,15 @@ describe('householdService - RLS Security & Household Creation (CRIT-04)', () =>
               })
             })
           })
-        } as any
+        }
       }
       if (table === 'household_members') {
         return {
           insert: vi.fn().mockResolvedValue({ error: null })
-        } as any
+        }
       }
-      return {} as any
-    })
+      return {}
+    }) as never)
 
     const result = await householdService.createHousehold('Fallback Gospodarstwo', 'user-1')
     expect(result).not.toBeNull()

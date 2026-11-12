@@ -66,8 +66,40 @@ export interface HistoryListItemSummary {
 }
 
 export interface HistoryShoppingList extends ShoppingList {
-  items?: HistoryListItemSummary[]
+  items?: HistoryListItemSummary[] | null
 }
+
+interface SummaryListItemJoinRow {
+  id: string
+  is_checked: boolean | null
+}
+
+interface SummaryListJoinRow {
+  id: string
+  household_id: string | null
+  name: string | null
+  status: 'draft' | 'active' | 'archived' | null
+  is_default: boolean
+  target_date: string | null
+  created_at: string | null
+  updated_at: string | null
+  items: SummaryListItemJoinRow[] | null
+}
+
+interface MatchedHealedProduct {
+  id: string
+  name: string
+  category_id: number | null
+  category: {
+    id: number
+    name: string
+    sort_order: number
+    is_non_food?: boolean
+  } | null
+}
+
+type RawActiveListItemRow = ActiveListItemWithProduct
+
 
 interface ArchiveRpcUncheckedItem {
   id: string
@@ -274,14 +306,15 @@ export const shoppingListService = {
       return []
     }
 
-    return (data || []).map((list: any) => {
+    const rows = (data ?? []) as unknown as SummaryListJoinRow[]
+    return rows.map((list) => {
       const items = list.items || []
-      const uncheckedCount = items.filter((i: any) => !i.is_checked).length
+      const uncheckedCount = items.filter((i) => !i.is_checked).length
       return {
         id: list.id,
-        household_id: list.household_id,
+        household_id: list.household_id || householdId,
         name: list.name || translate('common.shoppingList'),
-        status: list.status,
+        status: list.status || 'active',
         is_default: !!list.is_default,
         target_date: list.target_date,
         created_at: list.created_at,
@@ -360,18 +393,17 @@ export const shoppingListService = {
       console.error('Error fetching shopping list items:', itemsErr)
     }
 
-    const rawItems = itemsData || []
+    const rawItems = (itemsData ?? []) as unknown as RawActiveListItemRow[]
 
     // Self-healing: if any item has neither item.category_id nor item.product.category_id,
     // match against other products in the household that have a category_id!
     const uncategorizedItems = rawItems.filter(
-      (item: any) => !item.category_id && item.product && !item.product.category_id && item.product.name
+      (item): item is RawActiveListItemRow & { product: NonNullable<RawActiveListItemRow['product']> } =>
+        !item.category_id && Boolean(item.product) && !item.product?.category_id && Boolean(item.product?.name)
     )
 
     if (uncategorizedItems.length > 0 && isUuid(listData.household_id)) {
-      const names = Array.from(
-        new Set(uncategorizedItems.map((i: any) => (i.product.name as string).trim()))
-      )
+      const names = Array.from(new Set(uncategorizedItems.map((i) => i.product.name.trim())))
 
       const { data: matchedProds } = await supabase
         .from('products')
@@ -386,21 +418,22 @@ export const shoppingListService = {
         .not('category_id', 'is', null)
 
       if (matchedProds && matchedProds.length > 0) {
-        const prodByName = new Map<string, any>()
-        matchedProds.forEach((p) => prodByName.set(p.name.trim().toLowerCase(), p))
+        const healedProducts = matchedProds as unknown as MatchedHealedProduct[]
+        const prodByName = new Map<string, MatchedHealedProduct>()
+        healedProducts.forEach((p) => prodByName.set(p.name.trim().toLowerCase(), p))
 
         for (const item of rawItems) {
           if (!item.category_id && item.product && !item.product.category_id) {
             const match = prodByName.get(item.product.name.trim().toLowerCase())
             if (match) {
               item.product.category_id = match.category_id
-              item.product.category = match.category
+              item.product.category = match.category ?? undefined
               // Proactively heal this ad-hoc product row in DB
               supabase
                 .from('products')
                 .update({ category_id: match.category_id })
                 .eq('id', item.product.id)
-                .then(() => { })
+                .then(() => {})
             }
           }
         }
@@ -410,7 +443,7 @@ export const shoppingListService = {
     return {
       ...listData,
       is_default: !!listData.is_default,
-      items: rawItems.map((item: any) => ({
+      items: rawItems.map((item) => ({
         ...item,
         category_id: item.category_id ?? null,
         in_pantry: !!item.in_pantry,
@@ -890,7 +923,7 @@ export const shoppingListService = {
       console.error('Error fetching shopping list history:', error)
       return []
     }
-    const lists = ((data as any) || []) as HistoryShoppingList[]
+    const lists = ((data as unknown) || []) as HistoryShoppingList[]
     return sortHistoryListsByCompletionDate(lists)
   },
 

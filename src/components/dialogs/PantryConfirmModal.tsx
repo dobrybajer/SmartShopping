@@ -1,17 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
-import { usePantryStore } from '@/store/usePantryStore'
-import { useShoppingStore } from '@/store/useShoppingStore'
-import { useShallow } from 'zustand/react/shallow'
-import { shoppingListService } from '@/services/shoppingListService'
-import {
-  areUnitsCompatible,
-  calculatePantryFreshness,
-  calculatePartialDelta,
-  convertQuantity
-} from '@/lib/calculations/pantryCalculations'
-import { toast } from '@/store/useToastStore'
+import { usePantryConfirmController } from '@/hooks/usePantryConfirmController'
 import {
   Dialog,
   DialogContent,
@@ -41,7 +31,7 @@ import {
   Minus,
   Clock
 } from 'lucide-react'
-import { cn, getNextQuantity } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 export interface PantryConfirmModalProps {
   open: boolean
@@ -58,262 +48,48 @@ export interface PantryConfirmModalProps {
   onSuccess?: () => void
 }
 
-export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
-  open,
-  onOpenChange,
-  context,
-  productId,
-  adHocName,
-  productName,
-  unitType = 'pcs',
-  neededQuantity,
-  draftItemId,
-  activeItemId,
-  isAlreadyMarkedInPantry = false,
-  onSuccess
-}) => {
+export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = (props) => {
+  const { open, onOpenChange, productName, unitType = 'pcs', neededQuantity, isAlreadyMarkedInPantry = false } = props
   const { isDesktop } = useDeviceLayout()
   const { t, formatQuantity } = useTranslation()
-  const {
-    pantryMapByProductId,
-    pantryMapByAdHocName,
-    pantryItemsByParentId,
-    verifyPantryItem,
-    removeByProductOrName,
-    addOrIncrementItem,
-    activeHouseholdId
-  } = usePantryStore(
-    useShallow((state) => ({
-      pantryMapByProductId: state.pantryMapByProductId,
-      pantryMapByAdHocName: state.pantryMapByAdHocName,
-      pantryItemsByParentId: state.pantryItemsByParentId,
-      verifyPantryItem: state.verifyPantryItem,
-      removeByProductOrName: state.removeByProductOrName,
-      addOrIncrementItem: state.addOrIncrementItem,
-      activeHouseholdId: state.activeHouseholdId
-    }))
-  )
-  const { removeFromDraft, updateDraftQuantity } = useShoppingStore(
-    useShallow((state) => ({
-      removeFromDraft: state.removeFromDraft,
-      updateDraftQuantity: state.updateDraftQuantity
-    }))
-  )
-
-  // Find existing pantry record or aggregated child variants
-  const childPantryItems = productId ? pantryItemsByParentId[productId] || [] : []
-  const existingPantryItem =
-    (productId ? pantryMapByProductId[productId] : null) ||
-    (adHocName ? pantryMapByAdHocName[adHocName.trim().toLowerCase()] : null) ||
-    (productName ? pantryMapByAdHocName[productName.trim().toLowerCase()] : null)
-
-  const isAggregated = !existingPantryItem && childPantryItems.length > 0
-  const aggregatedQty = childPantryItems.reduce(
-    (acc, c) => acc + (convertQuantity(Number(c.quantity || 0), c.unit_type, unitType) ?? 0),
-    0
-  )
-  const effectivePantryItem = existingPantryItem || (childPantryItems.length > 0 ? childPantryItems[0] : null)
-  const pantryUnit = isAggregated ? unitType : (effectivePantryItem?.unit_type || unitType)
-
-  const [pantryQty, setPantryQty] = useState<number>(1)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      if (existingPantryItem) {
-        setPantryQty(Number(existingPantryItem.quantity) || 1)
-      } else if (isAggregated) {
-        setPantryQty(aggregatedQty || 1)
-      } else {
-        setPantryQty(neededQuantity || 1)
-      }
-    }
-  }, [open, existingPantryItem, isAggregated, aggregatedQty, neededQuantity])
-
-  const isNonFood = !!(
-    effectivePantryItem?.category?.is_non_food ||
-    effectivePantryItem?.product?.category?.is_non_food
-  )
-
-  const freshness = calculatePantryFreshness(
-    effectivePantryItem?.last_purchased_at,
-    isNonFood,
-    productName,
-    formatQuantity(pantryQty, pantryUnit),
-    effectivePantryItem?.last_verified_at
-  )
-
-  const unitsCompatible = areUnitsCompatible(unitType, pantryUnit)
-  const convertedPantryQty = convertQuantity(pantryQty, pantryUnit, unitType)
-  const remainingDelta = calculatePartialDelta(neededQuantity, pantryQty, unitType, pantryUnit)
-  const isPartial =
-    unitsCompatible &&
-    convertedPantryQty !== null &&
-    convertedPantryQty > 0 &&
-    convertedPantryQty < neededQuantity
-
-  // 1. "Mam całość" (Full Coverage)
-  const handleHaveAll = async () => {
-    setIsSubmitting(true)
-    try {
-      if (existingPantryItem) {
-        await verifyPantryItem(existingPantryItem.id, pantryQty)
-      } else if (childPantryItems.length > 0) {
-        for (const child of childPantryItems) {
-          await verifyPantryItem(child.id, child.quantity)
-        }
-      } else if (activeHouseholdId) {
-        await addOrIncrementItem(
-          {
-            household_id: activeHouseholdId,
-            product_id: productId || null,
-            ad_hoc_name: adHocName || null,
-            quantity: pantryQty,
-            unit_type: (unitType as any) || 'pcs',
-            last_purchased_at: new Date().toISOString(),
-            last_verified_at: new Date().toISOString()
-          },
-          'set'
-        )
-      }
-
-      if (context === 'cart' && draftItemId) {
-        removeFromDraft(draftItemId)
-        toast.info(t('pantry.modal.removedFromCart', { productName }))
-      } else if (context === 'active' && activeItemId) {
-        await shoppingListService.toggleItemInPantry(activeItemId, true)
-        toast.success(t('pantry.modal.markedInPantry', { productName }))
-      }
-
-      onSuccess?.()
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // 2. "Mam częściowo" (Partial Coverage)
-  const handleHavePartial = async () => {
-    if (!isPartial || remainingDelta <= 0) return
-    setIsSubmitting(true)
-    try {
-      if (existingPantryItem) {
-        await verifyPantryItem(existingPantryItem.id, pantryQty)
-      } else if (activeHouseholdId) {
-        await addOrIncrementItem(
-          {
-            household_id: activeHouseholdId,
-            product_id: productId || null,
-            ad_hoc_name: adHocName || null,
-            quantity: pantryQty,
-            unit_type: (unitType as any) || 'pcs',
-            last_purchased_at: new Date().toISOString(),
-            last_verified_at: new Date().toISOString()
-          },
-          'set'
-        )
-      }
-
-      if (context === 'cart' && draftItemId) {
-        updateDraftQuantity(draftItemId, remainingDelta)
-      } else if (context === 'active' && activeItemId) {
-        await shoppingListService.updateItemQuantity(activeItemId, remainingDelta)
-      }
-
-      onSuccess?.()
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // 3. "Nie mam produktu"
-  const handleDontHave = async () => {
-    setIsSubmitting(true)
-    try {
-      if (existingPantryItem) {
-        await removeByProductOrName(
-          existingPantryItem.product_id,
-          existingPantryItem.ad_hoc_name || existingPantryItem.product?.name
-        )
-      } else if (childPantryItems.length > 0) {
-        for (const child of childPantryItems) {
-          await removeByProductOrName(
-            child.product_id,
-            child.ad_hoc_name || child.product?.name
-          )
-        }
-      } else {
-        await removeByProductOrName(productId, adHocName || productName)
-      }
-
-      if (context === 'active' && activeItemId && isAlreadyMarkedInPantry) {
-        await shoppingListService.toggleItemInPantry(activeItemId, false)
-      }
-
-      toast.info(t('pantry.modal.removedFromPantry'))
-      onSuccess?.()
-      onOpenChange(false)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // 4. "Przywróć do kupienia" (Edge case 1)
-  const handleRestoreToBuy = async () => {
-    if (context === 'active' && activeItemId) {
-      setIsSubmitting(true)
-      try {
-        await shoppingListService.toggleItemInPantry(activeItemId, false)
-        toast.success(t('pantry.modal.restoredToList', { productName }))
-        onSuccess?.()
-        onOpenChange(false)
-      } finally {
-        setIsSubmitting(false)
-      }
-    }
-  }
-
-  const handleStepQuantity = (direction: 'increase' | 'decrease') => {
-    const next = getNextQuantity(pantryQty, pantryUnit, direction)
-    setPantryQty(Math.max(0, next))
-  }
+  const ctrl = usePantryConfirmController(props)
 
   const modalBody = (
     <div className="flex flex-col gap-4 text-xs">
-      {/* Freshness Banner */}
       <div
         className={cn(
-          "p-3.5 rounded-xl border flex flex-col gap-2 transition-all",
-          freshness.badgeBgClass
+          'p-3.5 rounded-xl border flex flex-col gap-2 transition-all',
+          ctrl.freshness.badgeBgClass
         )}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Warehouse className={cn("w-4 h-4", freshness.colorClass)} />
+            <Warehouse className={cn('w-4 h-4', ctrl.freshness.colorClass)} />
             <span className="font-bold text-xs text-foreground">{productName}</span>
           </div>
-          {freshness.daysSincePurchase !== null && (
-            <Badge variant="outline" className={cn("text-[10px] font-mono", freshness.colorClass)}>
-              {freshness.daysSincePurchase}d
+          {ctrl.freshness.daysSincePurchase !== null && (
+            <Badge
+              variant="outline"
+              className={cn('text-[10px] font-mono', ctrl.freshness.colorClass)}
+            >
+              {ctrl.freshness.daysSincePurchase}d
             </Badge>
           )}
         </div>
 
         <p className="text-xs text-foreground/90 leading-relaxed">
-          {t(freshness.messageKey, freshness.translationParams)}
-          {freshness.translationParams.verifiedDate && (
+          {t(ctrl.freshness.messageKey, ctrl.freshness.translationParams)}
+          {ctrl.freshness.translationParams.verifiedDate && (
             <span className="text-muted-foreground font-mono text-[11px] block mt-0.5">
               <Clock className="w-3 h-3 inline mr-1" />
               {t('pantry.freshness.verifiedSuffix', {
-                verifiedDate: freshness.translationParams.verifiedDate
+                verifiedDate: ctrl.freshness.translationParams.verifiedDate
               })}
             </span>
           )}
         </p>
       </div>
 
-      {/* Target Quantity Info */}
       <div className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
         <span className="text-muted-foreground">{t('pantry.addDialog.quantity')}:</span>
         <span className="font-bold text-foreground font-mono">
@@ -321,17 +97,23 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
         </span>
       </div>
 
-      {/* Child variants breakdown if general product in stock */}
-      {childPantryItems.length > 0 && (
+      {ctrl.childPantryItems.length > 0 && (
         <div className="p-3 rounded-xl bg-card border border-border flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-foreground text-xs">{t('products.childVariants')} ({childPantryItems.length}):</span>
+            <span className="font-semibold text-foreground text-xs">
+              {t('products.childVariants')} ({ctrl.childPantryItems.length}):
+            </span>
             <span className="text-[10px] text-muted-foreground">{t('products.general')}</span>
           </div>
           <div className="flex flex-col gap-1.5">
-            {childPantryItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-background border border-border">
-                <span className="text-foreground font-medium">{item.product?.name || item.ad_hoc_name}</span>
+            {ctrl.childPantryItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between text-xs p-1.5 rounded-lg bg-background border border-border"
+              >
+                <span className="text-foreground font-medium">
+                  {item.product?.name || item.ad_hoc_name}
+                </span>
                 <span className="font-mono font-bold text-primary">
                   {formatQuantity(item.quantity, item.unit_type)}
                 </span>
@@ -341,15 +123,12 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
         </div>
       )}
 
-      {/* Quantity Stepper in Pantry */}
       <div className="flex flex-col gap-1.5">
-        <label className="font-semibold text-foreground">
-          {t('pantry.modal.currentStock')}:
-        </label>
+        <label className="font-semibold text-foreground">{t('pantry.modal.currentStock')}:</label>
         <div className="flex items-center bg-background border border-border rounded-xl p-1 shadow-inner justify-between">
           <button
             type="button"
-            onClick={() => handleStepQuantity('decrease')}
+            onClick={() => ctrl.handleStepQuantity('decrease')}
             className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
             aria-label={t('common.decrease')}
           >
@@ -360,18 +139,18 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
             <Input
               type="number"
               step="any"
-              value={pantryQty}
-              onChange={(e) => setPantryQty(Number(e.target.value) || 0)}
+              value={ctrl.pantryQty}
+              onChange={(e) => ctrl.setPantryQty(Number(e.target.value) || 0)}
               className="w-20 h-9 text-center font-mono text-sm font-bold text-primary bg-transparent border-0 focus-visible:ring-0 p-0"
             />
             <span className="font-mono text-xs text-muted-foreground font-semibold pr-2">
-              {pantryUnit}
+              {ctrl.pantryUnit}
             </span>
           </div>
 
           <button
             type="button"
-            onClick={() => handleStepQuantity('increase')}
+            onClick={() => ctrl.handleStepQuantity('increase')}
             className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
             aria-label={t('common.increase')}
           >
@@ -380,11 +159,14 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
         </div>
       </div>
 
-      {/* Partial Remaining Info */}
-      {isPartial && remainingDelta > 0 && (
+      {ctrl.isPartial && ctrl.remainingDelta > 0 && (
         <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium flex items-center gap-2">
           <PieChart className="w-4 h-4 shrink-0" />
-          <span>{t('pantry.modal.remainingToBuy', { quantity: formatQuantity(remainingDelta, unitType) })}</span>
+          <span>
+            {t('pantry.modal.remainingToBuy', {
+              quantity: formatQuantity(ctrl.remainingDelta, unitType)
+            })}
+          </span>
         </div>
       )}
     </div>
@@ -392,38 +174,35 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
 
   const modalActions = (
     <div className="flex flex-col gap-2 w-full pt-2">
-      {/* Primary: Mam całość */}
       <Button
         type="button"
-        onClick={handleHaveAll}
-        disabled={isSubmitting || pantryQty <= 0}
+        onClick={ctrl.handleHaveAll}
+        disabled={ctrl.isSubmitting || ctrl.pantryQty <= 0}
         className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md"
       >
         <CheckCircle2 className="w-4 h-4" />
         <span>{t('pantry.modal.haveAll')}</span>
       </Button>
 
-      {/* Secondary: Mam częściowo */}
-      {isPartial && (
+      {ctrl.isPartial && (
         <Button
           type="button"
-          onClick={handleHavePartial}
-          disabled={isSubmitting}
+          onClick={ctrl.handleHavePartial}
+          disabled={ctrl.isSubmitting}
           className="w-full h-10 bg-card hover:bg-muted text-foreground border border-amber-500/40 hover:border-amber-500/70 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
         >
           <PieChart className="w-4 h-4 text-amber-400" />
           <span>
-            {t('pantry.modal.havePartial')} (-{formatQuantity(pantryQty, pantryUnit)})
+            {t('pantry.modal.havePartial')} (-{formatQuantity(ctrl.pantryQty, ctrl.pantryUnit)})
           </span>
         </Button>
       )}
 
-      {/* Tertiary: Przywróć do kupienia (if currently in_pantry on active list) */}
       {isAlreadyMarkedInPantry && (
         <Button
           type="button"
-          onClick={handleRestoreToBuy}
-          disabled={isSubmitting}
+          onClick={ctrl.handleRestoreToBuy}
+          disabled={ctrl.isSubmitting}
           className="w-full h-10 bg-card hover:bg-muted text-foreground border border-border font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
         >
           <RotateCcw className="w-4 h-4 text-primary" />
@@ -431,11 +210,10 @@ export const PantryConfirmModal: React.FC<PantryConfirmModalProps> = ({
         </Button>
       )}
 
-      {/* Destructive / Clear: Nie mam produktu */}
       <Button
         type="button"
-        onClick={handleDontHave}
-        disabled={isSubmitting}
+        onClick={ctrl.handleDontHave}
+        disabled={ctrl.isSubmitting}
         variant="ghost"
         className="w-full h-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl text-xs flex items-center justify-center gap-1.5 cursor-pointer"
       >

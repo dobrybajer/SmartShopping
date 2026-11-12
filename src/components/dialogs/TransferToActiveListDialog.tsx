@@ -1,38 +1,16 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
-  DialogFooter
+  DialogDescription
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import {
-  ShoppingBag,
-  Plus,
-  ListOrdered,
-  Star,
-  CheckCircle2
-} from 'lucide-react'
+import { ShoppingBag } from 'lucide-react'
 import { useTranslation } from '@/i18n'
-import { useAuth } from '@/hooks/useAuth'
-import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
-import { useShallow } from 'zustand/react/shallow'
-import {
-  shoppingListService,
-  type ShoppingListSummary
-} from '@/services/shoppingListService'
-import { formatDate } from '@/lib/utils'
-import {
-  sortActiveLists,
-  findTargetTransferListId
-} from '@/lib/calculations/activeListCalculations'
+import type { DraftItem } from '@/store/useShoppingStore'
+import { useTransferToActiveList } from '@/hooks/useTransferToActiveList'
+import { TransferToActiveListForm } from '@/components/shopping/TransferToActiveListForm'
 
 interface TransferToActiveListDialogProps {
   open: boolean
@@ -47,93 +25,8 @@ export const TransferToActiveListDialog: React.FC<TransferToActiveListDialogProp
   selectedItems,
   onSuccess
 }) => {
-  const { household } = useAuth()
-  const { t, formatQuantity } = useTranslation()
-  const { selectedActiveListId, setSelectedActiveListId } = useShoppingStore(
-    useShallow((state) => ({
-      selectedActiveListId: state.selectedActiveListId,
-      setSelectedActiveListId: state.setSelectedActiveListId
-    }))
-  )
-
-  const [activeLists, setActiveLists] = useState<ShoppingListSummary[]>([])
-  const [mode, setMode] = useState<'existing' | 'new'>('existing')
-  const [targetListId, setTargetListId] = useState<string>('')
-  const [newListName, setNewListName] = useState('')
-  const [isDefault, setIsDefault] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const householdId = household?.id
-
-  useEffect(() => {
-    if (!open || !householdId) return
-
-    let isMounted = true
-    shoppingListService.getActiveListsSummary(householdId).then((lists) => {
-      if (!isMounted) return
-      const sorted = sortActiveLists(lists)
-      setActiveLists(sorted)
-
-      if (sorted.length === 0) {
-        setMode('new')
-        setNewListName(`${t('activeList.title')} ${formatDate(new Date())}`)
-      } else {
-        const targetId = findTargetTransferListId(sorted, selectedActiveListId)
-        if (targetId) {
-          setTargetListId(targetId)
-        }
-        setMode('existing')
-        setNewListName(`${t('activeList.title')} ${formatDate(new Date())}`)
-      }
-    })
-
-    return () => {
-      isMounted = false
-    }
-  }, [open, householdId, selectedActiveListId, t])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!household || selectedItems.length === 0 || isSubmitting) return
-
-    setIsSubmitting(true)
-
-    try {
-      if (mode === 'new') {
-        const created = await shoppingListService.createActiveListFromDraft(
-          household.id,
-          newListName.trim() || `${t('activeList.title')} ${formatDate(new Date())}`,
-          selectedItems,
-          isDefault
-        )
-
-        if (created) {
-          setSelectedActiveListId(created.id)
-          onSuccess(created.id)
-          onOpenChange(false)
-        }
-      } else {
-        if (!targetListId) return
-        const updated = await shoppingListService.addItemsToActiveList(
-          targetListId,
-          household.id,
-          selectedItems
-        )
-
-        if (updated) {
-          setSelectedActiveListId(updated.id)
-          onSuccess(updated.id)
-          onOpenChange(false)
-        }
-      }
-    } catch (err) {
-      console.error('Error transferring draft items (desktop):', err)
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const selectedListObj = activeLists.find((l) => l.id === targetListId)
+  const { t } = useTranslation()
+  const ctrl = useTransferToActiveList({ open, onOpenChange, selectedItems, onSuccess })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -151,169 +44,23 @@ export const TransferToActiveListDialog: React.FC<TransferToActiveListDialogProp
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-1 min-w-0">
-          {/* Mode Switcher */}
-          {activeLists.length > 0 && (
-            <div className="grid grid-cols-2 gap-1.5 p-1 bg-muted rounded-xl border border-border min-w-0">
-              <button
-                type="button"
-                onClick={() => setMode('existing')}
-                className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-w-0 ${
-                  mode === 'existing'
-                    ? 'bg-card text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <ListOrdered className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('draft.addToExisting')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('new')}
-                className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-w-0 ${
-                  mode === 'new'
-                    ? 'bg-card text-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('draft.createNewList')}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Existing List Selection */}
-          {mode === 'existing' && activeLists.length > 0 && (
-            <div className="space-y-2 min-w-0">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {t('draft.selectTargetList')}
-              </Label>
-              <RadioGroup
-                value={targetListId}
-                onValueChange={setTargetListId}
-                className="space-y-2 max-h-52 overflow-y-auto pr-1.5 custom-scrollbar"
-              >
-                {activeLists.map((list) => {
-                  const isChecked = targetListId === list.id
-                  return (
-                    <label
-                      key={list.id}
-                      htmlFor={`desktop-list-option-${list.id}`}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer gap-3 min-w-0 ${
-                        isChecked
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-border bg-background hover:bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <RadioGroupItem
-                          value={list.id}
-                          id={`desktop-list-option-${list.id}`}
-                          className="border-border text-primary shrink-0"
-                        />
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-sm font-semibold text-foreground truncate">
-                              {list.name}
-                            </span>
-                            {list.is_default && (
-                              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />
-                            )}
-                          </div>
-                          <span className="text-[11px] text-muted-foreground truncate">
-                            {t('activeList.itemsLeft', { count: list.unchecked_items })}
-                          </span>
-                        </div>
-                      </div>
-
-                      <Badge
-                        variant="secondary"
-                        className="text-[10px] font-mono bg-card border border-border shrink-0"
-                      >
-                        {formatQuantity(list.total_items, 'pcs')}
-                      </Badge>
-                    </label>
-                  )
-                })}
-              </RadioGroup>
-            </div>
-          )}
-
-          {/* New List Form */}
-          {mode === 'new' && (
-            <div className="space-y-3 min-w-0">
-              <div className="space-y-1.5 min-w-0">
-                <Label htmlFor="desktop-new-list-name" className="text-xs font-semibold text-foreground">
-                  {t('draft.newListName')}
-                </Label>
-                <Input
-                  id="desktop-new-list-name"
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  placeholder={t('draft.newListNamePlaceholder')}
-                  required
-                  className="h-10 bg-background border-border text-foreground rounded-xl"
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex items-center gap-2 pt-1">
-                <Checkbox
-                  id="desktop-set-as-default"
-                  checked={isDefault}
-                  onCheckedChange={(checked) => setIsDefault(!!checked)}
-                  className="border-border data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                />
-                <Label
-                  htmlFor="desktop-set-as-default"
-                  className="text-xs text-muted-foreground font-normal cursor-pointer"
-                >
-                  {t('draft.setAsDefault')}
-                </Label>
-              </div>
-            </div>
-          )}
-
-          {/* Summary Box */}
-          <div className="p-3 bg-muted/60 rounded-xl border border-border/80 flex items-center justify-between text-xs min-w-0">
-            <span className="text-muted-foreground">{t('draft.selectedItems')}:</span>
-            <span className="font-semibold text-foreground">
-              {formatQuantity(selectedItems.length, 'pcs')}
-            </span>
-          </div>
-
-          <DialogFooter className="flex flex-row gap-2.5 mt-2 sm:space-x-0 w-full min-w-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="w-1/3 border-border bg-background hover:bg-muted text-foreground rounded-xl cursor-pointer shrink-0"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || (mode === 'existing' && !targetListId) || (mode === 'new' && !newListName.trim())}
-              className="w-2/3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center justify-center gap-2 shadow-md cursor-pointer min-w-0"
-            >
-              {isSubmitting ? (
-                <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin shrink-0" />
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span className="truncate">
-                    {mode === 'existing'
-                      ? selectedListObj?.name
-                        ? `${t('common.confirm')} (${selectedListObj.name})`
-                        : t('common.confirm')
-                      : `${t('activeList.createList')} (${selectedItems.length})`}
-                  </span>
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
+        <TransferToActiveListForm
+          variant="desktop"
+          activeLists={ctrl.activeLists}
+          mode={ctrl.mode}
+          setMode={ctrl.setMode}
+          targetListId={ctrl.targetListId}
+          setTargetListId={ctrl.setTargetListId}
+          newListName={ctrl.newListName}
+          setNewListName={ctrl.setNewListName}
+          isDefault={ctrl.isDefault}
+          setIsDefault={ctrl.setIsDefault}
+          isSubmitting={ctrl.isSubmitting}
+          selectedCount={selectedItems.length}
+          selectedListName={ctrl.selectedListObj?.name}
+          onCancel={() => onOpenChange(false)}
+          onSubmit={ctrl.handleSubmit}
+        />
       </DialogContent>
     </Dialog>
   )

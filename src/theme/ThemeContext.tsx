@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import type { ThemeId } from './types'
 import { ThemeContext } from './ThemeContextInstance'
 import { DEFAULT_THEME, THEME_STORAGE_KEY, THEMES, getThemeConfig, isValidTheme } from './themes'
-import { supabase } from '@/lib/supabase'
+import { userService } from '@/services/userService'
 
 function getInitialTheme(): ThemeId {
   try {
@@ -54,18 +54,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       clearTimeout(debounceTimerRef.current)
     }
 
-    debounceTimerRef.current = setTimeout(async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user?.id) {
-          await supabase
-            .from('users')
-            .update({ theme: newTheme })
-            .eq('id', session.user.id)
-        }
-      } catch (err) {
-        console.error('Error syncing theme to profile:', err)
-      }
+    debounceTimerRef.current = setTimeout(() => {
+      void userService.syncThemeForCurrentUser(newTheme)
     }, 500)
   }, [])
 

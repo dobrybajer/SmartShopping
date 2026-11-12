@@ -166,7 +166,7 @@ export const notificationService = {
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: applicationServerKey as any
+        applicationServerKey: new Uint8Array(applicationServerKey)
       })
     }
 
@@ -251,9 +251,10 @@ export const notificationService = {
 
     // Try to determine householdId if not directly provided
     let targetHouseholdId = householdId
-    if (!targetHouseholdId) {
-      if ('householdId' in payload && typeof (payload as any).householdId === 'string') {
-        targetHouseholdId = (payload as any).householdId
+    if (!targetHouseholdId && typeof payload === 'object' && payload !== null && 'householdId' in payload) {
+      const candidate = (payload as { householdId?: unknown }).householdId
+      if (typeof candidate === 'string') {
+        targetHouseholdId = candidate
       }
     }
 

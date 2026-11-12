@@ -26,6 +26,7 @@ interface PantryStoreState {
   deductMealIngredients: (
     updates: Array<{ pantryItemId: string; newQuantity: number }>
   ) => Promise<boolean>
+  updateExpirationDate: (itemId: string, expirationDate: string | null) => Promise<boolean>
   syncFromRealtime: () => Promise<void>
 }
 
@@ -308,6 +309,39 @@ export const usePantryStore = create<PantryStoreState>()((set, get) => ({
       return false
     }
 
+    return true
+  },
+
+  updateExpirationDate: async (itemId, expirationDate) => {
+    const previousItems = get().pantryItems
+    const now = new Date().toISOString()
+    const updated = previousItems.map((i) =>
+      i.id === itemId ? { ...i, expiration_date: expirationDate, updated_at: now } : i
+    )
+    const { byProduct, byName, byParent } = buildPantryMaps(updated)
+    set({
+      pantryItems: updated,
+      pantryMapByProductId: byProduct,
+      pantryMapByAdHocName: byName,
+      pantryItemsByParentId: byParent
+    })
+
+    const success = await pantryService.updateExpirationDate(itemId, expirationDate)
+    if (!success) {
+      const {
+        byProduct: rollProduct,
+        byName: rollName,
+        byParent: rollParent
+      } = buildPantryMaps(previousItems)
+      set({
+        pantryItems: previousItems,
+        pantryMapByProductId: rollProduct,
+        pantryMapByAdHocName: rollName,
+        pantryItemsByParentId: rollParent
+      })
+      toast.error(translate('toasts.errorOccurred'))
+      return false
+    }
     return true
   },
 

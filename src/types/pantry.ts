@@ -36,4 +36,5 @@ export interface CreatePantryItemPayload {
   unit_type: UnitEnum
   last_purchased_at?: string | null
   last_verified_at?: string | null
+  expiration_date?: string | null
 }

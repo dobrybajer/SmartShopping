@@ -1,6 +1,10 @@
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
-import type { MealWithIngredients } from '@/store/useShoppingStore'
+import type { MealIngredientWithProduct, MealWithIngredients } from '@/store/useShoppingStore'
+
+type RawMealQueryRow = Database['public']['Tables']['meals']['Row'] & {
+  ingredients: MealIngredientWithProduct[] | null
+}
 
 export type MealCategory = Database['public']['Tables']['meal_categories']['Row']
 export type MealInsert = Database['public']['Tables']['meals']['Insert']
@@ -60,7 +64,8 @@ export const mealService = {
       return []
     }
 
-    return (data || []).map((m: any) => ({
+    const rows = (data ?? []) as unknown as RawMealQueryRow[]
+    return rows.map((m) => ({
       id: m.id,
       household_id: m.household_id,
       type: m.type || (m.household_id ? 'Household' : 'Global'),
@@ -70,7 +75,7 @@ export const mealService = {
       comments: m.comments,
       category_id: m.category_id,
       tags: m.tags,
-      ingredients: (m.ingredients || []).map((ing: any) => ({
+      ingredients: (m.ingredients || []).map((ing) => ({
         id: ing.id,
         meal_id: ing.meal_id,
         product_id: ing.product_id,

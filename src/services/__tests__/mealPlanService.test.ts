@@ -41,7 +41,7 @@ describe('mealPlanService', () => {
     const eqMock = vi.fn().mockReturnValue({ order: orderMock1 })
     const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
 
-    vi.mocked(supabase.from).mockReturnValue({ select: selectMock } as any)
+    vi.mocked(supabase.from).mockReturnValue({ select: selectMock } as never)
 
     const res = await mealPlanService.getMealPlans('hh-1')
 
@@ -55,7 +55,7 @@ describe('mealPlanService', () => {
     const selectMock = vi.fn().mockReturnValue({ single: singleMock })
     const insertMock = vi.fn().mockReturnValue({ select: selectMock })
 
-    vi.mocked(supabase.from).mockReturnValue({ insert: insertMock } as any)
+    vi.mocked(supabase.from).mockReturnValue({ insert: insertMock } as never)
 
     const res = await mealPlanService.createMealPlan({
       household_id: 'hh-1',
@@ -74,7 +74,7 @@ describe('mealPlanService', () => {
     const eqMock = vi.fn().mockResolvedValue({ error: null })
     const deleteMock = vi.fn().mockReturnValue({ eq: eqMock })
 
-    vi.mocked(supabase.from).mockReturnValue({ delete: deleteMock } as any)
+    vi.mocked(supabase.from).mockReturnValue({ delete: deleteMock } as never)
 
     const res = await mealPlanService.deleteMealPlan('plan-1')
 

@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { useShoppingStore } from '@/store/useShoppingStore'
-import { useCategoryStore } from '@/store/useCategoryStore'
-import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
 import { shoppingListService } from '@/services/shoppingListService'
-import type { ActiveListWithDetails, ActiveListItemWithProduct, HistoryShoppingList } from '@/services/shoppingListService'
-import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
-import type { AisleGroup } from '@/lib/calculations/categorySorting'
-import type { AddToDraftPayload } from '@/store/useShoppingStore'
+import type { ActiveListWithDetails, HistoryShoppingList } from '@/services/shoppingListService'
+import { useHistoryDetailsController } from '@/hooks/useHistoryDetailsController'
+import { HistoryListItemsBreakdown } from '@/components/history/HistoryListItemsBreakdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
@@ -18,7 +13,6 @@ import {
   History,
   ShoppingCart,
   Check,
-  Plus,
   Trash2,
   Edit2,
   X,
@@ -29,20 +23,7 @@ import {
 import { cn } from '@/lib/utils'
 
 export const DesktopHistoryView: React.FC = () => {
-  const { household } = useAuth()
-  const { addItemToDraft, addMultipleToDraft } = useShoppingStore(
-    useShallow((state) => ({
-      addItemToDraft: state.addItemToDraft,
-      addMultipleToDraft: state.addMultipleToDraft
-    }))
-  )
-  const { categoriesByHousehold, loadCategories } = useCategoryStore(
-    useShallow((state) => ({
-      categoriesByHousehold: state.categoriesByHousehold,
-      loadCategories: state.loadCategories
-    }))
-  )
-  const { t, formatQuantity, formatDate, formatTime } = useTranslation()
+  const { t, formatDate, formatTime } = useTranslation()
 
   const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
@@ -57,8 +38,24 @@ export const DesktopHistoryView: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const [addedItemIds, setAddedItemIds] = useState<Record<string, boolean>>({})
-  const [allAdded, setAllAdded] = useState(false)
+  const {
+    household,
+    loadCategories,
+    items,
+    checkedCount,
+    totalCount,
+    sortedCategories,
+    addedItemIds,
+    allAdded,
+    getCategoryLabel,
+    handleAddSingleItemToDraft,
+    handleAddAllToDraft,
+    resetFeedback
+  } = useHistoryDetailsController(listDetails, {
+    listHouseholdId: listDetails?.household_id,
+    haptic: false,
+    allAddedResetMs: 2000
+  })
 
   const householdId = household?.id
 
@@ -66,35 +63,40 @@ export const DesktopHistoryView: React.FC = () => {
     loadCategories(householdId)
   }, [householdId, loadCategories])
 
-  const loadHistoryLists = useCallback(async (isInitial = false) => {
-    if (!householdId) return
-    if (isInitial) {
-      setLoadingLists(true)
-    }
-    const lists = await shoppingListService.getHistoryLists(householdId)
-    setHistoryLists(lists)
-    setSelectedListId((prev) => {
-      if (prev && lists.some((l) => l.id === prev)) return prev
-      return lists[0]?.id || null
-    })
-    setLoadingLists(false)
-  }, [householdId])
+  const loadHistoryLists = useCallback(
+    async (isInitial = false) => {
+      if (!householdId) return
+      if (isInitial) {
+        setLoadingLists(true)
+      }
+      const lists = await shoppingListService.getHistoryLists(householdId)
+      setHistoryLists(lists)
+      setSelectedListId((prev) => {
+        if (prev && lists.some((l) => l.id === prev)) return prev
+        return lists[0]?.id || null
+      })
+      setLoadingLists(false)
+    },
+    [householdId]
+  )
 
   useEffect(() => {
     loadHistoryLists(true)
   }, [loadHistoryLists])
 
-  const loadDetails = useCallback(async (listId: string) => {
-    setLoadingDetails(true)
-    const data = await shoppingListService.getListWithDetails(listId)
-    setListDetails(data)
-    setEditedName(data?.name || '')
-    setIsEditingName(false)
-    setIsDeleteModalOpen(false)
-    setAddedItemIds({})
-    setAllAdded(false)
-    setLoadingDetails(false)
-  }, [])
+  const loadDetails = useCallback(
+    async (listId: string) => {
+      setLoadingDetails(true)
+      const data = await shoppingListService.getListWithDetails(listId)
+      setListDetails(data)
+      setEditedName(data?.name || '')
+      setIsEditingName(false)
+      setIsDeleteModalOpen(false)
+      resetFeedback()
+      setLoadingDetails(false)
+    },
+    [resetFeedback]
+  )
 
   useEffect(() => {
     if (selectedListId) {
@@ -113,9 +115,15 @@ export const DesktopHistoryView: React.FC = () => {
       setIsEditingName(false)
       const currentList = historyLists.find((l) => l.id === selectedListId)
       const origName = currentList?.original_name || currentList?.name || null
-      setListDetails((prev) => (prev ? { ...prev, name: editedName.trim(), original_name: prev.original_name || origName } : null))
+      setListDetails((prev) =>
+        prev ? { ...prev, name: editedName.trim(), original_name: prev.original_name || origName } : null
+      )
       setHistoryLists((prev) =>
-        prev.map((l) => (l.id === selectedListId ? { ...l, name: editedName.trim(), original_name: l.original_name || origName } : l))
+        prev.map((l) =>
+          l.id === selectedListId
+            ? { ...l, name: editedName.trim(), original_name: l.original_name || origName }
+            : l
+        )
       )
     }
   }
@@ -133,104 +141,24 @@ export const DesktopHistoryView: React.FC = () => {
     }
   }
 
-  const householdKey = household?.id || 'global'
-  const resolvedCategories = categoriesByHousehold[householdKey] || []
-
-  const mapItemToDraftPayload = (
-    item: ActiveListItemWithProduct,
-    group?: AisleGroup<ActiveListItemWithProduct>
-  ): AddToDraftPayload => {
-    const selectedCatId =
-      item.category_id ??
-      group?.categoryId ??
-      item.category?.id ??
-      item.product?.category_id ??
-      item.product?.category?.id ??
-      undefined
-
-    const resolvedCat = selectedCatId ? resolvedCategories.find((c) => c.id === selectedCatId) : undefined
-
-    const resolvedCatName =
-      resolvedCat?.custom_name ||
-      resolvedCat?.name ||
-      (group?.name && group.name !== 'other' ? group.name : undefined) ||
-      item.category?.name ||
-      item.product?.category?.name ||
-      'other'
-
-    const resolvedSortOrder =
-      resolvedCat?.sort_order ??
-      (group?.sort_order && group.sort_order !== 99999 ? group.sort_order : undefined) ??
-      (item.category?.sort_order ? item.category.sort_order * 10 : undefined) ??
-      (item.product?.category?.sort_order ? item.product.category.sort_order * 10 : undefined) ??
-      99
-
-    const prodId = item.product?.id || item.product_id || undefined
-
-    return {
-      product_id: prodId,
-      name: item.product?.name || item.ad_hoc_name || 'Product',
-      quantity: item.total_quantity,
-      unit_type: (item.product?.unit_type as any) || 'pcs',
-      category_id: selectedCatId,
-      category_name: resolvedCatName,
-      sort_order: resolvedSortOrder,
-      meal_source: `${t('history.archivedList')}: ${listDetails?.name || t('navigation.history')}`,
-      is_ad_hoc: !prodId || !!item.added_ad_hoc
-    }
-  }
-
-  const handleAddSingleItemToDraft = (
-    item: ActiveListItemWithProduct,
-    group?: AisleGroup<ActiveListItemWithProduct>
-  ) => {
-    const payload = mapItemToDraftPayload(item, group)
-    addItemToDraft(payload)
-
-    setAddedItemIds((prev) => ({ ...prev, [item.id]: true }))
-    setTimeout(() => {
-      setAddedItemIds((prev) => ({ ...prev, [item.id]: false }))
-    }, 1500)
-  }
-
-  const handleAddAllToDraft = () => {
-    if (!listDetails || listDetails.items.length === 0) return
-
-    const payloads: AddToDraftPayload[] = []
-    if (sortedCategories && sortedCategories.length > 0) {
-      for (const group of sortedCategories) {
-        for (const item of group.items) {
-          payloads.push(mapItemToDraftPayload(item, group))
-        }
-      }
-    } else {
-      listDetails.items.forEach((item) => payloads.push(mapItemToDraftPayload(item)))
-    }
-
-    if (payloads.length === 0) return
-
-    addMultipleToDraft(payloads)
-    setAllAdded(true)
-    setTimeout(() => setAllAdded(false), 2000)
-  }
-
-  const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }
-
-  // Calculate stats for current details
-  const items = listDetails?.items || []
-  const checkedCount = items.filter((i) => i.is_checked).length
-  const totalCount = items.length
-
-  // Group items by category using aisle hierarchy and item.category_id override
-  const sortedCategories = groupItemsByAisle(items, resolvedCategories, 'other')
+  const completedDate =
+    listDetails?.completed_at ||
+    listDetails?.updated_at ||
+    listDetails?.created_at ||
+    listDetails?.target_date ||
+    new Date()
+  const completedFormattedDate = formatDate(completedDate)
+  const completedFormattedTime = formatTime(completedDate)
+  const createdFormattedDate = listDetails?.created_at ? formatDate(listDetails.created_at) : null
+  const createdFormattedTime = listDetails?.created_at ? formatTime(listDetails.created_at) : null
+  const hasOriginalName = Boolean(
+    listDetails?.original_name &&
+      listDetails?.name &&
+      listDetails.original_name.trim() !== listDetails.name.trim()
+  )
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-200">
-      {/* Left List Column: 5 Cols (History Shopping Lists) */}
       <div className="lg:col-span-5 flex flex-col gap-4">
         <div className="p-4 rounded-2xl bg-card border border-border flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-3">
@@ -241,14 +169,11 @@ export const DesktopHistoryView: React.FC = () => {
               <h3 className="font-bold text-sm text-foreground">
                 {t('navigation.history')} ({historyLists.length})
               </h3>
-              <p className="text-xs text-muted-foreground">
-                {t('history.subtitle')}
-              </p>
+              <p className="text-xs text-muted-foreground">{t('history.subtitle')}</p>
             </div>
           </div>
         </div>
 
-        {/* List of archives */}
         <div className="flex flex-col gap-2.5 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
           {loadingLists ? (
             <div className="py-16 flex flex-col items-center justify-center text-center">
@@ -265,60 +190,75 @@ export const DesktopHistoryView: React.FC = () => {
                 {t('history.emptySubtitle')}
               </p>
             </div>
-          ) : historyLists.map((list) => {
-            const isSelected = selectedListId === list.id
-            const completedDate = list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
-            const displayDate = formatDate(completedDate)
-            const displayTime = formatTime(completedDate)
-            const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
-            const hasOriginalName = Boolean(list.original_name && list.name && list.original_name.trim() !== list.name.trim())
+          ) : (
+            historyLists.map((list) => {
+              const isSelected = selectedListId === list.id
+              const listDate =
+                list.completed_at || list.updated_at || list.created_at || list.target_date || new Date()
+              const displayDate = formatDate(listDate)
+              const displayTime = formatTime(listDate)
+              const listTitle = list.name || `${t('history.archivedList')} ${displayDate}`
+              const listHasOrig = Boolean(
+                list.original_name && list.name && list.original_name.trim() !== list.name.trim()
+              )
 
-            return (
-              <div
-                key={list.id}
-                onClick={() => setSelectedListId(list.id)}
-                className={cn(
-                  "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs group",
-                  isSelected
-                    ? "bg-primary/10 border-primary/40 text-foreground shadow-md"
-                    : "bg-card border-border hover:border-border/80 hover:bg-muted/60"
-                )}
-              >
-                <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                  <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-primary" : "text-foreground group-hover:text-foreground")}>
-                    {listTitle}
-                  </h4>
-                  {hasOriginalName && (
-                    <span className="text-xs text-muted-foreground font-mono truncate">
-                      {list.original_name}
-                    </span>
+              return (
+                <div
+                  key={list.id}
+                  onClick={() => setSelectedListId(list.id)}
+                  className={cn(
+                    'p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 shadow-xs group',
+                    isSelected
+                      ? 'bg-primary/10 border-primary/40 text-foreground shadow-md'
+                      : 'bg-card border-border hover:border-border/80 hover:bg-muted/60'
                   )}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mt-0.5">
-                    <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>{displayDate}</span>
-                    </span>
-                    {displayTime && (
-                      <span className="flex items-center gap-1" title={t('history.completedAt')}>
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{displayTime}</span>
+                >
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                    <h4
+                      className={cn(
+                        'font-bold text-sm truncate',
+                        isSelected ? 'text-primary' : 'text-foreground group-hover:text-foreground'
+                      )}
+                    >
+                      {listTitle}
+                    </h4>
+                    {listHasOrig && (
+                      <span className="text-xs text-muted-foreground font-mono truncate">
+                        {list.original_name}
                       </span>
                     )}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono mt-0.5">
+                      <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span>{displayDate}</span>
+                      </span>
+                      {displayTime && (
+                        <span className="flex items-center gap-1" title={t('history.completedAt')}>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{displayTime}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <HistoryStatusBadge items={list.items} />
+                    <ChevronRight
+                      className={cn(
+                        'w-4 h-4 transition-transform',
+                        isSelected
+                          ? 'text-primary translate-x-1'
+                          : 'text-muted-foreground group-hover:text-foreground'
+                      )}
+                    />
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <HistoryStatusBadge items={list.items} />
-
-                  <ChevronRight className={cn("w-4 h-4 transition-transform", isSelected ? "text-primary translate-x-1" : "text-muted-foreground group-hover:text-foreground")} />
-                </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
         </div>
       </div>
 
-      {/* Right Detail Column: 7 Cols (Selected list breakdown) */}
       <div className="lg:col-span-7 flex flex-col gap-6 sticky top-24">
         {loadingDetails ? (
           <div className="p-12 rounded-3xl bg-card border border-border flex flex-col items-center justify-center text-center">
@@ -333,186 +273,104 @@ export const DesktopHistoryView: React.FC = () => {
           </div>
         ) : (
           <div className="p-6 rounded-3xl bg-card border border-border shadow-2xl flex flex-col gap-6 backdrop-blur-xl">
-            {/* Header: Title, Edit, Date & Meta */}
-            {(() => {
-              const completedDate = listDetails.completed_at || listDetails.updated_at || listDetails.created_at || listDetails.target_date || new Date()
-              const completedFormattedDate = formatDate(completedDate)
-              const completedFormattedTime = formatTime(completedDate)
-              const createdFormattedDate = listDetails.created_at ? formatDate(listDetails.created_at) : null
-              const createdFormattedTime = listDetails.created_at ? formatTime(listDetails.created_at) : null
-              const hasOriginalName = Boolean(listDetails.original_name && listDetails.name && listDetails.original_name.trim() !== listDetails.name.trim())
-
-              return (
-                <div className="flex flex-col gap-3 pb-4 border-b border-border">
-                  <div className="flex items-center justify-between gap-3">
-                    {isEditingName ? (
-                      <div className="flex items-center gap-2 flex-1">
-                        <Input
-                          value={editedName}
-                          onChange={(e) => setEditedName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveName()
-                            if (e.key === 'Escape') setIsEditingName(false)
-                          }}
-                          autoFocus
-                          disabled={isSavingName}
-                          className="h-10 bg-background border-input text-sm font-bold text-foreground"
-                        />
-                        <Button
-                          onClick={handleSaveName}
-                          disabled={isSavingName}
-                          size="sm"
-                          className="h-10 px-3 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 cursor-pointer"
-                        >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          onClick={() => setIsEditingName(false)}
-                          disabled={isSavingName}
-                          variant="ghost"
-                          size="sm"
-                          className="h-10 px-3 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2.5">
-                          <h3 className="font-extrabold text-lg text-foreground">
-                            {listDetails.name || `${t('history.archivedList')} ${completedFormattedDate}`}
-                          </h3>
-                          <button
-                            onClick={() => setIsEditingName(true)}
-                            className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
-                            title={t('common.edit')}
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        {hasOriginalName && (
-                          <span className="text-xs text-muted-foreground font-mono">
-                            {listDetails.original_name}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <HistoryStatusBadge items={listDetails.items} className="text-xs py-1" />
-                    </div>
+            <div className="flex flex-col gap-3 pb-4 border-b border-border">
+              <div className="flex items-center justify-between gap-3">
+                {isEditingName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveName()
+                        if (e.key === 'Escape') setIsEditingName(false)
+                      }}
+                      autoFocus
+                      disabled={isSavingName}
+                      className="h-10 bg-background border-input text-sm font-bold text-foreground"
+                    />
+                    <Button
+                      onClick={handleSaveName}
+                      disabled={isSavingName}
+                      size="sm"
+                      className="h-10 px-3 bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 cursor-pointer"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      onClick={() => setIsEditingName(false)}
+                      disabled={isSavingName}
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 px-3 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
                   </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground font-mono">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
-                        <Calendar className="w-3.5 h-3.5 text-primary" />
-                        <span>{t('history.completedAt')}: {completedFormattedDate}</span>
-                        {completedFormattedTime && (
-                          <span className="text-muted-foreground">({completedFormattedTime})</span>
-                        )}
+                ) : (
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="font-extrabold text-lg text-foreground">
+                        {listDetails.name || `${t('history.archivedList')} ${completedFormattedDate}`}
+                      </h3>
+                      <button
+                        onClick={() => setIsEditingName(true)}
+                        className="text-muted-foreground hover:text-primary p-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+                        title={t('common.edit')}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    {hasOriginalName && (
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {listDetails.original_name}
                       </span>
-                      {createdFormattedDate && (
-                        <span className="flex items-center gap-1.5 text-muted-foreground/80" title={t('history.createdAt')}>
-                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span>{t('history.createdAt')}: {createdFormattedDate}</span>
-                          {createdFormattedTime && (
-                            <span>({createdFormattedTime})</span>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    <span className="shrink-0">
-                      {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
-                    </span>
+                    )}
                   </div>
-                </div>
-              )
-            })()}
+                )}
 
-            {/* Categorized items container */}
-            <div className="flex flex-col gap-5 max-h-[480px] overflow-y-auto pr-1">
-              {sortedCategories.map((group) => (
-                <div key={group.categoryId ?? `group_${group.name}`} className="flex flex-col gap-2">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider px-1 flex items-center justify-between">
-                    <span>{group.sort_order !== 99999 ? `${group.sort_order / 10 || 1}. ${getCategoryLabel(group.name)}` : getCategoryLabel(group.name)}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {formatQuantity(group.items.length, 'pcs')}
+                <div className="flex items-center gap-2">
+                  <HistoryStatusBadge items={listDetails.items} className="text-xs py-1" />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground font-mono">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1.5" title={t('history.completedAt')}>
+                    <Calendar className="w-3.5 h-3.5 text-primary" />
+                    <span>
+                      {t('history.completedAt')}: {completedFormattedDate}
                     </span>
-                  </h4>
-
-                  <div className="flex flex-col gap-2">
-                    {group.items.map((item) => {
-                      const name = item.product?.name || item.ad_hoc_name || 'Product'
-                      const unit = item.product?.unit_type || 'pcs'
-                      const isItemAdded = addedItemIds[item.id]
-
-                      return (
-                        <div
-                          key={item.id}
-                          className="p-3.5 rounded-2xl bg-card border border-border flex items-center justify-between gap-3 shadow-xs"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className={cn(
-                                "w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-xs",
-                                item.is_checked
-                                  ? "bg-primary/20 text-primary border border-primary/30"
-                                  : "bg-muted text-muted-foreground"
-                              )}
-                            >
-                              {item.is_checked ? <Check className="w-3 h-3" /> : null}
-                            </div>
-
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-bold text-sm text-foreground truncate">
-                                {name}
-                              </span>
-                              {item.added_ad_hoc && (
-                                <span className="text-[10px] text-muted-foreground font-mono">{t('draft.adHocItem')}</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2.5 shrink-0">
-                            <span className="font-mono text-xs text-primary font-bold bg-background border border-border px-2.5 py-1 rounded-xl">
-                              {formatQuantity(item.total_quantity, unit)}
-                            </span>
-
-                            <Button
-                              onClick={() => handleAddSingleItemToDraft(item, group)}
-                              size="sm"
-                              variant="outline"
-                              className={cn(
-                                "h-8 px-2.5 text-xs rounded-xl border transition-all cursor-pointer",
-                                isItemAdded
-                                  ? "bg-primary text-primary-foreground border-primary font-bold"
-                                  : "bg-card hover:bg-muted text-foreground border-border hover:border-primary/40 hover:text-primary"
-                              )}
-                              title={t('history.restoreToDraft')}
-                            >
-                              {isItemAdded ? (
-                                <span className="flex items-center gap-1">
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>{t('toasts.saved')}</span>
-                                </span>
-                              ) : (
-                                <span className="flex items-center gap-1">
-                                  <Plus className="w-3.5 h-3.5 text-primary" />
-                                  <ShoppingCart className="w-3.5 h-3.5" />
-                                </span>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                    {completedFormattedTime && (
+                      <span className="text-muted-foreground">({completedFormattedTime})</span>
+                    )}
+                  </span>
+                  {createdFormattedDate && (
+                    <span
+                      className="flex items-center gap-1.5 text-muted-foreground/80"
+                      title={t('history.createdAt')}
+                    >
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>
+                        {t('history.createdAt')}: {createdFormattedDate}
+                      </span>
+                      {createdFormattedTime && <span>({createdFormattedTime})</span>}
+                    </span>
+                  )}
                 </div>
-              ))}
+                <span className="shrink-0">
+                  {t('history.itemsBoughtRatio', { bought: checkedCount, total: totalCount })}
+                </span>
+              </div>
             </div>
 
-            {/* Bottom Actions Bar */}
+            <HistoryListItemsBreakdown
+              sortedCategories={sortedCategories}
+              addedItemIds={addedItemIds}
+              getCategoryLabel={getCategoryLabel}
+              onAddSingleItem={handleAddSingleItemToDraft}
+              variant="desktop"
+            />
+
             <div className="pt-4 border-t border-border">
               <div className="grid grid-cols-2 gap-3 w-full">
                 <Button
@@ -528,7 +386,9 @@ export const DesktopHistoryView: React.FC = () => {
                   ) : (
                     <>
                       <ShoppingCart className="w-4 h-4 fill-current shrink-0" />
-                      <span className="truncate">{t('history.restoreToDraft')} ({items.length})</span>
+                      <span className="truncate">
+                        {t('history.restoreToDraft')} ({items.length})
+                      </span>
                     </>
                   )}
                 </Button>

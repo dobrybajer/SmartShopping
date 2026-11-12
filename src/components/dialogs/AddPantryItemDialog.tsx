@@ -1,28 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { usePantryStore } from '@/store/usePantryStore'
-import { useShallow } from 'zustand/react/shallow'
+import React from 'react'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
-import { productService, type Product, type ProductCategory } from '@/services/productService'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle
-} from '@/components/ui/sheet'
+import { useAddPantryItemForm } from '@/hooks/useAddPantryItemForm'
+import type { Product } from '@/services/productService'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ProductAutocomplete } from '@/components/ui/ProductAutocomplete'
 import { Button } from '@/components/ui/button'
-import { toast } from '@/store/useToastStore'
 import { Warehouse, Plus, Minus, Layers, AlertCircle } from 'lucide-react'
 import type { UnitEnum } from '@/types/supabase'
-import { cn, getNextQuantity } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 
 export interface AddPantryItemDialogProps {
   open: boolean
@@ -37,192 +24,45 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
   onSuccess,
   initialProduct
 }) => {
-  const { household } = useAuth()
   const { isDesktop } = useDeviceLayout()
-  const {
-    pantryMapByProductId,
-    pantryMapByAdHocName,
-    addOrIncrementItem
-  } = usePantryStore(
-    useShallow((state) => ({
-      pantryMapByProductId: state.pantryMapByProductId,
-      pantryMapByAdHocName: state.pantryMapByAdHocName,
-      addOrIncrementItem: state.addOrIncrementItem
-    }))
-  )
   const { t, formatUnit, formatQuantity } = useTranslation()
-
-  const [name, setName] = useState('')
-  const [quantity, setQuantity] = useState<number | ''>(1)
-  const [unitType, setUnitType] = useState<UnitEnum>('pcs')
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>(undefined)
-  const [selectedProductId, setSelectedProductId] = useState<string | undefined>(undefined)
-  const [mergeMode, setMergeMode] = useState<'increment' | 'set'>('increment')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const [categories, setCategories] = useState<ProductCategory[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-
-  const loadData = useCallback(async () => {
-    if (!household?.id) return
-    const [cats, prods] = await Promise.all([
-      productService.getCategories(household.id),
-      productService.getProducts(household.id)
-    ])
-    setCategories(cats)
-    setProducts(prods as any)
-  }, [household])
-
-  useEffect(() => {
-    if (open) {
-      loadData()
-      if (initialProduct) {
-        setName(initialProduct.name)
-        setSelectedProductId(initialProduct.id)
-        setUnitType(initialProduct.unit_type as UnitEnum)
-        setSelectedCategoryId(initialProduct.category_id || undefined)
-      } else {
-        setName('')
-        setSelectedProductId(undefined)
-        setUnitType('pcs')
-        setSelectedCategoryId(undefined)
-      }
-      setQuantity(1)
-      setMergeMode('increment')
-    }
-  }, [open, loadData, initialProduct])
-
-  // Check if item is already in pantry
-  const existingPantryItem =
-    (selectedProductId ? pantryMapByProductId[selectedProductId] : null) ||
-    (name.trim() ? pantryMapByAdHocName[name.trim().toLowerCase()] : null)
-
-  const handleSelectProduct = (product: Product) => {
-    setSelectedProductId(product.id)
-    setName(product.name)
-    setUnitType(product.unit_type as UnitEnum)
-    if (product.category_id) {
-      setSelectedCategoryId(product.category_id)
-    }
-  }
-
-  const handleIncrease = () => {
-    const current = typeof quantity === 'number' ? quantity : 1
-    setQuantity(getNextQuantity(current, unitType, 'increase'))
-  }
-
-  const handleDecrease = () => {
-    const current = typeof quantity === 'number' ? quantity : 1
-    const next = getNextQuantity(current, unitType, 'decrease')
-    if (next > 0) {
-      setQuantity(next)
-    }
-  }
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault()
-    if (!household?.id || !name.trim() || quantity === '' || quantity <= 0) return
-
-    setIsSubmitting(true)
-    try {
-      let resolvedProdId = selectedProductId
-      let resolvedCatId = selectedCategoryId
-
-      // Catalog integrity: if not selected from catalog, see if product exists or create it
-      if (!resolvedProdId) {
-        const match = products.find(
-          (p) => p.name.trim().toLowerCase() === name.trim().toLowerCase()
-        )
-        if (match) {
-          resolvedProdId = match.id
-          resolvedCatId = match.category_id || resolvedCatId
-        } else {
-          // Create product in catalog
-          const newProd = await productService.createProduct({
-            household_id: household.id,
-            name: name.trim(),
-            unit_type: unitType,
-            category_id: resolvedCatId || null,
-            type: 'Household',
-            is_ad_hoc: false
-          })
-          if (newProd) {
-            resolvedProdId = newProd.id
-            resolvedCatId = newProd.category_id || resolvedCatId
-          }
-        }
-      }
-
-      const nowIso = new Date().toISOString()
-
-      const success = await addOrIncrementItem(
-        {
-          household_id: household.id,
-          product_id: resolvedProdId || null,
-          ad_hoc_name: resolvedProdId ? null : name.trim(),
-          category_id: resolvedCatId || null,
-          quantity: Number(quantity),
-          unit_type: unitType,
-          last_purchased_at: nowIso,
-          last_verified_at: nowIso
-        },
-        mergeMode
-      )
-
-      if (success) {
-        toast.success(
-          mergeMode === 'increment' && existingPantryItem
-            ? t('pantry.addDialog.mergeOptionIncrease', { quantity: formatQuantity(Number(quantity), unitType) })
-            : `${t('pantry.inStock')}: ${name}`
-        )
-        onSuccess?.()
-        onOpenChange(false)
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }
+  const form = useAddPantryItemForm({ open, onOpenChange, onSuccess, initialProduct })
 
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* 1. Product Selection */}
+    <form onSubmit={form.handleSubmit} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-semibold text-foreground flex items-center justify-between">
           <span>{t('pantry.addDialog.selectProduct')}</span>
-          {selectedCategoryId && (
+          {form.selectedCategoryId && (
             <span className="text-[11px] text-muted-foreground font-normal">
-              {getCategoryLabel(
-                categories.find((c) => c.id === selectedCategoryId)?.name || 'other'
+              {form.getCategoryLabel(
+                form.categories.find((c) => c.id === form.selectedCategoryId)?.name || 'other'
               )}
             </span>
           )}
         </label>
         <ProductAutocomplete
-          value={name}
+          value={form.name}
           onChange={(val) => {
-            setName(val)
-            setSelectedProductId(undefined)
+            form.setName(val)
+            form.setSelectedProductId(undefined)
           }}
-          onSelectProduct={handleSelectProduct}
-          products={products}
+          onSelectProduct={form.handleSelectProduct}
+          products={form.products}
           placeholder={t('pantry.searchPlaceholder')}
         />
       </div>
 
-      {/* 2. Duplicate Detection Banner & Merge Choice */}
-      {existingPantryItem && (
+      {form.existingPantryItem && (
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 animate-in fade-in duration-150">
           <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>
               {t('pantry.addDialog.alreadyInPantry', {
-                quantity: formatQuantity(existingPantryItem.quantity, existingPantryItem.unit_type)
+                quantity: formatQuantity(
+                  form.existingPantryItem.quantity,
+                  form.existingPantryItem.unit_type
+                )
               })}
             </span>
           </div>
@@ -230,19 +70,19 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
               type="button"
-              onClick={() => setMergeMode('increment')}
+              onClick={() => form.setMergeMode('increment')}
               className={cn(
-                "p-2 rounded-lg border text-left font-semibold transition-all cursor-pointer",
-                mergeMode === 'increment'
-                  ? "bg-amber-500 text-black border-amber-500 font-bold shadow-xs"
-                  : "bg-background/80 text-muted-foreground border-border hover:bg-muted"
+                'p-2 rounded-lg border text-left font-semibold transition-all cursor-pointer',
+                form.mergeMode === 'increment'
+                  ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-xs'
+                  : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
               )}
             >
               <div className="flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5" />
                 <span className="truncate">
                   {t('pantry.addDialog.mergeOptionIncrease', {
-                    quantity: formatQuantity(Number(quantity) || 0, unitType)
+                    quantity: formatQuantity(Number(form.quantity) || 0, form.unitType)
                   })}
                 </span>
               </div>
@@ -250,19 +90,19 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
 
             <button
               type="button"
-              onClick={() => setMergeMode('set')}
+              onClick={() => form.setMergeMode('set')}
               className={cn(
-                "p-2 rounded-lg border text-left font-semibold transition-all cursor-pointer",
-                mergeMode === 'set'
-                  ? "bg-amber-500 text-black border-amber-500 font-bold shadow-xs"
-                  : "bg-background/80 text-muted-foreground border-border hover:bg-muted"
+                'p-2 rounded-lg border text-left font-semibold transition-all cursor-pointer',
+                form.mergeMode === 'set'
+                  ? 'bg-amber-500 text-black border-amber-500 font-bold shadow-xs'
+                  : 'bg-background/80 text-muted-foreground border-border hover:bg-muted'
               )}
             >
               <div className="flex items-center gap-1.5">
                 <Layers className="w-3.5 h-3.5" />
                 <span className="truncate">
                   {t('pantry.addDialog.mergeOptionSet', {
-                    quantity: formatQuantity(Number(quantity) || 0, unitType)
+                    quantity: formatQuantity(Number(form.quantity) || 0, form.unitType)
                   })}
                 </span>
               </div>
@@ -271,7 +111,6 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
         </div>
       )}
 
-      {/* 3. Quantity Stepper & Unit Selector */}
       <div className="grid grid-cols-2 gap-3 items-end">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-foreground">
@@ -280,7 +119,7 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
           <div className="flex items-center bg-background border border-border rounded-xl p-1 shadow-inner h-11">
             <button
               type="button"
-              onClick={handleDecrease}
+              onClick={form.handleDecrease}
               className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
               title={t('common.decrease')}
               aria-label={t('common.decrease')}
@@ -292,17 +131,17 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
               type="number"
               min="0.1"
               step="any"
-              value={quantity}
+              value={form.quantity}
               onChange={(e) => {
                 const val = e.target.value
-                setQuantity(val === '' ? '' : parseFloat(val))
+                form.setQuantity(val === '' ? '' : parseFloat(val))
               }}
               className="w-full text-center bg-transparent font-mono text-sm font-bold text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
 
             <button
               type="button"
-              onClick={handleIncrease}
+              onClick={form.handleIncrease}
               className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer"
               title={t('common.increase')}
               aria-label={t('common.increase')}
@@ -321,12 +160,12 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
               <button
                 key={u}
                 type="button"
-                onClick={() => setUnitType(u)}
+                onClick={() => form.setUnitType(u)}
                 className={cn(
-                  "h-8 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                  unitType === u
-                    ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
+                  'h-8 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+                  form.unitType === u
+                    ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 {formatUnit(u)}
@@ -336,35 +175,46 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
         </div>
       </div>
 
-      {/* 4. Category Selector (Optional refinement) */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-semibold text-foreground">
-          {t('products.category')}
-        </label>
+        <label className="text-xs font-semibold text-foreground">{t('products.category')}</label>
         <select
-          value={selectedCategoryId ?? ''}
+          value={form.selectedCategoryId ?? ''}
           onChange={(e) => {
             const val = e.target.value
-            setSelectedCategoryId(val ? Number(val) : undefined)
+            form.setSelectedCategoryId(val ? Number(val) : undefined)
           }}
           className="h-10 px-3 rounded-xl bg-background border border-border text-foreground text-xs font-medium cursor-pointer outline-none focus:ring-1 focus:ring-primary"
         >
           <option value="">{t('common.selectCategory')}</option>
-          {categories.map((c) => (
+          {form.categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {getCategoryLabel(c.name)}
+              {form.getCategoryLabel(c.name)}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Submit CTA */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="pantry-expiration-date" className="text-xs font-semibold text-foreground">
+          {t('pantry.expiry.label')}
+        </label>
+        <input
+          id="pantry-expiration-date"
+          type="date"
+          value={form.expirationDate}
+          onChange={(e) => form.setExpirationDate(e.target.value)}
+          className="h-10 px-3 rounded-xl bg-background border border-border text-foreground font-mono text-xs cursor-pointer outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+
       <Button
         type="submit"
-        disabled={!name.trim() || quantity === '' || quantity <= 0 || isSubmitting}
+        disabled={
+          !form.name.trim() || form.quantity === '' || form.quantity <= 0 || form.isSubmitting
+        }
         className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl flex items-center justify-center gap-2 mt-2 shadow-lg cursor-pointer disabled:opacity-50"
       >
-        {isSubmitting ? (
+        {form.isSubmitting ? (
           <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
@@ -385,9 +235,7 @@ export const AddPantryItemDialog: React.FC<AddPantryItemDialogProps> = ({
         <h3 className="text-base font-bold text-foreground leading-tight">
           {t('pantry.addDialog.title')}
         </h3>
-        <p className="text-xs text-muted-foreground">
-          {t('pantry.addDialog.subtitle')}
-        </p>
+        <p className="text-xs text-muted-foreground">{t('pantry.addDialog.subtitle')}</p>
       </div>
     </div>
   )

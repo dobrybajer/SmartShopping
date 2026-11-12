@@ -134,6 +134,104 @@ export function calculatePantryFreshness(
   }
 }
 
+export type ExpiryStatusLevel = 'expired' | 'expiring_soon' | 'upcoming' | 'ok' | 'none'
+
+export interface ExpiryStatusResult {
+  level: ExpiryStatusLevel
+  daysRemaining: number | null
+  isAlert: boolean
+  badgeClass: string
+  messageKey: string
+}
+
+/**
+ * Evaluates optional expiration_date against today's calendar date.
+ * - diffDays < 0: expired (red alert)
+ * - 0 <= diffDays <= 1 (< 48h): expiring_soon ("Kończy się termin" red alert)
+ * - 2 <= diffDays <= 7: upcoming (amber badge)
+ * - diffDays > 7: ok (emerald/subtle badge)
+ */
+export function calculateExpiryStatus(
+  expirationDate?: string | null,
+  now: Date = new Date()
+): ExpiryStatusResult {
+  if (!expirationDate) {
+    return { level: 'none', daysRemaining: null, isAlert: false, badgeClass: '', messageKey: '' }
+  }
+
+  const datePart = expirationDate.trim().slice(0, 10)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart)
+  if (!match) {
+    return { level: 'none', daysRemaining: null, isAlert: false, badgeClass: '', messageKey: '' }
+  }
+
+  const expiryUtcMidnight = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  const todayUtcMidnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const diffDays = Math.round((expiryUtcMidnight - todayUtcMidnight) / (1000 * 60 * 60 * 24))
+
+  if (diffDays < 0) {
+    return {
+      level: 'expired',
+      daysRemaining: diffDays,
+      isAlert: true,
+      badgeClass: 'bg-rose-500/15 text-rose-400 border-rose-500/35',
+      messageKey: 'pantry.expiry.expired'
+    }
+  }
+
+  if (diffDays <= 1) {
+    return {
+      level: 'expiring_soon',
+      daysRemaining: diffDays,
+      isAlert: true,
+      badgeClass: 'bg-rose-500/15 text-rose-400 border-rose-500/35',
+      messageKey: 'pantry.expiry.expiringSoon'
+    }
+  }
+
+  if (diffDays <= 7) {
+    return {
+      level: 'upcoming',
+      daysRemaining: diffDays,
+      isAlert: false,
+      badgeClass: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      messageKey: 'pantry.expiry.upcoming'
+    }
+  }
+
+  return {
+    level: 'ok',
+    daysRemaining: diffDays,
+    isAlert: false,
+    badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+    messageKey: 'pantry.expiry.validUntil'
+  }
+}
+
+/**
+ * Sorts pantry items by soonest expiration date ascending; items without an
+ * expiration date appear at the end sorted alphabetically by product name.
+ */
+export function sortPantryItemsByExpiry(items: PantryItemWithDetails[]): PantryItemWithDetails[] {
+  return [...items].sort((a, b) => {
+    const expA = a.expiration_date ? a.expiration_date.slice(0, 10) : null
+    const expB = b.expiration_date ? b.expiration_date.slice(0, 10) : null
+
+    if (expA && expB) {
+      const cmp = expA.localeCompare(expB)
+      if (cmp !== 0) return cmp
+    } else if (expA) {
+      return -1
+    } else if (expB) {
+      return 1
+    }
+
+    const nameA = (a.product?.name || a.ad_hoc_name || '').toLowerCase()
+    const nameB = (b.product?.name || b.ad_hoc_name || '').toLowerCase()
+    return nameA.localeCompare(nameB)
+  })
+}
+
 type UnitFamily = 'weight' | 'volume' | 'pieces'
 
 interface UnitSpec {

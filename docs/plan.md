@@ -316,7 +316,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Czysty build i linter `oxlint` (0 błędów).
    * Rygorystyczny typecheck TypeScript `tsc -b` bez żadnych błędów ani użycia typu `any`.
 
-## Faza 15: Moduł Kalendarza i Planowania Posiłków (ADR-009)
+## Faza 15: Moduł Kalendarza i Planowania Posiłków (ADR-009) (Zakończona w całości)
 **Cel:** Pełnowymiarowy kalendarz planowania posiłków z trzema perspektywami (Miesiąc, Tydzień roboczy/pełny, Dzień z podziałem na kategorie i makro), bezpośrednią synchronizacją z procesem zakupowym (Koszyk -> Aktywna lista -> Kupione), wykrywaniem niepewności (⚠️) przy brakujących składnikach, uwzględnianiem zapasów ze Spiżarni oraz zablokowanym trybem archiwalnym dla przeszłości. Zobacz [ADR-009](./adr/ADR-009-meal-planning-and-calendar-module.md).
 
 1. **Baza Danych & RLS (Supabase):**

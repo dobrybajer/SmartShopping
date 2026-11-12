@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DesktopActiveListView } from '../DesktopActiveListView'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useCategoryStore } from '@/store/useCategoryStore'
 import { shoppingListService } from '@/services/shoppingListService'
 import { useI18nStore } from '@/i18n'
 
@@ -143,5 +144,20 @@ describe('DesktopActiveListView - Desktop Segmented Tabs & Multi-List Management
     await waitFor(() => {
       expect(screen.getByText('Młotek')).toBeInTheDocument()
     })
+  })
+
+  it('Flow 03 (NORM-09): subscribes to category/aisle realtime updates on mount and cleans up on unmount', async () => {
+    const unsubscribeSpy = vi.fn()
+    const subscribeSpy = vi.fn().mockReturnValue(unsubscribeSpy)
+    useCategoryStore.setState({ subscribeRealtime: subscribeSpy })
+
+    const { unmount } = render(<DesktopActiveListView />)
+
+    await waitFor(() => {
+      expect(subscribeSpy).toHaveBeenCalledWith('household-123')
+    })
+
+    unmount()
+    expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
   })
 })

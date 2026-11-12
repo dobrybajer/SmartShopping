@@ -8,11 +8,11 @@ Aplikacja oparta na architekturze Serverless (BaaS - Backend as a Service) oraz 
 
 ## 2. Stos Technologiczny
 *   **Język:** TypeScript (Strict Mode).
-*   **Framework UI:** React 18.
-*   **Build Tool:** Vite (z pluginem `vite-plugin-pwa`).
+*   **Framework UI:** React 19.
+*   **Build Tool:** Vite (z pluginem `vite-plugin-pwa` i regułami cache Workbox).
 *   **Stylizacja:** Tailwind CSS (skonfigurowany pod True Black dla ekranów OLED).
 *   **Biblioteka Komponentów:** shadcn/ui (Radix UI primitives).
-*   **Zarządzanie Stanem:** Zustand (dla stanów lokalnych) + React Query (lub subskrypcje Supabase).
+*   **Zarządzanie Stanem:** Zustand (globalny stan reaktywny, Optimistic UI, kolejka offline) + Supabase Realtime (WebSockets).
 *   **Hosting:** Vercel (darmowy tier, CI/CD).
 *   **Baza Danych i Auth:** Supabase.
 
@@ -40,6 +40,7 @@ CREATE TABLE users (
   email TEXT UNIQUE NOT NULL,
   name TEXT,
   language VARCHAR(10) DEFAULT 'pl' NOT NULL,
+  theme VARCHAR(32) DEFAULT 'oled-emerald' NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -114,7 +115,8 @@ CREATE TABLE shopping_lists (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  preset_tags TEXT[]
+  preset_tags TEXT[],
+  archived_items_snapshot JSONB NULL -- podsumowanie snapshotowe zarchiwizowanych pozycji (retencja MED-02)
 );
 
 CREATE TABLE shopping_list_items (
@@ -125,7 +127,23 @@ CREATE TABLE shopping_list_items (
   total_quantity NUMERIC NOT NULL,
   is_checked BOOLEAN DEFAULT FALSE,
   in_pantry BOOLEAN DEFAULT FALSE, -- oznaczenie 'Mam w spiżarni'
-  added_ad_hoc BOOLEAN DEFAULT FALSE
+  added_ad_hoc BOOLEAN DEFAULT FALSE,
+  meal_plan_item_id UUID REFERENCES meal_plans(id) ON DELETE SET NULL, -- powiązanie z zaplanowanym posiłkiem (ADR-009)
+  updated_at TIMESTAMPTZ DEFAULT NOW() -- znacznik OCC dla synchronizacji Realtime (CRIT-02)
+);
+
+CREATE TABLE shopping_list_items_archive (
+  id UUID PRIMARY KEY,
+  shopping_list_id UUID NOT NULL REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
+  total_quantity NUMERIC NOT NULL,
+  is_checked BOOLEAN DEFAULT FALSE,
+  in_pantry BOOLEAN DEFAULT FALSE,
+  added_ad_hoc BOOLEAN DEFAULT FALSE,
+  meal_plan_item_id UUID NULL,
+  updated_at TIMESTAMPTZ NULL,
+  archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE pantry_items (
@@ -138,6 +156,7 @@ CREATE TABLE pantry_items (
   unit_type unit_enum NOT NULL DEFAULT 'pcs',
   last_purchased_at TIMESTAMPTZ,
   last_verified_at TIMESTAMPTZ,
+  expiration_date DATE NULL, -- opcjonalna data ważności produktu w spiżarni (NORM-04)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT uq_pantry_household_product UNIQUE (household_id, product_id)
@@ -163,10 +182,11 @@ CREATE TABLE meal_plans (
   meal_category_id INT REFERENCES meal_categories(id) ON DELETE SET NULL,
   custom_name TEXT,
   is_ad_hoc BOOLEAN NOT NULL DEFAULT FALSE,
-  servings NUMERIC NOT NULL DEFAULT 1,
+  servings NUMERIC NOT NULL DEFAULT 1 CHECK (servings > 0),
   target_kcal NUMERIC,
   notes TEXT,
   sort_order INT NOT NULL DEFAULT 0,
+  is_uncertainty_dismissed BOOLEAN NOT NULL DEFAULT FALSE, -- wyciszenie ostrzeżenia ⚠️ brakujących składników (MED-03)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -208,10 +228,11 @@ CREATE TABLE meal_plans (
     *   Rozszerzalny rejestr zdarzeń (Notification Registry) z silnym typowaniem TypeScript – dodanie nowego typu powiadomienia to dopisanie definicji i szablonu i18n.
     *   Architektura z interfejsem adaptera (`NotificationStorageChannel`) przygotowana na bezszwowe podpięcie tabeli historii i Centrum Powiadomień (In-App Bell) w przyszłości. Zobacz [ADR-007: Multiplatform Web Push Notifications](./adr/ADR-007-multiplatform-web-push-notifications.md).
 *   **Realtime Sync (Współdzielenie):** Odsłuch WebSocket na tabeli `shopping_list_items` i `shopping_lists`. Odhaczenie produktu lub zmiana listy natychmiast synchronizuje stan na urządzeniach innych domowników (household).
-*   **Eksport na e-mail:** Możliwość wygenerowania i wysłania aktywnej/zarchwizowanej listy zakupowej na połączony z kontem adres Gmail.
+*   **Eksport na e-mail *(Planowane — Roadmap: LOW-09)*:** Możliwość wygenerowania i wysłania aktywnej/zarchiwizowanej listy zakupowej na połączony z kontem adres Gmail.
 *   **Moduł Spiżarnia i Inteligentna Synchronizacja Zapasów (ADR-008):**
     *   Dedykowana, 6. zakładka w nawigacji (`'pantry'`, ikona `Warehouse`) umieszczona bezpośrednio po Historii.
-    *   Prezentacja posiadanego stanu magazynowego gospodarstwa pogrupowanego według alejek sklepowych (`product_categories`), z możliwością edycji ilości steperem (+/-) i wpisywania z klawiatury.
+    *   Prezentacja posiadanego stanu magazynowego gospodarstwa pogrupowanego według alejek sklepowych (`product_categories`), z możliwością edycji ilości steperem (+/-) i wpisywania z klawiatury oraz sortowania wg alejek lub daty ważności (`expiration_date`).
+    *   **Daty Ważności i Zdejmowanie Składników:** Opcjonalne pole `expiration_date` w formularzu dodawania i edycji inline z czerwonym badge *"Kończy się termin"* przy terminie < 48h (NORM-04), oraz automatyczna dedukcja zużytych składników ze spiżarni po kliknięciu *"Ugotowane"* w przepisie lub kalendarzu (`CookMealDeductModal`, MED-05).
     *   **Auto-zasilanie przy archiwizacji:** Podczas zamykania listy zakupowej (`archiveActiveList`) wszystkie kupione pozycje (`is_checked = true` oraz `in_pantry = false`) automatycznie zasilają spiżarnię (sumowanie ilości i aktualizacja daty `last_purchased_at`).
     *   **Wskaźniki świeżości i weryfikacja w Koszyku i na Aktywnej Liście:** Ikona `Warehouse` obok stepera ilości sygnalizuje wiek ostatniego zakupu produktu według kategorii:
         *   *Spożywcze:* Zielony (<3 dni), Pomarańczowy (3–7 dni), Czerwony (>7 dni).

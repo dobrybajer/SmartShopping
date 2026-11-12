@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { useShoppingStore } from '@/store/useShoppingStore'
-import { useShallow } from 'zustand/react/shallow'
+import React, { useState } from 'react'
 import { useTranslation } from '@/i18n'
-import { shoppingListService } from '@/services/shoppingListService'
-import { notificationService } from '@/services/notificationService'
-import type {
-  ActiveListWithDetails,
-  ActiveListItemWithProduct
-} from '@/services/shoppingListService'
-import { Checkbox } from '@/components/ui/checkbox'
+import { useActiveListController } from '@/hooks/useActiveListController'
+import { ActiveListItemRow } from '@/components/shopping/ActiveListItemRow'
+import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
@@ -23,376 +16,20 @@ import {
   Archive,
   ShoppingCart,
   Plus,
-  Minus,
   Star,
   MoreVertical,
   Edit2,
   Trash2,
-  Package,
-  Warehouse
+  Package
 } from 'lucide-react'
-import { cn, getNextQuantity } from '@/lib/utils'
-import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
-import { useCategoryStore } from '@/store/useCategoryStore'
-import { usePantryStore } from '@/store/usePantryStore'
-import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
-import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
-import { enqueueMutation } from '@/lib/offline/offlineMutationQueue'
-import { createActiveListRealtimeHandlers } from '@/lib/realtime/activeListDiff'
-import { trackLocalItemMutation } from '@/lib/realtime/localMutationTracker'
-import {
-  sortActiveLists,
-  findDefaultOrFirstListId
-} from '@/lib/calculations/activeListCalculations'
+import { cn } from '@/lib/utils'
 
 export const ActiveListView: React.FC = () => {
-  const { household, userProfile, user } = useAuth()
-  const { categoriesByHousehold, loadCategories } = useCategoryStore(
-    useShallow((state) => ({
-      categoriesByHousehold: state.categoriesByHousehold,
-      loadCategories: state.loadCategories
-    }))
-  )
-  const { pantryMapByProductId, pantryMapByAdHocName, pantryItemsByParentId } = usePantryStore(
-    useShallow((state) => ({
-      pantryMapByProductId: state.pantryMapByProductId,
-      pantryMapByAdHocName: state.pantryMapByAdHocName,
-      pantryItemsByParentId: state.pantryItemsByParentId
-    }))
-  )
-  const {
-    setDraftItems,
-    draftItems,
-    setSelectedActiveListId,
-    activeListsSummary,
-    setActiveListsSummary
-  } = useShoppingStore(
-    useShallow((state) => ({
-      setDraftItems: state.setDraftItems,
-      draftItems: state.draftItems,
-      setSelectedActiveListId: state.setSelectedActiveListId,
-      activeListsSummary: state.activeListsSummary,
-      setActiveListsSummary: state.setActiveListsSummary
-    }))
-  )
-  const { t, formatUnit, formatQuantity, formatDate } = useTranslation()
-
-  const [activeList, setActiveList] = useState<ActiveListWithDetails | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingDetails, setLoadingDetails] = useState(false)
-  const [isArchiving, setIsArchiving] = useState(false)
-  const [itemToDelete, setItemToDelete] = useState<ActiveListItemWithProduct | null>(null)
-  const [isDeleteItemModalOpen, setIsDeleteItemModalOpen] = useState(false)
-  const [isDeleteListModalOpen, setIsDeleteListModalOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [isNewListOpen, setIsNewListOpen] = useState(false)
-  const [isRenameOpen, setIsRenameOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState<string>('')
+  const { t, formatDate } = useTranslation()
+  const c = useActiveListController()
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
-  const [selectedPantryItem, setSelectedPantryItem] = useState<ActiveListItemWithProduct | null>(null)
 
-  const householdId = household?.id
-
-  // 1. Fetch active lists summaries and determine selected list
-  const loadActiveLists = useCallback(async (listIdToSelect?: string) => {
-    if (!householdId) return
-    const summaries = await shoppingListService.getActiveListsSummary(householdId)
-    const sorted = sortActiveLists(summaries)
-    setActiveListsSummary(sorted)
-
-    if (sorted.length === 0) {
-      setActiveList(null)
-      setSelectedActiveListId(null)
-      setLoading(false)
-      return
-    }
-
-    const currentSelectedId = listIdToSelect || useShoppingStore.getState().selectedActiveListId
-    const targetId =
-      sorted.find((l) => l.id === currentSelectedId)?.id ||
-      findDefaultOrFirstListId(sorted)
-
-    if (targetId) {
-      setSelectedActiveListId(targetId)
-      const details = await shoppingListService.getListWithDetails(targetId)
-      setActiveList(details)
-    } else {
-      setActiveList(null)
-    }
-
-    setLoading(false)
-  }, [householdId, setSelectedActiveListId, setActiveListsSummary])
-
-  // 2. Initial load
-  useEffect(() => {
-    loadActiveLists()
-  }, [loadActiveLists])
-
-  useEffect(() => {
-    loadCategories(householdId)
-  }, [householdId, loadCategories])
-
-  // 3. Switch list details when selectedActiveListId changes
-  const switchActiveList = async (listId: string) => {
-    if (listId === activeList?.id) return
-    setSelectedActiveListId(listId)
-    setLoadingDetails(true)
-    const details = await shoppingListService.getListWithDetails(listId)
-    setActiveList(details)
-    setLoadingDetails(false)
-  }
-
-  // 4. Realtime subscription (household & current list level)
-  const activeListRef = useRef<ActiveListWithDetails | null>(activeList)
-  useEffect(() => {
-    activeListRef.current = activeList
-  }, [activeList])
-
-  useActiveListRealtime(
-    household?.id ?? null,
-    activeList?.id ?? null,
-    createActiveListRealtimeHandlers({
-      householdId: household?.id,
-      getActiveList: () => activeListRef.current,
-      setActiveList,
-      setActiveListsSummary
-    })
-  )
-
-  const handleToggleCheck = async (itemId: string, currentStatus: boolean) => {
-    if (!activeList) return
-
-    const targetItem = activeList.items.find((i) => i.id === itemId)
-    const newChecked = !currentStatus
-
-    // Register local mutation immediately so returning Realtime WebSocket echo won't re-vibrate or refetch (HIGH-06)
-    trackLocalItemMutation(itemId, { is_checked: newChecked })
-
-    // Optimistic UI update - never roll back on market connectivity loss (CRIT-01)
-    const updatedItems = activeList.items.map((item) =>
-      item.id === itemId
-        ? { ...item, is_checked: newChecked, updated_at: new Date().toISOString() }
-        : item
-    )
-    setActiveList({ ...activeList, items: updatedItems })
-
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
-    if (isOffline) {
-      enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
-      return
-    }
-
-    try {
-      const success = targetItem?.updated_at
-        ? await shoppingListService.toggleItemChecked(itemId, newChecked, targetItem.updated_at)
-        : await shoppingListService.toggleItemChecked(itemId, newChecked)
-      if (!success) {
-        // Network or server error - save to offline queue without rolling back UI (CRIT-01)
-        enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
-      } else if (household) {
-        // Update summary badge
-        shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
-
-        // If all items on active list are completed, notify household members
-        const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
-        if (allDone && newChecked) {
-          const completedByName = userProfile?.name || user?.email?.split('@')[0] || 'Domownik'
-          notificationService
-            .notify(
-              'LIST_COMPLETED',
-              {
-                listId: activeList.id,
-                listName: activeList.name || 'Lista zakupów',
-                completedByName
-              },
-              household.id
-            )
-            .catch(() => {})
-        }
-      }
-    } catch {
-      enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
-    }
-  }
-
-  const handleIncrease = async (item: ActiveListItemWithProduct) => {
-    if (!activeList) return
-    const newQty = getNextQuantity(item.total_quantity, item.product?.unit_type, 'increase')
-    trackLocalItemMutation(item.id, { total_quantity: newQty })
-
-    const updatedItems = activeList.items.map((i) =>
-      i.id === item.id ? { ...i, total_quantity: newQty } : i
-    )
-    setActiveList({ ...activeList, items: updatedItems })
-
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
-    if (isOffline) {
-      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-      return
-    }
-
-    try {
-      const success = await shoppingListService.updateItemQuantity(item.id, newQty)
-      if (!success) {
-        enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-      }
-    } catch {
-      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-    }
-  }
-
-  const handleDecrease = async (item: ActiveListItemWithProduct) => {
-    if (!activeList) return
-    const newQty = getNextQuantity(item.total_quantity, item.product?.unit_type, 'decrease')
-
-    if (newQty <= 0) {
-      setItemToDelete(item)
-      setIsDeleteItemModalOpen(true)
-      return
-    }
-
-    trackLocalItemMutation(item.id, { total_quantity: newQty })
-
-    const updatedItems = activeList.items.map((i) =>
-      i.id === item.id ? { ...i, total_quantity: newQty } : i
-    )
-    setActiveList({ ...activeList, items: updatedItems })
-
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine
-    if (isOffline) {
-      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-      return
-    }
-
-    try {
-      const success = await shoppingListService.updateItemQuantity(item.id, newQty)
-      if (!success) {
-        enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-      }
-    } catch {
-      enqueueMutation('UPDATE_ITEM_QUANTITY', item.id, { quantity: newQty })
-    }
-  }
-
-  const startEditing = (itemId: string, currentQuantity: number) => {
-    setEditingId(itemId)
-    setEditValue(String(currentQuantity))
-  }
-
-  const handleInputChange = (val: string) => {
-    const cleaned = val.replace(/[^0-9]/g, '')
-    const normalized = cleaned.replace(/^0+/, '')
-    setEditValue(normalized)
-  }
-
-  const handleCommitEdit = async (item: ActiveListItemWithProduct) => {
-    const parsed = parseInt(editValue, 10)
-    setEditingId(null)
-    setEditValue('')
-
-    if (!isNaN(parsed) && parsed > 0 && parsed !== item.total_quantity && activeList) {
-      const previousItems = activeList.items
-      const updatedItems = activeList.items.map((i) =>
-        i.id === item.id ? { ...i, total_quantity: parsed } : i
-      )
-      setActiveList({ ...activeList, items: updatedItems })
-
-      const success = await shoppingListService.updateItemQuantity(item.id, parsed)
-      if (!success) {
-        setActiveList({ ...activeList, items: previousItems })
-      }
-    }
-  }
-
-  const handleConfirmDeleteItem = async () => {
-    if (!activeList || !itemToDelete) return
-    setIsDeleting(true)
-
-    const previousItems = activeList.items
-    const updatedItems = activeList.items.filter((i) => i.id !== itemToDelete.id)
-    setActiveList({ ...activeList, items: updatedItems })
-
-    const success = await shoppingListService.deleteListItem(itemToDelete.id)
-    setIsDeleting(false)
-
-    if (!success) {
-      setActiveList({ ...activeList, items: previousItems })
-    } else {
-      setItemToDelete(null)
-      setIsDeleteItemModalOpen(false)
-      if (household) {
-        shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
-      }
-    }
-  }
-
-  const handleArchiveList = async () => {
-    if (!activeList || !household) return
-    setIsArchiving(true)
-
-    const uncheckedItemsToDraft = await shoppingListService.archiveActiveList(
-      activeList.id,
-      household.id
-    )
-
-    setIsArchiving(false)
-
-    if (uncheckedItemsToDraft.length > 0) {
-      setDraftItems([...draftItems, ...uncheckedItemsToDraft])
-    }
-
-    // Refresh active lists and select next available list
-    await loadActiveLists()
-  }
-
-  const handleDeleteList = async () => {
-    if (!activeList || !household) return
-    setIsDeleting(true)
-
-    const success = await shoppingListService.deleteShoppingList(activeList.id)
-    setIsDeleting(false)
-
-    if (success) {
-      setIsDeleteListModalOpen(false)
-      setShowOptionsMenu(false)
-      await loadActiveLists()
-    }
-  }
-
-  const handleSetDefault = async () => {
-    if (!activeList || !household) return
-    const success = await shoppingListService.setDefaultActiveList(activeList.id, household.id)
-    if (success) {
-      setActiveList({ ...activeList, is_default: true })
-      setShowOptionsMenu(false)
-      if (household) {
-        shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
-      }
-    }
-  }
-
-  const handleListCreated = async (newListId: string) => {
-    setSelectedActiveListId(newListId)
-    await loadActiveLists()
-  }
-
-  const handleListRenamed = (newName: string) => {
-    if (activeList) {
-      setActiveList({ ...activeList, name: newName })
-      if (household) {
-        shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
-      }
-    }
-  }
-
-  const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
-  }
-
-  if (loading) {
+  if (c.loading) {
     return (
       <div className="py-16 flex flex-col items-center justify-center text-center">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
@@ -401,8 +38,7 @@ export const ActiveListView: React.FC = () => {
     )
   }
 
-  // Empty state when no active lists exist
-  if (!activeListsSummary || activeListsSummary.length === 0 || !activeList) {
+  if (!c.activeListsSummary || c.activeListsSummary.length === 0 || !c.activeList) {
     return (
       <div className="flex flex-col gap-4 animate-in fade-in duration-200">
         <div className="py-16 px-4 bg-card border border-border rounded-2xl flex flex-col items-center justify-center text-center">
@@ -414,7 +50,7 @@ export const ActiveListView: React.FC = () => {
             {t('activeList.noListsSubtitle')}
           </p>
           <Button
-            onClick={() => setIsNewListOpen(true)}
+            onClick={() => c.setIsNewListOpen(true)}
             className="mt-5 h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl flex items-center gap-1.5 shadow-md cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -423,59 +59,51 @@ export const ActiveListView: React.FC = () => {
         </div>
 
         <CreateActiveListDialog
-          open={isNewListOpen}
-          onOpenChange={setIsNewListOpen}
-          onCreated={handleListCreated}
+          open={c.isNewListOpen}
+          onOpenChange={c.setIsNewListOpen}
+          onCreated={c.handleListCreated}
         />
       </div>
     )
   }
 
-  const householdKey = household?.id || 'global'
-  const resolvedCategories = categoriesByHousehold[householdKey] || []
-
+  const activeList = c.activeList
   const checkedCount = activeList.items.filter((i) => i.is_checked).length
   const totalCount = activeList.items.length
-
-  // Group by custom category aisle sort_order
-  const sortedCategories = groupItemsByAisle(
-    activeList.items,
-    resolvedCategories,
-    'other'
-  )
+  const sortedCategories = groupItemsByAisle(activeList.items, c.resolvedCategories, 'other')
 
   return (
     <div className="flex flex-col gap-3.5 animate-in fade-in duration-200">
       {/* 1. Horizontal Scrollable List Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-        {activeListsSummary.map((list) => {
+        {c.activeListsSummary.map((list) => {
           const isSelected = list.id === activeList.id
           return (
             <button
               key={list.id}
-              onClick={() => switchActiveList(list.id)}
+              onClick={() => c.switchActiveList(list.id)}
               className={cn(
-                "h-9 px-3.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 border transition-all cursor-pointer select-none",
+                'h-9 px-3.5 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-2 border transition-all cursor-pointer select-none',
                 isSelected
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                  : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted'
               )}
             >
               {list.is_default && (
                 <Star
                   className={cn(
-                    "w-3.5 h-3.5 shrink-0",
-                    isSelected ? "text-amber-300 fill-amber-300" : "text-amber-400 fill-amber-400"
+                    'w-3.5 h-3.5 shrink-0',
+                    isSelected ? 'text-amber-300 fill-amber-300' : 'text-amber-400 fill-amber-400'
                   )}
                 />
               )}
               <span className="truncate max-w-[130px]">{list.name}</span>
               <span
                 className={cn(
-                  "px-1.5 py-0.5 rounded-full text-[10px] font-mono",
+                  'px-1.5 py-0.5 rounded-full text-[10px] font-mono',
                   isSelected
-                    ? "bg-black/20 text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
+                    ? 'bg-black/20 text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
                 )}
               >
                 {list.unchecked_items}
@@ -484,9 +112,8 @@ export const ActiveListView: React.FC = () => {
           )
         })}
 
-        {/* Add New List Chip */}
         <button
-          onClick={() => setIsNewListOpen(true)}
+          onClick={() => c.setIsNewListOpen(true)}
           className="h-9 px-3 rounded-xl text-xs font-semibold shrink-0 flex items-center gap-1.5 border border-dashed border-border bg-card/60 hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer"
           title={t('activeList.newList')}
         >
@@ -503,7 +130,10 @@ export const ActiveListView: React.FC = () => {
             <h3 className="text-sm font-bold text-foreground truncate flex items-center gap-1.5">
               <span>{activeList.name}</span>
               {activeList.is_default && (
-                <Badge variant="secondary" className="text-[10px] bg-amber-400/10 text-amber-400 border-amber-400/30 gap-1">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] bg-amber-400/10 text-amber-400 border-amber-400/30 gap-1"
+                >
                   <Star className="w-3 h-3 fill-current" />
                   <span>{t('activeList.defaultBadge')}</span>
                 </Badge>
@@ -516,7 +146,6 @@ export const ActiveListView: React.FC = () => {
               {checkedCount} / {totalCount}
             </Badge>
 
-            {/* List Options Dropdown Trigger */}
             <Button
               variant="ghost"
               size="sm"
@@ -527,18 +156,14 @@ export const ActiveListView: React.FC = () => {
               <MoreVertical className="w-4 h-4" />
             </Button>
 
-            {/* Options Dropdown Menu */}
             {showOptionsMenu && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowOptionsMenu(false)}
-                />
+                <div className="fixed inset-0 z-40" onClick={() => setShowOptionsMenu(false)} />
                 <div className="absolute right-0 top-9 z-50 w-48 bg-card border border-border rounded-xl shadow-xl p-1.5 flex flex-col gap-1 text-xs text-foreground animate-in fade-in slide-in-from-top-2 duration-150">
                   <button
                     onClick={() => {
                       setShowOptionsMenu(false)
-                      setIsRenameOpen(true)
+                      c.setIsRenameOpen(true)
                     }}
                     className="w-full px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 text-left cursor-pointer transition-colors"
                   >
@@ -548,7 +173,10 @@ export const ActiveListView: React.FC = () => {
 
                   {!activeList.is_default && (
                     <button
-                      onClick={handleSetDefault}
+                      onClick={async () => {
+                        const ok = await c.handleSetDefault()
+                        if (ok) setShowOptionsMenu(false)
+                      }}
                       className="w-full px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 text-left cursor-pointer transition-colors"
                     >
                       <Star className="w-3.5 h-3.5 text-amber-400" />
@@ -559,7 +187,7 @@ export const ActiveListView: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowOptionsMenu(false)
-                      handleArchiveList()
+                      c.handleArchiveList()
                     }}
                     className="w-full px-2.5 py-2 rounded-lg hover:bg-muted flex items-center gap-2 text-left cursor-pointer transition-colors"
                   >
@@ -572,7 +200,7 @@ export const ActiveListView: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowOptionsMenu(false)
-                      setIsDeleteListModalOpen(true)
+                      c.setIsDeleteListModalOpen(true)
                     }}
                     className="w-full px-2.5 py-2 rounded-lg hover:bg-destructive/10 text-destructive flex items-center gap-2 text-left cursor-pointer transition-colors"
                   >
@@ -590,7 +218,6 @@ export const ActiveListView: React.FC = () => {
             <Radio className="w-3.5 h-3.5 text-primary" />
             <span className="text-[11px] font-sans">{t('activeList.realtimeSync')}</span>
           </div>
-
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
             <span>{formatDate(activeList.target_date || activeList.created_at || new Date())}</span>
@@ -598,7 +225,7 @@ export const ActiveListView: React.FC = () => {
         </div>
       </div>
 
-      {loadingDetails ? (
+      {c.loadingDetails ? (
         <div className="py-12 flex flex-col items-center justify-center text-center">
           <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
           <p className="text-xs text-muted-foreground">{t('common.loading')}</p>
@@ -614,7 +241,6 @@ export const ActiveListView: React.FC = () => {
           </p>
         </div>
       ) : (
-        /* Sorted Category Groups */
         <div className="flex flex-col gap-5 mt-1">
           {sortedCategories.map((group, index) => (
             <div key={group.categoryId ?? `group_${group.name}`} className="flex flex-col gap-2">
@@ -622,8 +248,8 @@ export const ActiveListView: React.FC = () => {
                 <span className="flex items-center gap-1.5">
                   <span>
                     {group.sort_order !== 99999
-                      ? `${index + 1}. ${getCategoryLabel(group.name)}`
-                      : getCategoryLabel(group.name)}
+                      ? `${index + 1}. ${c.getCategoryLabel(group.name)}`
+                      : c.getCategoryLabel(group.name)}
                   </span>
                   {group.has_fallback_items && (
                     <span
@@ -640,218 +266,39 @@ export const ActiveListView: React.FC = () => {
               </h4>
 
               <div className="flex flex-col gap-2">
-                {group.items.map((item) => {
-                  const isChecked = !!item.is_checked
-                  const isInPantry = !!item.in_pantry
-                  const name = item.product?.name || item.ad_hoc_name || 'Product'
-                  const unit = item.product?.unit_type || 'pcs'
-
-                  const childItems = item.product_id ? pantryItemsByParentId[item.product_id] || [] : []
-                  const directPantryItem = item.product_id
-                    ? pantryMapByProductId[item.product_id]
-                    : (item.ad_hoc_name ? pantryMapByAdHocName[item.ad_hoc_name.toLowerCase().trim()] : undefined)
-                  const pantryItem = directPantryItem || (childItems.length > 0 ? childItems[0] : undefined)
-                  const aggregatedQty = childItems.length > 0 && !directPantryItem
-                    ? childItems.reduce((acc, c) => acc + Number(c.quantity || 0), 0)
-                    : pantryItem?.quantity
-
-                  const isNonFood = !!(
-                    pantryItem?.category?.is_non_food ||
-                    pantryItem?.product?.category?.is_non_food ||
-                    item.product?.category?.is_non_food
-                  )
-
-                  const freshness = pantryItem
-                    ? calculatePantryFreshness(
-                        pantryItem.last_purchased_at,
-                        isNonFood,
-                        name,
-                        formatQuantity(aggregatedQty || 0, pantryItem.unit_type),
-                        pantryItem.last_verified_at
-                      )
-                    : null
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => {
-                        if (isInPantry) {
-                          setSelectedPantryItem(item)
-                        } else {
-                          handleToggleCheck(item.id, isChecked)
-                        }
-                      }}
-                      className={cn(
-                        "p-3.5 rounded-xl flex items-center justify-between cursor-pointer transition-all active:scale-[0.99] gap-3",
-                        isInPantry
-                          ? "border border-dashed border-amber-500/40 bg-amber-500/5 opacity-60"
-                          : isChecked
-                          ? "bg-card/40 border border-border/40 opacity-55"
-                          : "bg-card border border-border/80"
-                      )}
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <Checkbox
-                            checked={isChecked || isInPantry}
-                            disabled={isInPantry}
-                            onCheckedChange={() => {
-                              if (!isInPantry) {
-                                handleToggleCheck(item.id, isChecked)
-                              }
-                            }}
-                            enableHaptics
-                            className={cn(
-                              isInPantry && "border-amber-500/50 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500"
-                            )}
-                          />
-                        </div>
-
-                        <div className="flex flex-col min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={cn(
-                                "font-semibold text-sm transition-all truncate",
-                                isInPantry
-                                  ? "line-through text-amber-500/80 decoration-amber-500/50"
-                                  : isChecked
-                                  ? "line-through text-muted-foreground"
-                                  : "text-foreground"
-                              )}
-                            >
-                              {name}
-                            </span>
-                            {isInPantry ? (
-                              <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 gap-1 py-0">
-                                <Warehouse className="w-3 h-3" />
-                                <span>{t('pantry.badgeInPantry')}</span>
-                              </Badge>
-                            ) : item.added_ad_hoc ? (
-                              <span className="text-[10px] text-muted-foreground font-mono">
-                                {t('draft.adHocItem')}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        {/* Stepper +/- */}
-                        <div
-                          className="flex items-center bg-background border border-border rounded-lg p-0.5 shrink-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDecrease(item)
-                            }}
-                            disabled={isChecked || isInPantry}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                            title={t('common.decrease')}
-                            aria-label={t('common.decrease')}
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-
-                          {editingId === item.id && !isChecked && !isInPantry ? (
-                            <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                autoFocus
-                                value={editValue}
-                                onChange={(e) => handleInputChange(e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleCommitEdit(item)
-                                  } else if (e.key === 'Escape') {
-                                    setEditingId(null)
-                                    setEditValue('')
-                                  }
-                                }}
-                                onBlur={() => handleCommitEdit(item)}
-                                className="w-14 h-7 bg-background text-center font-mono text-xs font-bold text-primary border border-primary/60 rounded px-1 outline-none ring-1 ring-primary/40 shadow-inner"
-                              />
-                              <span className="font-mono text-xs text-primary font-bold pr-1 select-none">
-                                {formatUnit(unit)}
-                              </span>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={isChecked || isInPantry}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (!isChecked && !isInPantry) {
-                                  startEditing(item.id, item.total_quantity)
-                                }
-                              }}
-                              className={cn(
-                                "font-mono text-xs px-2 py-0.5 font-bold min-w-[3.5rem] text-center select-none transition-colors rounded",
-                                isInPantry
-                                  ? "text-amber-500/70 cursor-default"
-                                  : isChecked
-                                  ? "text-muted-foreground line-through cursor-default"
-                                  : "text-primary hover:bg-muted cursor-text"
-                              )}
-                              title={isChecked || isInPantry ? undefined : t('common.edit')}
-                            >
-                              {formatQuantity(item.total_quantity, unit)}
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleIncrease(item)
-                            }}
-                            disabled={isChecked || isInPantry}
-                            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
-                            title={t('common.increase')}
-                            aria-label={t('common.increase')}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {/* Warehouse indicator if in pantry and not marked in pantry */}
-                        {!isInPantry && pantryItem && freshness && !isChecked && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedPantryItem(item)
-                            }}
-                            className={cn(
-                              "w-8 h-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90",
-                              freshness.badgeBgClass,
-                              freshness.colorClass
-                            )}
-                            title={t('pantry.modal.viewPantryDetails')}
-                            aria-label={t('pantry.modal.viewPantryDetails')}
-                          >
-                            <Warehouse className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
+                {group.items.map((item) => (
+                  <ActiveListItemRow
+                    key={item.id}
+                    item={item}
+                    variant="mobile"
+                    pantryMapByProductId={c.pantryMapByProductId}
+                    pantryMapByAdHocName={c.pantryMapByAdHocName}
+                    pantryItemsByParentId={c.pantryItemsByParentId}
+                    editingId={c.editingId}
+                    editValue={c.editValue}
+                    onToggleCheck={c.handleToggleCheck}
+                    onSelectPantryItem={c.setSelectedPantryItem}
+                    onIncrease={c.handleIncrease}
+                    onDecrease={c.handleDecrease}
+                    onStartEdit={c.startEditing}
+                    onEditInputChange={c.handleInputChange}
+                    onCommitEdit={c.handleCommitEdit}
+                    onCancelEdit={() => {
+                      c.setEditingId(null)
+                      c.setEditValue('')
+                    }}
+                  />
+                ))}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Complete & Archive CTA */}
       {activeList.items.length > 0 && (
         <div className="mt-4 flex flex-col gap-2">
-          {(checkedCount === totalCount || (totalCount > 0 && activeList.items.every((i) => i.is_checked || i.in_pantry))) && (
+          {(checkedCount === totalCount ||
+            (totalCount > 0 && activeList.items.every((i) => i.is_checked || i.in_pantry))) && (
             <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/30 text-center flex items-center justify-center gap-2 text-primary text-xs font-bold animate-bounce">
               <CheckCircle2 className="w-4 h-4" />
               <span>{t('activeList.allPurchased')}</span>
@@ -859,11 +306,11 @@ export const ActiveListView: React.FC = () => {
           )}
 
           <Button
-            onClick={handleArchiveList}
-            disabled={isArchiving}
+            onClick={c.handleArchiveList}
+            disabled={c.isArchiving}
             className="w-full h-12 bg-card hover:bg-muted text-foreground border border-border font-bold rounded-xl flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
           >
-            {isArchiving ? (
+            {c.isArchiving ? (
               <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
@@ -875,63 +322,56 @@ export const ActiveListView: React.FC = () => {
         </div>
       )}
 
-      {/* Dialogs */}
       <CreateActiveListDialog
-        open={isNewListOpen}
-        onOpenChange={setIsNewListOpen}
-        onCreated={handleListCreated}
+        open={c.isNewListOpen}
+        onOpenChange={c.setIsNewListOpen}
+        onCreated={c.handleListCreated}
       />
 
       <RenameActiveListDialog
-        open={isRenameOpen}
-        onOpenChange={setIsRenameOpen}
+        open={c.isRenameOpen}
+        onOpenChange={c.setIsRenameOpen}
         listId={activeList.id}
         currentName={activeList.name || ''}
-        onRenamed={handleListRenamed}
+        onRenamed={c.handleListRenamed}
       />
 
       <ConfirmDeleteDialog
-        open={isDeleteItemModalOpen}
-        onOpenChange={setIsDeleteItemModalOpen}
-        itemName={itemToDelete?.product?.name || itemToDelete?.ad_hoc_name}
-        onConfirm={handleConfirmDeleteItem}
-        isDeleting={isDeleting}
+        open={c.isDeleteItemModalOpen}
+        onOpenChange={c.setIsDeleteItemModalOpen}
+        itemName={c.itemToDelete?.product?.name || c.itemToDelete?.ad_hoc_name}
+        onConfirm={c.handleConfirmDeleteItem}
+        isDeleting={c.isDeleting}
       />
 
       <ConfirmDeleteDialog
-        open={isDeleteListModalOpen}
-        onOpenChange={setIsDeleteListModalOpen}
+        open={c.isDeleteListModalOpen}
+        onOpenChange={c.setIsDeleteListModalOpen}
         title={t('activeList.deleteListTitle')}
         itemName={activeList.name || ''}
-        onConfirm={handleDeleteList}
-        isDeleting={isDeleting}
+        onConfirm={async () => {
+          await c.handleDeleteList()
+        }}
+        isDeleting={c.isDeleting}
       />
 
-      {/* Pantry Confirm Modal */}
-      {selectedPantryItem && (
+      {c.selectedPantryItem && (
         <PantryConfirmModal
-          open={!!selectedPantryItem}
+          open={!!c.selectedPantryItem}
           onOpenChange={(open) => {
-            if (!open) setSelectedPantryItem(null)
+            if (!open) c.setSelectedPantryItem(null)
           }}
           context="active"
-          productId={selectedPantryItem.product_id}
-          adHocName={selectedPantryItem.ad_hoc_name}
-          productName={selectedPantryItem.product?.name || selectedPantryItem.ad_hoc_name || 'Product'}
-          unitType={selectedPantryItem.product?.unit_type || 'pcs'}
-          neededQuantity={selectedPantryItem.total_quantity}
-          activeItemId={selectedPantryItem.id}
-          isAlreadyMarkedInPantry={!!selectedPantryItem.in_pantry}
-          onSuccess={async () => {
-            setSelectedPantryItem(null)
-            if (activeList?.id) {
-              const details = await shoppingListService.getListWithDetails(activeList.id)
-              if (details) setActiveList(details)
-              if (householdId) {
-                shoppingListService.getActiveListsSummary(householdId).then(setActiveListsSummary)
-              }
-            }
-          }}
+          productId={c.selectedPantryItem.product_id}
+          adHocName={c.selectedPantryItem.ad_hoc_name}
+          productName={
+            c.selectedPantryItem.product?.name || c.selectedPantryItem.ad_hoc_name || 'Product'
+          }
+          unitType={c.selectedPantryItem.product?.unit_type || 'pcs'}
+          neededQuantity={c.selectedPantryItem.total_quantity}
+          activeItemId={c.selectedPantryItem.id}
+          isAlreadyMarkedInPantry={!!c.selectedPantryItem.in_pantry}
+          onSuccess={c.refreshSelectedListAfterPantryConfirm}
         />
       )}
     </div>
