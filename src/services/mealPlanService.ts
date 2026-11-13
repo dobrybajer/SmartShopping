@@ -7,8 +7,10 @@ import type {
 } from '@/types/calendar'
 import type { AddToDraftPayload, MealIngredientWithProduct, MealWithIngredients, Product } from '@/store/useShoppingStore'
 
-type RawMealPlanIngredientRow = Omit<MealIngredientWithProduct, 'product'> & {
+type RawMealPlanIngredientRow = Omit<MealIngredientWithProduct, 'product' | 'reference_product'> & {
+  reference_product_id?: string | null
   product: Product | null
+  reference_product?: Product | null
 }
 
 type RawMealPlanMealJoinRow = Omit<MealWithIngredients, 'ingredients'> & {
@@ -19,6 +21,31 @@ type RawMealPlanRow = Omit<MealPlanItem, 'meal'> & {
   meal: RawMealPlanMealJoinRow | null
 }
 
+const MEAL_PLAN_SELECT_QUERY = `
+  *,
+  meal:meals(
+    id,
+    household_id,
+    name,
+    description,
+    preparation_steps,
+    comments,
+    category_id,
+    tags,
+    type,
+    ingredients:meal_ingredients(
+      id,
+      meal_id,
+      product_id,
+      reference_product_id,
+      base_quantity,
+      is_pantry_item,
+      product:products!meal_ingredients_product_id_fkey(*),
+      reference_product:products!meal_ingredients_reference_product_id_fkey(*)
+    )
+  )
+`
+
 function mapMealPlanRow(row: RawMealPlanRow): MealPlanItem {
   return {
     ...row,
@@ -27,7 +54,9 @@ function mapMealPlanRow(row: RawMealPlanRow): MealPlanItem {
           ...row.meal,
           ingredients: (row.meal.ingredients || []).map((ing) => ({
             ...ing,
-            product: ing.product || null
+            reference_product_id: ing.reference_product_id ?? null,
+            product: ing.product || null,
+            reference_product: ing.reference_product || null
           }))
         }
       : null
@@ -47,28 +76,7 @@ export const mealPlanService = {
 
     let query = supabase
       .from('meal_plans')
-      .select(`
-        *,
-        meal:meals(
-          id,
-          household_id,
-          name,
-          description,
-          preparation_steps,
-          comments,
-          category_id,
-          tags,
-          type,
-          ingredients:meal_ingredients(
-            id,
-            meal_id,
-            product_id,
-            base_quantity,
-            is_pantry_item,
-            product:products(*)
-          )
-        )
-      `)
+      .select(MEAL_PLAN_SELECT_QUERY)
       .eq('household_id', householdId)
 
     if (startDate) {
@@ -111,28 +119,7 @@ export const mealPlanService = {
         sort_order: input.sort_order ?? 0,
         is_uncertainty_dismissed: input.is_uncertainty_dismissed ?? false
       })
-      .select(`
-        *,
-        meal:meals(
-          id,
-          household_id,
-          name,
-          description,
-          preparation_steps,
-          comments,
-          category_id,
-          tags,
-          type,
-          ingredients:meal_ingredients(
-            id,
-            meal_id,
-            product_id,
-            base_quantity,
-            is_pantry_item,
-            product:products(*)
-          )
-        )
-      `)
+      .select(MEAL_PLAN_SELECT_QUERY)
       .single()
 
     if (error || !data) {

@@ -111,6 +111,25 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 
 ---
 
+### CRIT-05: Naprawa Niejednoznacznej Relacji PostgREST (`PGRST201`) i Brakującego `reference_product` w `mealPlanService.ts` (ADR-010)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
+* **Obszar:** Backend / PostgREST / Kalendarz Posiłków & Produkty Ogólne (ADR-009, ADR-010)
+* **Pliki implementacji:** [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts)
+* **Pliki testów:** [mealPlanService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/mealPlanService.test.ts)
+* **Problem / Uzasadnienie:**
+  * W migracji [20261026000000_add_product_hierarchy.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261026000000_add_product_hierarchy.sql) (ADR-010) tabela `meal_ingredients` otrzymała drugi klucz obcy wskazujący na tabelę `products` (`reference_product_id` obok `product_id`).
+  * W [mealService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealService.ts#L55-L56) zapytanie PostgREST zostało poprawnie ujednoznacznione (`product:products!meal_ingredients_product_id_fkey(*), reference_product:products!meal_ingredients_reference_product_id_fkey(*)`), natomiast w [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts) w metodach `getMealPlans` oraz `createMealPlan` pozostało niejednoznaczne `product:products(*)` bez pobrania `reference_product_id` i `reference_product`.
+  * **Skutek:** Na instancji Supabase z obiema relacjami FK zapytanie zwracało błąd `PGRST201` (*Could not embed because more than one relationship was found for 'meal_ingredients' and 'products'*), a funkcja `calculateDayMacros` w [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts#L223) wyliczała `0 kcal` dla wszystkich produktów ogólnych (`is_general = true`) w Kalendarzu.
+* **Wdrożone Rozwiązanie:**
+  1. Wydzielono współdzieloną projekcję `MEAL_PLAN_SELECT_QUERY` w [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts) dla `getMealPlans` oraz `createMealPlan` z jawnymi wskazówkami FK: `product:products!meal_ingredients_product_id_fkey(*)` oraz `reference_product:products!meal_ingredients_reference_product_id_fkey(*)` wraz z polem `reference_product_id`.
+  2. Rozszerzono typ `RawMealPlanIngredientRow` oraz funkcję `mapMealPlanRow` o `reference_product_id` i `reference_product`.
+  3. Dodano test regresyjny w [mealPlanService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/mealPlanService.test.ts) weryfikujący obecność obu jawnych wskazówek FK oraz wyliczanie makroskładników z `reference_product` przez `calculateDayMacros`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Wyeliminowano błąd PostgREST `PGRST201` w `getMealPlans` i `createMealPlan`.
+  - ✅ Kalorie i makroskładniki produktów ogólnych (`is_general = true`) w Kalendarzu są poprawnie wyliczane z `reference_product`.
+
+---
+
 ## 3. 🟠 Kategoria HIGH (Wysoki Priorytet)
 
 ### HIGH-01: Likwidacja Ostrzeżeń Fast Refresh w Linterze (`oxlint`)
@@ -205,6 +224,64 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 * **Definition of Done (DoD) - Rezultat:**
   - ✅ Kliknięcie checkboxa wywołuje dokładnie 1 impuls wibracyjny i 0 ponownych pobrań `getListWithDetails` na urządzeniu nadawcy.
   - ✅ Zdalne aktualizacje partnera aplikują pojedynczy diff w locie, pokryte w `realtimeEchoAndDiff.test.ts`.
+
+---
+
+### HIGH-07: Naprawa Błędnego Skalowania Kalorii (`targetKcal`) dla Sztuk (`pcs`) i Produktów Ogólnych w `useShoppingStore.addMealToDraft`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Logika Biznesowa / Kalkulacje Makroskładników / Koszyk Roboczy
+* **Pliki do modyfikacji:** [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts#L138-L146), [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts), [useShoppingStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/useShoppingStore.test.ts)
+* **Problem / Uzasadnienie:**
+  * W metodzie `addMealToDraft` w [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts#L138-L146) bazowa suma kalorii posiłku (`baseKcalTotal`) wyliczana jest bezpośrednio ze wzoru `(ing.base_quantity / 100) * (ing.product.kcal_per_100 || 0)`.
+  * Prowadzi to do dwóch błędów biznesowych:
+    1. Dla jednostek sztukowych (`unit_type === 'pcs'`) wartości odżywcze zdefiniowane są **na 1 sztukę**, a nie na 100 jednostek (zgodnie z `calculateIngredientMacros` w [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts#L43-L45)). Dzielenie przez 100 zaniża kalorie składników sztukowych 100-krotnie i zawyża wyliczony mnożnik `multiplier = targetKcal / baseKcalTotal`.
+    2. Dla produktów ogólnych (`is_general = true`, ADR-010) makroskładniki znajdują się w `ing.reference_product`, a `ing.product.kcal_per_100` wynosi `null`/`0`. Pominięcie `resolveEffectiveIngredientMacros(ing.product, ing.reference_product)` powoduje błędne skalowanie gramatur przy dodawaniu przepisu z docelową kalorycznością do koszyka.
+* **Planowane Rozwiązanie:**
+  1. Zastąpić ręczną pętlę w `useShoppingStore.addMealToDraft` wywołaniem czystych funkcji `resolveEffectiveIngredientMacros` oraz `calculateIngredientMacros` z `src/lib/calculations/macroCalculations.ts`.
+  2. Dodać testy jednostkowe w `useShoppingStore.test.ts` dla skalowania `targetKcal` posiłków zawierających produkty sztukowe (`pcs`) oraz produkty ogólne z `reference_product`.
+
+---
+
+### HIGH-08: Uszczelnienie Polityk RLS `INSERT`/`UPDATE` dla Tabel `meals`, `meal_ingredients` oraz Walidacji `parent_id` w `products`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Bezpieczeństwo / Baza Danych / Supabase RLS Multi-Tenancy
+* **Pliki do modyfikacji:** Nowa migracja SQL w `supabase/migrations/`, [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L329), [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
+* **Problem / Uzasadnienie:**
+  * W migracji [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L263) polityka `"Authenticated users can insert meals"` zawiera warunek `WITH CHECK (household_id IS NULL OR household_id IN (SELECT public.get_user_household_ids(auth.uid())))`, a polityka `"Authenticated users can insert meal ingredients"` pozwala dodawać składniki do dań z `household_id IS NULL`.
+  * W odróżnieniu od tabel `products` i `product_categories` (gdzie `INSERT` z `household_id IS NULL` jest zablokowany), dowolny zalogowany użytkownik może wstrzykiwać globalne przepisy (`household_id = NULL`) widoczne u wszystkich użytkowników aplikacji lub dopisywać składniki do istniejących przepisów globalnych.
+  * Ponadto w `meal_ingredients` (`INSERT`/`UPDATE`) brakuje sprawdzenia, czy `product_id` i `reference_product_id` należą do katalogu globalnego lub gospodarstwa danego przepisu, a w `products` (`INSERT`/`UPDATE`) czy `parent_id` wskazuje na produkt globalny bądź należący do tego samego gospodarstwa.
+* **Planowane Rozwiązanie:**
+  1. Dodać migrację zastępującą polityki `INSERT`/`UPDATE` na `meals` oraz `meal_ingredients` warunkiem wymagającym jawnej przynależności `household_id IN (SELECT public.get_user_household_ids(auth.uid()))` (blokada modyfikacji rekordów globalnych z poziomu klienta).
+  2. Dodać weryfikację spójności dzierżawcy (tenant isolation) dla `parent_id` w `products` oraz `product_id`/`reference_product_id` w `meal_ingredients`.
+  3. Rozszerzyć statyczny audyt bezpieczeństwa w `rlsSecurityAudit.test.ts`.
+
+---
+
+### HIGH-09: Spójność Liczników i Paska Postępu dla Pozycji `in_pantry` oraz Obsługa Snapshotu Retencji (`MED-02`) w Historii
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Logika Biznesowa / Aktywna Lista Zakupów & Historia (`shoppingListService.ts`)
+* **Pliki do modyfikacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts#L297-L320), [shoppingListService.ts (getHistoryLists)](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts#L905-L925), [activeListCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/activeListCalculations.ts#L45-L53), [activeListDiff.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/activeListDiff.ts#L22-L35), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L71-L72)
+* **Problem / Uzasadnienie:**
+  * **Niespójność `in_pantry`:** W [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx#L73) oraz w nagłówkach kategorii obu layoutów pozycje oznaczone jako `in_pantry = true` wliczane są do zrealizowanych (`i.is_checked || i.in_pantry`, zgodnie z ADR-008 i `docs/plan.md`). Jednak w `shoppingListService.getActiveListsSummary`, `activeListDiff.recalculateSummaries`, `calculateActiveListMetrics` oraz w głównym liczniku nagłówka mobilnego [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L71) uwzględniane jest wyłącznie `i.is_checked`, przez co badge na chipie listy pokazuje niekupione pozycje mimo pokrycia ich ze spiżarni.
+  * **Odczyt zarchiwizowanych pozycji po retencji (`MED-02`):** Po wykonaniu procedury `archive_old_shopping_list_items` stare wiersze z `shopping_list_items` są przenoszone do `shopping_list_items_archive` i zapisywane w `shopping_lists.archived_items_snapshot`. Metody `getHistoryLists` oraz `getListWithDetails` odpytują jednak wyłącznie `shopping_list_items`, co dla starszych list skutkuje wyświetleniem statusu `0/0 (Niezrealizowano)` i pustych szczegółów.
+* **Planowane Rozwiązanie:**
+  1. Ujednolicić liczenie pozycji zrealizowanych na aktywnej liście (`is_checked || in_pantry`) w `getActiveListsSummary`, `recalculateSummaries`, `calculateActiveListMetrics` oraz mobilnym `ActiveListView.tsx`.
+  2. W `getHistoryLists` oraz `getListWithDetails` dodać fallback do `archived_items_snapshot` / `shopping_list_items_archive`, gdy `shopping_list_items` dla zarchiwizowanej listy jest puste.
+
+---
+
+### HIGH-10: Optymalizacja Ergonomii Mobilnej Nawigacji Dolnej (`BottomNavigation` – 7 Zakładek), Licznika `activeCount` oraz Przełącznika Układu w `AppHeader`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** UI/UX / Responsywność Mobile / Nawigacja (`BottomNavigation.tsx`, `AppLayoutRouter.tsx`, `AppHeader.tsx`)
+* **Pliki do modyfikacji:** [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx#L30-L128), [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L131-L163), [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx#L87-L158)
+* **Problem / Uzasadnienie:**
+  * **Zatłoczenie `BottomNavigation` (7 zakładek w jednym rzędzie — potwierdzone pomiarami DOM w Microsoft Edge):** W [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx#L30-L68) umieszczono 7 pozycji obok siebie (`max-w-[56px]`, font `text-[10px]`). Pomiar w żywej przeglądarce Microsoft Edge wykazał, że każda zakładka ma zaledwie `50px × 44px` na ekranie `360x800` oraz `56px × 44px` na tablecie `768x1024`, a etykieta **„Aktywna Lista"** ulega ucięciu (`truncate`) zarówno na telefonie (`clientWidth: 46px` vs `scrollWidth: 59px`), jak i na tablecie (`clientWidth: 52px` vs `scrollWidth: 59px`). Przeczy to standardom Apple HIG i Material Design 3 (zalecającym maks. 4–5 głównych zakładek w dolnym pasku).
+  * **Brak przekazania `activeCount` z `AppLayoutRouter.tsx`:** Zarówno `DesktopSidebar`, jak i `BottomNavigation` obsługują prop `activeCount` wyświetlający badge z liczbą niekupionych pozycji na zakładce *„Aktywna Lista"*, jednak [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L131-L163) przekazuje wyłącznie `draftCount={draftItems.length}`, pomijając `activeCount`.
+  * **Jednokierunkowa pułapka przełącznika `LayoutMode` w trybie Mobile:** Gdy użytkownik na komputerze przełączy układ w `DesktopSidebar` na *„Widok Mobilny"*, renderowany jest `MobileLayout` z [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx), w którego menu profilu brakuje opcji zmiany `LayoutMode` (powrót do Desktopu wymaga znajomości skrótu `Ctrl + Alt + L`).
+* **Planowane Rozwiązanie:**
+  1. Zoptymalizować `BottomNavigation.tsx` na wąskich ekranach (np. 5 głównych zakładek w dolnym pasku + szuflada *„Więcej"* lub usunięcie sztywnego `max-w-[56px]` i skrócenie etykiety *„Aktywna Lista"* do *„Zakupy"* / *„Lista"*) oraz dodać obsługę `env(safe-area-inset-bottom)` dla urządzeń iOS/Android z gestem Home Bar.
+  2. Przekazać `activeCount` (wyliczony z `activeListsSummary`) z `AppLayoutRouter.tsx` do `DesktopLayout` oraz `MobileLayout`.
+  3. Dodać przełącznik trybu układu (`Auto / Desktop / Mobile`) oraz przełącznik języka w menu profilu mobilnego [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx).
 
 ---
 
@@ -303,6 +380,84 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
   1. Utworzono workflow GitHub Actions [ci.yml](file:///d:/08_Git/SmartShopping/SmartShopping/.github/workflows/ci.yml) uruchamiany na `push` i `pull_request` dla gałęzi `main` z krokami: `npm ci`, `npm run lint`, `npx tsc -b`, `npm run test` oraz `npm run build`.
 * **Definition of Done (DoD) - Rezultat:**
   - ✅ Pełny pipeline bramy jakości gotowy do automatycznej weryfikacji każdego PR i pusha na `main`.
+
+---
+
+### MED-08: Obsługa Produktów Ogólnych (ADR-010) i Skalowania `target_kcal` w Podglądzie Dnia Kalendarza (`DayCalendarView`) oraz Kartach Przepiśnika (`CookbookMealCard`)
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** UX / Logika Biznesowa / Kalendarz & Przepiśnik
+* **Pliki do modyfikacji:** [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx#L43-L45), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L69-L71), [DayCalendarView.tsx (Ingredients preview)](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L246-L249)
+* **Problem / Uzasadnienie:**
+  * **Karty Przepiśnika (`CookbookMealCard.tsx`):** Licznik `pantryIngredientsCount` sprawdza wyłącznie bezpośrednie dopasowanie `pantryMapByProductId[ing.product_id]`, ignorując `pantryItemsByParentId` (warianty produktów ogólnych z ADR-010) oraz `ing.is_pantry_item`. Przez to na liście przepisów dania korzystające z produktów ogólnych nie wyświetlają badge'a dostępności w spiżarni, podczas gdy po otwarciu szczegółów (`MealDetailsSheet.tsx`) składniki są poprawnie oznaczane jako dostępne przez `matchHierarchicalPantry`.
+  * **Widok Dnia w Kalendarzu (`DayCalendarView.tsx`):** Podgląd składników na karcie zaplanowanego posiłku (linia 247) oraz lista składników przekazywana do `CookMealDeductModal` (linia 70) mnożą `base_quantity` jedynie przez `plan.servings`, pomijając mnożnik `target_kcal` (`getEffectiveMultiplier`), a sprawdzenie `inPantry` na pigułce składnika nie uwzględnia produktów podrzędnych (`parent_id`).
+* **Planowane Rozwiązanie:**
+  1. W `useCookbookController.ts` i `CookbookMealCard.tsx` użyć `matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId)` do wyznaczania dostępności składników na kartach przepisów.
+  2. W `DayCalendarView.tsx` wykorzystać `getEffectiveMultiplier(plan)` przy wyliczaniu ilości składników na pigułkach i w `buildCookableIngredientsFromMeal`, oraz uwzględnić dopasowanie hierarchiczne ze spiżarni.
+
+---
+
+### MED-09: Uzupełnienie Pól `is_general`, `parent_id` w `pantryService.addOrIncrementItem` oraz Obsługi Offline/Echo w `handleCommitEdit` Aktywnej Listy
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** State Management / Spiżarnia & Offline PWA
+* **Pliki do modyfikacji:** [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L93-L99), [pantryService.ts (insert)](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L128-L134), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L254-L274)
+* **Problem / Uzasadnienie:**
+  * W [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts) metoda `getPantryItems` pobiera pełne metadane hierarchii produktu (`id, name, unit_type, category_id, is_general, parent_id`), natomiast `addOrIncrementItem` w `.select()` po `UPDATE` i `INSERT` pomija `is_general` oraz `parent_id`. Skutkuje to tym, że nowo dodany do spiżarni wariant produktu nie trafia od razu do słownika `pantryItemsByParentId` w `usePantryStore`.
+  * W [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L254-L274) metoda `handleCommitEdit` (ręczne wpisanie ilości z klawiatury na aktywnej liście) nie korzysta z `applyQuantityChange`, przez co nie rejestruje mutacji w `trackLocalItemMutation` (powodując wibrację od własnego echa Realtime) i nie kolejkuje zmiany w `enqueueMutation` podczas pracy offline.
+* **Planowane Rozwiązanie:**
+  1. Dodać `is_general, parent_id` do projekcji `.select()` w `pantryService.addOrIncrementItem`.
+  2. Zrefaktoryzować `handleCommitEdit` w `useActiveListController.ts`, delegując zapis do `applyQuantityChange(item, parsed)`.
+
+---
+
+### MED-10: Eliminacja Błędów Strefy Czasowej UTC (`toISOString`) przy Nawigacji Datami w Kalendarzu (`DayCalendarView`, `WeekCalendarView`)
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Logika Dat / Kalendarz Posiłków (ADR-009)
+* **Pliki do modyfikacji:** [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L73-L82), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L73)
+* **Problem / Uzasadnienie:**
+  * W `DayCalendarView.tsx` oraz `WeekCalendarView.tsx` bieżąca data wyznaczana jest przez `new Date().toISOString().split('T')[0]` (czas UTC), a przesuwanie dni (`shiftDay` oraz duplikacja na następny dzień) parsuje `new Date(selectedDate)` (północ UTC), modyfikuje dzień w strefie lokalnej (`setDate`) i ponownie konwertuje do UTC (`toISOString()`).
+  * W polskim czasie lokalnym (CET UTC+1 / CEST UTC+2) między 00:00 a 01:00/02:00 w nocy `todayStr` zwraca datę dnia poprzedniego, a w dniach zmiany czasu (DST) operacja `shiftDay` może przeskoczyć lub powtórzyć ten sam dzień.
+* **Planowane Rozwiązanie:**
+  1. Wydzielić czyste funkcje pomocnicze operujące na lokalnych składowych daty (`formatLocalDateISO`, `addDaysISO`) i zastąpić wszystkie wywołania `.toISOString().split('T')[0]` w komponentach kalendarza.
+
+---
+
+### MED-11: Wizualny Wskaźnik Pracy Offline (`isOnline` / `pendingCount`) zamiast Stałego Statusu „Realtime" oraz Stylizacja `isSelected` w `MonthCalendarGrid`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** UI/UX / Feedback Stanu Aplikacji / Kalendarz & Offline PWA
+* **Pliki do modyfikacji:** [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L79), [DesktopHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopHeader.tsx#L72-L81), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L217-L220), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx#L164-L167), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L209-L248)
+* **Problem / Uzasadnienie:**
+  * **Brak wizualnego wskaźnika Offline / Pending Sync:** Hook `useOfflineSync()` wywoływany w [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L79) zwraca `{ isOnline, pendingCount, syncNow }`, jednak wynik ten jest ignorowany. W konsekwencji w `DesktopHeader.tsx` (linia 72), `ActiveListView.tsx` (linia 219) i `DesktopActiveListView.tsx` (linia 166) aplikacja nieprzerwanie wyświetla zielony pulsujący wskaźnik *„Synchronizacja na żywo (Realtime)"* nawet wtedy, gdy użytkownik stracił zasięg w markecie (`!isOnline`) i mutacje odkładają się w kolejce `offlineMutationQueue` (`pendingCount > 0`).
+  * **Brak wyróżnienia zaznaczonego dnia (`isSelected`) w siatce miesiąca:** W [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L209-L248) zmienna `isSelected` ustawia `aria-selected={isSelected}`, ale przycisk dnia nie posiada dla `isSelected` żadnej klasy wizualnej (wyróżniony jest wyłącznie `isToday`).
+* **Planowane Rozwiązanie:**
+  1. Powiązać wskaźnik statusu w `DesktopHeader`, `AppHeader`, `ActiveListView` i `DesktopActiveListView` ze stanem `useOfflineSync()` — pokazując bursztynowy badge *„Tryb Offline (X do synchronizacji)"* przy `!isOnline` lub `pendingCount > 0`.
+  2. Dodać wyraźne obramowanie/tło dla `isSelected && !isToday` (np. `ring-2 ring-primary/60 bg-primary/5`) w `MonthCalendarGrid.tsx`.
+
+---
+
+### MED-12: Poprawa Kontrastu Odznak Semantycznych (`-400` / `zinc-*`) w Jasnym Motywie `clean-light` oraz Usunięcie Podwójnych Paddingów w Kalendarzu
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Design System / Motywy Kolorystyczne / Layout (`clean-light`, `CalendarView`, `DesktopCalendarView`)
+* **Pliki do modyfikacji:** [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx#L79-L88), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx#L95), [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx#L52-L162), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L112-L256), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L77), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L77-L92)
+* **Problem / Uzasadnienie:**
+  * **Twardo zakodowane klasy ciemnego motywu psujące czytelność w `clean-light` (zmierzone `1.92 : 1` w Microsoft Edge):** W [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx#L79-L88) filtr *„Globalne"* używa `text-zinc-400 border-zinc-800` oraz separatora `bg-zinc-800`. Pomiar `getComputedStyle` w żywej przeglądarce Microsoft Edge potwierdził, że podczas gdy 5 ciemnych motywów spełnia normę WCAG AA (`6.61:1 – 10.11:1`), w jasnym motywie `clean-light` (`rgb(255, 255, 255)`) odznaki używające klas `-400` (`rgba(52, 211, 153, 0.9)`, `text-amber-400`, `text-sky-400`, `text-emerald-400`) osiągają kontrast zaledwie **`1.92 : 1`** (znacznie poniżej wymaganego minimum `4.5 : 1` WCAG AA).
+  * **Podwójne paddingi i zdublowany nagłówek `<h1>` w Kalendarzu:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L77) nakłada `min-h-screen px-3.5 pt-3` wewnątrz `<main className="p-4">` z `MobileLayout` (oraz powoduje wewnętrzny poziomy overflow `main.scrollWidth > main.clientWidth` na tablecie `768x1024`), a [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L77-L92) dokłada `p-6` wewnątrz `p-8` i renderuje w DOM drugi widoczny nagłówek `<h1>` (`["Kalendarz", "Planer Posiłków & Kalendarz"]`).
+* **Planowane Rozwiązanie:**
+  1. Zastąpić twardo zakodowane klasy `zinc-800`/`zinc-400`/`zinc-600` tokenami semantycznymi (`border-border`, `text-muted-foreground`) oraz dostosować odcienie odznak semantycznych (`amber`, `sky`, `emerald`, `rose`, `blue`) tak, by w motywie `clean-light` używały ciemniejszych wariantów tekstowych (`-600`/`-700`, kontrast `>= 4.5:1`).
+  2. Usunąć redundantne `min-h-screen px-3.5 pt-3` z `CalendarView.tsx`, zlikwidować overflow `<main>` na tablecie oraz usunąć `p-6` i zdublowany `<h1>` z `DesktopCalendarView.tsx`.
+
+---
+
+### MED-13: Naprawa Ściśniętego Pola Wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz Nadmiernego Ucinania Tekstów (`truncate`) w `DesktopSidebar` i Kartach
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** UI/UX / Layout Flexbox & Grid / Czytelność (`DesktopPantryView.tsx`, `PantryView.tsx`, `DesktopSidebar.tsx`, `ProductCatalogCard.tsx`)
+* **Pliki do modyfikacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L48-L88), [PantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/PantryView.tsx#L48-L87), [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx#L115-L148), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L110-L145)
+* **Problem / Uzasadnienie (Wykryte w inspekcji na żywo w Microsoft Edge):**
+  * **Ściśnięte pole wyszukiwania w Spiżarni (`88.5px` szerokości na ekranie `1440px`!):** W [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L48-L88) pasek narzędzi używa `grid-cols-1 md:grid-cols-3`, gdzie `md:col-span-2` zajmują pigułki statystyk świeżości, a w pozostałej `1/3` szerokości umieszczono w jednym wierszu zarówno `<Input>` wyszukiwarki, jak i przełącznik sortowania (`Wg alejek` `85px` + `Wg daty ważności` `126px`). W efekcie pole `Szukaj produktów w spiżarni...` zostaje ściśnięte do **`88.5px` szerokości** na Desktopie `1440px` oraz **`101.1px`** w mobilnym [PantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/PantryView.tsx#L48-L87) na ekranie `360px`.
+  * **Wszystkie 6 opisów podrzędnych w `DesktopSidebar.tsx` są ucięte ponad połową długości:** W [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx) opisy zakładek mają `truncate` w wąskiej kolumnie (`clientWidth: 165–189px` przy `scrollWidth: 285–417px`, np. *„Zsynchronizowana w czasie rzeczywistym lista posortowana wed..."*).
+  * **Przedwczesne ucinanie nazw produktów i przepisów na Desktopie (`1440px`):** W `DesktopProductsView` (`ProductCatalogCard.tsx`) nazwa produktu *„Mleko bez laktozy 1.5%"* jest ucinana już na szerokości `clientWidth: 92px` (`scrollWidth: 155px`), a w `DesktopCookbookView` nazwa przepisu na `148px` (`scrollWidth: 331px`).
+* **Planowane Rozwiązanie:**
+  1. W `DesktopPantryView.tsx` oraz `PantryView.tsx` rozdzielić wiersz wyszukiwarki (`w-full` / osobna kolumna `min-w-[240px]`) od przełącznika sortowania (`Wg alejek` / `Wg daty ważności`), aby input wyszukiwania miał pełną, wygodną szerokość.
+  2. W `DesktopSidebar.tsx` pozwolić opisom zakładek na zawijanie do 2 linii (`line-clamp-2` zamiast `truncate`), a w `ProductCatalogCard.tsx` i `CookbookMealCard.tsx` zastosować `line-clamp-2` dla nazw produktów i przepisów.
 
 ---
 
@@ -437,6 +592,63 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 
 ---
 
+### NORM-10: Pełna Internacjonalizacja (i18n) Pozostałych Twardo Zakodowanych Tekstów Polskich oraz Ujednolicenie Dialogu Usuwania w Przepiśniku (ADR-003)
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Internacjonalizacja (i18n) / UX / Jakość Kodu (ADR-003)
+* **Pliki do modyfikacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L52-L64), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L90-L105), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L109-L295), [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts#L209-L210), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L130-L241), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L176-L182), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts#L109), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
+* **Problem / Uzasadnienie:**
+  * W kilku miejscach pozostały twardo zakodowane polskie etykiety pomijające słowniki `src/i18n/locales/{pl,en}.ts`:
+    - [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L52-L64): `'Świeże / niedawno:'`, `'Weryfikacja:'`, `'Dawno / uzupełnij:'`.
+    - [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx) & [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx): `'Tydzień do koszyka'`, `'Wyślij tydzień do koszyka'`, `'Poprzedni tydzień'`, `'Następny tydzień'`, `'Poprzedni dzień'`, `'Następny dzień'`, `'Dodaj'`, `'porcji'`, `'Składniki'`, `'Posiłek'` oraz wywołania `toLocaleDateString(undefined, ...)` zamiast aktywnego języka `language === 'pl' ? 'pl-PL' : 'en-US'`.
+    - [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts#L209-L210): `'Posiłek'`, `'(Przywrócono)'`.
+    - [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L176-L182): `'Domownik'`, `'Lista zakupów'`.
+  * Dodatkowo w [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts#L109) usuwanie przepisu wywołuje natywne okno przeglądarki `window.confirm(...)` zamiast spójnego wizualnie komponentu `ConfirmDeleteDialog`.
+* **Planowane Rozwiązanie:**
+  1. Przenieść wszystkie powyższe ciągi znaków do słowników `pl.ts` i `en.ts` oraz przekazać aktywne `language` do `toLocaleDateString`.
+  2. Zastąpić `window.confirm(...)` w `useCookbookController.ts` stanem modala i komponentem `ConfirmDeleteDialog` w `CookbookView.tsx` oraz `DesktopCookbookView.tsx`.
+
+---
+
+### NORM-11: Dalsza Dekompozycja Warstwy Serwisów (`shoppingListService.ts` – 1012 linii) i Store (`useShoppingStore.ts` – 468 linii)
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Architektura / Modułowość Kodu (Zasada 2.4 z `AGENTS.md`)
+* **Pliki do modyfikacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts), [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts)
+* **Problem / Uzasadnienie:**
+  * Po dekompozycji widoków UI w zadaniu `NORM-02`, w warstwie serwisów i store pozostały pliki przekraczające wytyczną `< 250-300` linii z `AGENTS.md`:
+    - [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts) liczy **1,012 linii**, łącząc w jednym pliku zarządzanie listami, operacje na pozycjach i OCC, transfer z koszyka roboczego, transakcyjną archiwizację z fallbackiem oraz obsługę historii.
+    - [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts) liczy **468 linii**, a [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts) **413 linii**.
+* **Planowane Rozwiązanie:**
+  1. Podzielić `shoppingListService.ts` na mniejsze, wyspecjalizowane moduły (np. `shoppingListTransfer.ts`, `shoppingListArchive.ts`, `shoppingListHistory.ts`), zachowując fasadę `shoppingListService` dla pełnej kompatybilności wstecznej.
+  2. Wydzielić pomocnicze transformacje koszyka roboczego z `useShoppingStore.ts` do `src/lib/calculations/`.
+
+---
+
+### NORM-12: Zastąpienie Domyślnego Szablonu Vite w `README.md` Dokumentacją Projektu oraz Drobna Synchronizacja `PRD.md` i `.agents/rules/`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** Dokumentacja Projektowa (Zasada 2.6 z `AGENTS.md`)
+* **Pliki do modyfikacji:** [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md), [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43), [06-documentation-and-adrs.md](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/06-documentation-and-adrs.md)
+* **Problem / Uzasadnienie:**
+  * Plik [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md) w głównym katalogu repozytorium nadal zawiera generyczny boilerplate Vite (`# React + TypeScript + Vite`) zamiast opisu architektury SmartShopping, wymaganych zmiennych środowiskowych (`.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`), komend deweloperskich oraz spisu dokumentacji (`AGENTS.md`, `docs/PRD.md`, `docs/plan.md`, `docs/Roadmap.md`, `docs/adr/`).
+  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43) w sekcji DDL widnieje `theme VARCHAR(32) DEFAULT 'oled-emerald' NOT NULL`, podczas gdy migracja [20260825000000_add_theme_to_users.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260825000000_add_theme_to_users.sql) oraz kod (`DEFAULT_THEME`) używają `'oled-black'`.
+* **Planowane Rozwiązanie:**
+  1. Napisać kompletny, profesjonalny `README.md` dla projektu SmartShopping.
+  2. Skorygować domyślny motyw w DDL `docs/PRD.md` na `'oled-black'` i uzupełnić indeks ADR w `.agents/rules/06-documentation-and-adrs.md` o wszystkie dokumenty `ADR-001`..`ADR-010`.
+
+---
+
+### NORM-13: Powiększenie Mobilnych Stref Dotyku (`>= 44x44px`) dla Przycisków Ilości (`+`/`-`) oraz Responsywność na Tabletach (`768px–1023px`) i Desktopowym `LoginScreen`
+* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Obszar:** UX / Dostępność Dotykowa (WCAG 2.5.5) / Responsywność (RWD)
+* **Pliki do modyfikacji:** [ActiveListItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/ActiveListItemRow.tsx#L168-L231), [DraftItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/DraftItemRow.tsx#L135-L200), [PantryItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/pantry/PantryItemRow.tsx#L63), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L141-L176), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L104-L131), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L130-L144), [MobileLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/MobileLayout.tsx#L24), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx#L31)
+* **Problem / Uzasadnienie (Potwierdzone pomiarami `getBoundingClientRect()` w Microsoft Edge):**
+  * **Zbyt małe strefy dotyku na Mobile (`20–38px` zamiast `>= 44x44px`):** Pomiary w żywym DOM Microsoft Edge na ekranie `360x800` wykazały, że wiele kluczowych elementów interaktywnych nie osiąga `44x44px`: przyciski `-` i `+` (`28x28px`) oraz przycisk edycji ilości (`56x20px`) w `ActiveListItemRow.tsx`, `DraftItemRow.tsx` i `PantryItemRow.tsx`, przycisk `Usuń` na karcie przepisu (`26x26px`), przyciski akcji w `ProductCatalogCard.tsx` (`30x30px`), strzałki zmiany daty w `DayCalendarView` i `WeekCalendarView` (`36x36px`), przełącznik widoku kalendarza (`80x28px`) oraz przycisk `Profil` w `AppHeader` (`64x38px`).
+  * **Wąski kontener `max-w-md` (`448px`) na tabletach i ekranie logowania:** `MobileLayout.tsx` (używany dla szerokości `< 1024px`) oraz `LoginScreen.tsx` mają sztywne ograniczenie `max-w-md mx-auto`. Na tablecie `768x1024` kontener ma wymiary `448px × 1024px`, marnując `320px` (41.7% szerokości ekranu) na czarne pasy po bokach, a `LoginScreen` na monitorze `1440px` ma również `448px`.
+* **Planowane Rozwiązanie:**
+  1. Powiększyć mobilne przyciski `+`/`-`, ikony akcji, przycisk `Profil` i nawigację dat do bezpiecznego obszaru dotykowego (min. `40–44px` z odpowiednim paddingiem hit-area).
+  2. Rozszerzyć `MobileLayout.tsx` na breakpointach tabletowych (`md:max-w-2xl` / `sm:max-w-xl`) oraz nadać `LoginScreen.tsx` wycentrowaną kartę na pełnym tle ekranu dla Desktopu.
+
+---
+
 ## 6. 🔵 Kategoria LOW (Niski Priorytet / Nowe Funkcjonalności)
 
 ### LOW-01: Skaner Kodów Kreskowych (Barcode Scanner) w PWA
@@ -519,6 +731,34 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 
 ---
 
+### LOW-10: Tryb „Gotuję Teraz" (Step-by-Step Cooking Mode z Minutnikami i Blokadą Wygaszania Ekranu `WakeLock API`)
+* **Obszar:** UX Kulinaria / Mobile PWA
+* **Pliki:** [MealDetailsSheet.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/MealDetailsSheet.tsx), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx)
+* **Opis:**
+  - Pełnoekranowy widok krok-po-kroku dla otwartego przepisu z dużym kontrastowym fontem (czytelny z odległości blatu kuchennego bez dotykania ekranu mokrymi dłońmi).
+  - Automatyczne wykrywanie wyrażeń czasowych w instrukcji przygotowania (`preparation_steps`, np. *"gotuj 15 min"*, *"piecz przez 25 minut"*) i zamiana ich w klikalne minutniki z powiadomieniem dźwiękowym/wibracją.
+  - Aktywacja natywnego Web API `navigator.wakeLock.request('screen')` utrzymującego włączony ekran telefonu podczas gotowania, a po zakończeniu ostatniego kroku bezpośrednie przejście do `CookMealDeductModal` (rozchód składników ze spiżarni).
+
+---
+
+### LOW-11: Automatyczne Przeliczanie Miar Kuchennych (Łyżka / Łyżeczka / Szklanka / Szczypta ↔ Gramy / Mililitry)
+* **Obszar:** Kulinaria / Czyste Kalkulacje
+* **Pliki:** [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts)
+* **Opis:**
+  - Słownik przeliczników miar domowych (np. `1 szklanka = 250 ml`, `1 łyżka = 15 ml / g`, `1 łyżeczka = 5 ml / g`) w formularzu przepisu.
+  - Pozwala autorowi przepisu wprowadzać wygodne jednostki kuchenne przy zachowaniu automatycznej agregacji w gramach/mililitrach na liście zakupowej, w kalkulatorze kalorii oraz przy odejmowaniu stanów ze spiżarni.
+
+---
+
+### LOW-12: Analityka Żywieniowa Gospodarstwa i Historia Spożycia Makroskładników (Macro Trends & Weekly Summary)
+* **Obszar:** Zdrowie & Dietetyka / Kalendarz Posiłków
+* **Pliki:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts)
+* **Opis:**
+  - Widok podsumowania tygodniowego i miesięcznego średniego spożycia kalorii oraz rozkładu procentowego makroskładników (Białko / Węglowodany / Tłuszcze) na podstawie zaplanowanych i ugotowanych posiłków w Kalendarzu.
+  - Opcjonalne zdefiniowanie dziennego celu kalorycznego (`target_daily_kcal`) w profilu użytkownika z wizualizacją stopnia realizacji celu na pasku `CalendarMacroBar`.
+
+---
+
 ## 7. Podsumowanie i Matryca Realizacji
 
 ```mermaid
@@ -530,6 +770,7 @@ gantt
     CRIT-04 Fix RLS household_members    :crit, done, 2026-10, 2d
     CRIT-01 Offline Mutation Queue       :crit, done, 2026-10, 3d
     CRIT-02 Concurrency & OCC            :crit, done, 2026-10, 2d
+    CRIT-05 Fix PostgREST FK meal_plans  :crit, done, 2026-11, 1d
     section Wysokie (Performance & Quality)
     HIGH-01 Fix Fast Refresh Oxlint     :done, 2026-11, 2d
     HIGH-02 Fix Act Warnings Vitest      :done, 2026-11, 2d
@@ -537,6 +778,10 @@ gantt
     HIGH-05 Zustand Selectors & Shallow  :done, 2026-11, 2d
     HIGH-06 Stop Realtime Echo & Vibrate :done, 2026-11, 2d
     HIGH-03 RLS Multi-tenancy Audit      :done, 2026-11, 2d
+    HIGH-07 Fix targetKcal pcs & refProd :2026-11, 1d
+    HIGH-08 Harden RLS meals & parent_id :2026-11, 1d
+    HIGH-09 Sync in_pantry & Retention   :2026-11, 2d
+    HIGH-10 Mobile BottomNav & LayoutUX  :2026-11, 2d
     section Średnie (Backend & Biznes)
     MED-07 Setup GitHub Actions CI/CD    :done, 2026-11, 4d
     MED-06 Transactional RPC Archive     :done, 2026-11, 12d
@@ -545,6 +790,12 @@ gantt
     MED-02 Data Retention Script         :done, 2026-11, 10d
     MED-03 Dismiss Uncertainty ⚠️        :done, 2026-11, 7d
     MED-04 Pantry Mixed Unit Math        :done, 2026-11, 7d
+    MED-08 Hierarchical Pantry in Cards  :2026-11, 1d
+    MED-09 Pantry Select & Offline Edit  :2026-11, 1d
+    MED-10 Local Date Math in Calendar   :2026-11, 1d
+    MED-11 Offline Badge & Grid Selected :2026-11, 1d
+    MED-12 Light Theme Contrast & Layout :2026-11, 1d
+    MED-13 Pantry Search & Sidebar Trunc :2026-11, 1d
     section Normalne (Higiena & PWA)
     NORM-05 Eliminate `any` in Services  :done, 2026-11, 7d
     NORM-06 Sync PRD.md Specs            :done, 2026-11, 3d
@@ -555,13 +806,20 @@ gantt
     NORM-02 Component Size Check         :done, 2026-11, 10d
     NORM-03 Accessibility a11y           :done, 2026-11, 14d
     NORM-04 Pantry Expiry Dates          :done, 2026-11, 10d
+    NORM-10 Complete i18n & Delete Modal :2026-12, 2d
+    NORM-11 Split shoppingListService    :2026-12, 2d
+    NORM-12 Update README & Docs Sync    :2026-12, 1d
+    NORM-13 Touch Targets & Tablet RWD   :2026-12, 1d
     section Nowe Funkcje (Low)
     LOW-07 Pantry Recipe Recommender     :2027-01, 18d
     LOW-06 Multi-Store Aisle Profiles    :2027-01, 14d
+    LOW-10 Step-by-Step Cooking Mode     :2027-01, 10d
     LOW-01 Barcode Scanner               :2027-02, 25d
     LOW-08 Weekly Meal Plan Templates    :2027-02, 14d
+    LOW-11 Kitchen Units Converter       :2027-02, 10d
     LOW-02 Price & Budget Tracking       :2027-03, 20d
     LOW-09 Email List Export (Resend)    :2027-03, 10d
+    LOW-12 Household Macro Analytics     :2027-03, 14d
     LOW-04 AI OCR Receipt Scanner        :2027-04, 30d
 ```
 
@@ -571,12 +829,17 @@ gantt
 | **CRIT-04** | ✅ Zrealizowane | 🔴 Critical | Security / Supabase RLS | 1-2 dni | Uniemożliwienie samowolnego dołączania użytkowników do cudzych gospodarstw. |
 | **CRIT-01** | ✅ Zrealizowane | 🔴 Critical | Frontend / Offline PWA | 4-5 dni | Brak utraty odhaczonych artykułów przy braku zasięgu w halach marketów. |
 | **CRIT-02** | ✅ Zrealizowane | 🔴 Critical | Backend / Realtime | 2-3 dni | Spójność równoległych zakupów dwóch domowników (Last-Write-Wins prevention). |
+| **CRIT-05** | ✅ Zrealizowane | 🔴 Critical | Backend / PostgREST | 0.5 dnia | Usunięcie błędu `PGRST201` (ambiguous FK) i poprawne liczenie kalorii produktów ogólnych w Kalendarzu. |
 | **HIGH-01** | ✅ Zrealizowane | 🟠 High | Tooling / Linter | 0.5 dnia | Czysty kod `0 warnings` w `oxlint` i działający React Fast Refresh (HMR). |
 | **HIGH-02** | ✅ Zrealizowane | 🟠 High | Testing / Vitest | 1 dzień | Wyeliminowanie ostrzeżeń `act(...)` i stabilne testy jednostkowe/integracyjne. |
 | **HIGH-03** | ✅ Zrealizowane | 🟠 High | Security / Supabase RLS | 1-2 dni | Audyt i domknięcie luk multi-tenancy (m.in. `push_subscriptions`, `users`, FK). |
 | **HIGH-04** | ✅ Zrealizowane | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
 | **HIGH-05** | ✅ Zrealizowane | 🟠 High | Performance / React | 2 dni | Eliminacja kaskadowych przerenderowań dzięki selektorom Zustand i `useShallow`. |
 | **HIGH-06** | ✅ Zrealizowane | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
+| **HIGH-07** | ⏳ Oczekujące | 🟠 High | Logika / Makro | 0.5 dnia | Poprawne skalowanie `targetKcal` w koszyku dla sztuk (`pcs`) oraz produktów ogólnych (`reference_product`). |
+| **HIGH-08** | ⏳ Oczekujące | 🟠 High | Security / Supabase RLS | 1 dzień | Blokada wstrzykiwania globalnych przepisów (`household_id IS NULL`) i walidacja tenant-isolation na `parent_id`. |
+| **HIGH-09** | ⏳ Oczekujące | 🟠 High | Logika / Lista & Historia | 1-2 dni | Spójne wliczanie `in_pantry` do liczników list oraz obsługa snapshotu retencji (`MED-02`) w Historii. |
+| **HIGH-10** | ⏳ Oczekujące | 🟠 High | UI/UX / Nawigacja Mobile | 1-2 dni | Odchudzenie 7-zakładkowego `BottomNavigation`, badge `activeCount` i przełącznik układu w `AppHeader`. |
 | **MED-01** | ✅ Zrealizowane | 🟡 Medium | Frontend / Bundle | 2-3 dni | Redukcja głównego chunka z 1,036 kB do 134 kB (`React.lazy` + Rolldown `codeSplitting`). |
 | **MED-02** | ✅ Zrealizowane | 🟡 Medium | Database / Retention | 1 dzień | Ręczny skrypt retencji `shopping_list_items_archive` i RPC archiwizujące (bez CRON). |
 | **MED-03** | ✅ Zrealizowane | 🟡 Medium | UX / Kalendarz | 1 dzień | Możliwość wyciszenia ostrzeżenia ⚠️ braków w `UncertaintyWarningModal`. |
@@ -584,6 +847,12 @@ gantt
 | **MED-05** | ✅ Zrealizowane | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Zdejmowanie zużytych składników ze spiżarni po realizacji posiłku (`CookMealDeductModal`). |
 | **MED-06** | ✅ Zrealizowane | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 wywołaniu `archive_shopping_list`. |
 | **MED-07** | ✅ Zrealizowane | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
+| **MED-08** | ⏳ Oczekujące | 🟡 Medium | UX / Przepiśnik & Kalendarz | 1 dzień | Hierarchiczne wykrywanie spiżarni na kartach przepisów i skalowanie składników wg `target_kcal` w widoku dnia. |
+| **MED-09** | ⏳ Oczekujące | 🟡 Medium | State / Offline & Spiżarnia | 0.5 dnia | Pełne metadane hierarchii po dodaniu do spiżarni i obsługa offline/echo przy ręcznej edycji ilości na liście. |
+| **MED-10** | ⏳ Oczekujące | 🟡 Medium | Logika Dat / Kalendarz | 0.5 dnia | Eliminacja przesunięć daty o północy i podczas zmiany czasu (DST) w Kalendarzu (`toISOString`). |
+| **MED-11** | ⏳ Oczekujące | 🟡 Medium | UI/UX / Offline & Kalendarz | 0.5 dnia | Wizualny wskaźnik pracy Offline (`pendingCount`) zamiast stałego „Realtime" oraz wyróżnienie `isSelected` w siatce miesiąca. |
+| **MED-12** | ⏳ Oczekujące | 🟡 Medium | Design / Motyw `clean-light` | 1 dzień | Poprawa kontrastu odznak semantycznych (`-400`/`zinc-*`) na jasnym tle (`1.92:1` → `>=4.5:1`) i usunięcie podwójnych paddingów w Kalendarzu. |
+| **MED-13** | ⏳ Oczekujące | 🟡 Medium | UI/UX / Spiżarnia & Sidebar | 0.5 dnia | Naprawa ściśniętego pola wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz nadmiernego `truncate` w `DesktopSidebar` i kartach. |
 | **NORM-01** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Oznaczenie Fazy 15 jako zakończonej w [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md). |
 | **NORM-02** | ✅ Zrealizowane | 🟢 Normal | Frontend / Architecture | 2 dni | Dekompozycja monolitów (> 430 linii) do 14 hooków kontrolerów i 12 subkomponentów UI. |
 | **NORM-03** | ✅ Zrealizowane | 🟢 Normal | Frontend / a11y | 2 dni | Pełne role WAI-ARIA, nawigacja klawiaturą, strefy dotyku 44px i kontrast WCAG AA we wszystkich 6 motywach. |
@@ -593,8 +862,17 @@ gantt
 | **NORM-07** | ✅ Zrealizowane | 🟢 Normal | Architecture / Services | 1 dzień | Separacja zapytań Supabase do `userService.ts`; 0 bezpośrednich zapytań w kontekstach. |
 | **NORM-08** | ✅ Zrealizowane | 🟢 Normal | PWA / Offline Cache | 1 dzień | Reguły Workbox `CacheFirst` (fonty, media) oraz `StaleWhileRevalidate` (JS/CSS) w `vite.config.ts`. |
 | **NORM-09** | ✅ Zrealizowane | 🟢 Normal | Realtime / UX | 0.5 dnia | Synchronizacja kolejności alejek w czasie rzeczywistym bezpośrednio w widoku aktywnej listy. |
+| **NORM-10** | ⏳ Oczekujące | 🟢 Normal | i18n / UX | 1 dzień | Przeniesienie pozostałych twardo zakodowanych polskich tekstów do słowników i18n oraz `ConfirmDeleteDialog` w Przepiśniku. |
+| **NORM-11** | ⏳ Oczekujące | 🟢 Normal | Architecture / Modularity | 1-2 dni | Podział `shoppingListService.ts` (1012L) na mniejsze moduły domenowe. |
+| **NORM-12** | ⏳ Oczekujące | 🟢 Normal | Documentation | 0.5 dnia | Zastąpienie szablonu Vite w `README.md` dokumentacją SmartShopping i korekta domyślnego motywu w DDL `PRD.md`. |
+| **NORM-13** | ⏳ Oczekujące | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` na przyciskach `+`/`-` w wierszach mobilnych oraz responsywność tabletowa (`768px–1023px`). |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
+| **LOW-10** | ⏳ Oczekujące | 🔵 Low | UX Kulinaria / PWA | 2-3 dni | Tryb „Gotuję Teraz" krok-po-kroku z minutnikami i blokadą wygaszania ekranu (`WakeLock API`). |
+| **LOW-11** | ⏳ Oczekujące | 🔵 Low | Kulinaria / Kalkulacje | 2 dni | Przelicznik miar domowych (szklanka, łyżka, łyżeczka ↔ g/ml). |
+| **LOW-12** | ⏳ Oczekujące | 🔵 Low | Dietetyka / Kalendarz | 2-3 dni | Analityka makroskładników i historia realizacji dziennych celów kalorycznych. |
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
-> Kolejnym etapem rozwoju są nowe moduły funkcjonalne z kategorii `LOW` (`LOW-07`, `LOW-06`, `LOW-01`–`LOW-09`). Wszystkie zgłoszenia `CRIT`, `HIGH`, `MED` oraz `NORM` zostały zrealizowane i zweryfikowane.
+> 1. **Naprawy priorytetowe (Quick Wins):** W pierwszej kolejności należy zamknąć `HIGH-07` (skalowanie `targetKcal` dla `pcs` i `reference_product` w `useShoppingStore.ts`), `HIGH-08` (uszczelnienie RLS dla `meals`/`meal_ingredients`/`products.parent_id`), `HIGH-09` (spójność `in_pantry` i odczyt archiwum `MED-02` w Historii) oraz `HIGH-10` (ergonomia mobilnego `BottomNavigation` i przełącznik układu w `AppHeader`).  
+> 2. **Spójność wizualna, domenowa i higiena (`MED-08`..`MED-12`, `NORM-10`..`NORM-13`):** Wyrównanie hierarchicznego wykrywania spiżarni na kartach przepisów i w widoku dnia, lokalna arytmetyka dat w Kalendarzu, wskaźnik pracy Offline, kontrast odznak w motywie `clean-light`, strefy dotyku `44px`, pełne i18n, dekompozycja `shoppingListService.ts` oraz uzupełnienie `README.md`.  
+> 3. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-12`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`) oraz trybu „Gotuję Teraz" (`LOW-10`).
