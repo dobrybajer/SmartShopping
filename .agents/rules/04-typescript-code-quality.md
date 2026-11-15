@@ -7,9 +7,10 @@ To ensure long-term stability and prevent runtime failures, SmartShopping enforc
 
 ## 1. Strict Typing Principles
 
-1. **Zero `any` Policy:**
-   - The use of `any` is strictly prohibited.
-   - Use `unknown` with type guards if dealing with untyped external data.
+1. **Zero `any` Policy (`HIGH-04`):**
+   - The use of `any` is strictly prohibited across source and test files.
+   - All `catch` blocks must type errors as `catch (err: unknown)` and narrow safely (`err instanceof Error`) instead of `catch (err: any)`.
+   - Use `unknown` with explicit type guards when dealing with untyped external data or JSON imports.
 2. **Supabase Schema Source of Truth:**
    - All database entity models must derive from `src/types/supabase.ts`.
    - Use Supabase helper types:
@@ -27,29 +28,41 @@ To ensure long-term stability and prevent runtime failures, SmartShopping enforc
        category?: Tables<'product_categories'> | null;
      }
      ```
+4. **React Fast Refresh Export Discipline:**
+   - Never export non-component values (CVA variants, React `createContext` instances, constants, hooks, or helper functions) from `.tsx` component files. Keep them in dedicated `.ts` modules (e.g., `badge.variants.ts`, `ThemeContextInstance.ts`, `authContextDef.ts`).
 
 ---
 
-## 2. Code Modularity & File Organization
+## 2. Code Modularity, i18n & Domain Calculation Invariants
 
-1. **File Size Guidelines:**
-   - Keep files focused and readable (guideline: < 250–300 lines).
-   - If a view or component grows too large, break it down:
-     - Extract reusable UI elements into `src/components/ui/` or dedicated sub-folders.
-     - Extract custom hook logic into `src/hooks/`.
-     - Extract math or pure transformations into `src/lib/calculations/`.
-2. **Pure Functions for Business Logic:**
-   - Math and algorithms (e.g. macro scaling, aggregation, grocery store sorting) must be implemented as stateless pure functions that take inputs and return results without side effects. This guarantees 100% testability.
+1. **Strict File Size Ceiling (`< 250–300` lines):**
+   - Keep components and modules focused and below 250–300 lines (`HIGH-12`).
+   - When a view or dialog grows beyond this threshold, decompose it immediately:
+     - Extract presentational subcomponents into `src/components/<domain>/` or `src/components/ui/`.
+     - Extract view state and side effects into custom controller hooks (`src/hooks/use*Controller.ts`).
+     - Extract pure math, validation, or transformations into `src/lib/calculations/`.
+   - **DRY Across Dual Layouts:** Mobile (`src/components/views/`) and Desktop (`src/components/layout/desktop/views/`) counterparts must share controller hooks and domain subcomponents rather than duplicating business logic.
+2. **Pure Functions for Business Logic & Safe Precision:**
+   - Algorithms (macro scaling, aggregation, store sorting, calendar statuses, pantry deduction, kitchen units, weekly templates) must be pure, stateless functions in `src/lib/calculations/` with 100% unit test coverage.
+   - **Hierarchical Macros (`ADR-010`):** Always resolve ingredient macros via `resolveEffectiveIngredientMacros` (`src/lib/calculations/macroCalculations.ts`) so general (`is_general`) products route nutrition through their reference variant.
+   - **Kitchen Units (`LOW-11`):** Convert household units (`tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l`) to canonical base units (`g`, `ml`, `pcs`) via `convertKitchenUnitToBaseQuantity` (`src/lib/calculations/kitchenUnits.ts`).
+   - **Decimal Editing (`LOW-04`):** Use `parseFloat` (never `parseInt`) for quantities so fractional amounts remain valid.
+   - **Local Timezone Date Math (`NORM-11`):** **FORBIDDEN** to call `new Date().toISOString().split('T')[0]` for calendar dates (UTC drift causes off-by-one day bugs near midnight). Always use `getLocalDateISOString`, `formatLocalDateISO`, and `addDaysISO` from `src/lib/utils.ts`.
+3. **100% i18n Purity (`PL` & `EN`):**
+   - **Zero hardcoded UI strings** in components, dialogs, error toasts, or validation helpers.
+   - Every new translation key must be added symmetrically to both `src/i18n/locales/pl.ts` and `src/i18n/locales/en.ts`.
+   - Seeded/global DB categories or slugs displayed in the UI must be mapped through `t(...)` localization helpers rather than rendered as raw English/internal slugs.
 
 ---
 
 ## 3. Error Handling & User Feedback
 
 1. **No Silent Failures:**
-   - Catch blocks must handle errors properly: log for debugging and show user-friendly notifications (Toasts/Alerts).
+   - Catch blocks must handle errors properly: log for debugging (`console.error` / service error helper) and display user-friendly localized notifications (`useToastStore`).
 2. **Graceful Loading & Empty States:**
-   - Every view must provide clean skeleton loaders or spinners during initial load and empty state illustrations/prompts when lists have no items.
+   - Every view must provide clean skeleton loaders or spinners during initial load and localized empty state illustrations/prompts when lists have no items.
 3. **Quality Gates:**
-   - Before completing tasks, verify:
-     - `npm run lint` (oxlint)
-     - `npx tsc -b` (strict compiler check)
+   - Before completing any task, verify:
+     - `npm run lint` (`oxlint` — 0 errors, 0 warnings)
+     - `npx tsc -b` (strict TypeScript compiler check — 0 errors)
+     - `npm run test` (Vitest unit & integration suites — 100% pass)

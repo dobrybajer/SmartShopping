@@ -833,17 +833,18 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### NORM-16: Aktualizacja Dokumentacji (`README.md`, `docs/PRD.md`, `docs/plan.md`) po Wdrożeniu `LOW-08` i `LOW-11` oraz Naprawa Linków do ADR
-* **Status:** ⏳ **Oczekujące**
-* **Obszar:** Dokumentacja (`Reguła 06`)
-* **Pliki do modyfikacji:** [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md#L36), [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L25-L205), [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
+* **Obszar:** Dokumentacja (`Reguła 06`) & System Reguł Agentów (`AGENTS.md`, `.agents/rules/01..06`)
+* **Pliki zmodyfikowane:** [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md#L16-L137), [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L31-L225), [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md), [AGENTS.md](file:///d:/08_Git/SmartShopping/SmartShopping/AGENTS.md), [Reguły 01–06](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/)
 * **Problem / Uzasadnienie:**
-  * W [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md#L129-L136) dwa linki ADR są uszkodzone (wskazują na nieistniejące `ADR-002-realtime-optimistic-ui.md` i `ADR-009-meal-planning-calendar-and-shopping-sync.md` zamiast rzeczywistych `ADR-002-state-and-realtime-architecture.md` i `ADR-009-meal-planning-and-calendar-module.md`), a w [linii 36](file:///d:/08_Git/SmartShopping/SmartShopping/README.md#L36) widnieje przestarzała wersja `TypeScript 5.8, Vite 6` zamiast `TypeScript ~6.0.2, Vite ^8.2.0` z [package.json](file:///d:/08_Git/SmartShopping/SmartShopping/package.json#L44-L45).
-  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L31-L96) w sekcji 4 (DDL) brakuje tabel `household_members` oraz `household_invites`, a także kolumn `products.type`, `meals.type` i `product_categories.is_non_food` występujących w bazie i `src/types/supabase.ts`.
-  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md) oraz [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md) nie dopisano nowo wdrożonych funkcji `LOW-08` (Szablony tygodniowe) oraz `LOW-11` (Przelicznik miar kuchennych), czego wymaga `Reguła 06`.
-* **Rekomendowane Rozwiązanie:**
-  1. Naprawić uszkodzone linki i wersje w `README.md` oraz zsynchronizować `PRD.md` i `plan.md` z pełnym schematem bazy i zakresem `LOW-08` / `LOW-11`.
+  * W [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md#L129-L136) dwa linki ADR były uszkodzone (`ADR-002-realtime-optimistic-ui.md`, `ADR-009-meal-planning-calendar-and-shopping-sync.md`), a w linii 36 widniały nieaktualne wersje `TypeScript 5.8, Vite 6` zamiast `TypeScript 6.0, Vite 8.2`.
+  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md) brakowało tabel `household_members`, `household_invites` oraz kolumn `product_categories.is_non_food`, `products.type` i `meals.type`, a także opisu wdrożonych funkcji `LOW-08` i `LOW-11` w `PRD.md` i `plan.md`.
+* **Zastosowane Rozwiązanie:**
+  1. Naprawiono linki do `ADR-002` i `ADR-009` oraz zaktualizowano opis wersji i funkcji w `README.md`.
+  2. Zsynchronizowano schemat DDL i wymagania funkcjonalne (`LOW-08` Szablony Tygodniowe, `LOW-11` Przelicznik Miar Kuchennych) w `docs/PRD.md` oraz `docs/plan.md`.
+  3. Wzmocniono `AGENTS.md` (10-punktowa checklista samokontroli agenta przed zakończeniem zadania) i `.agents/rules/01-06` (w tym pełny zakaz przestarzałych klas `bg-black`/`text-zinc-500` na rzecz 6 motywów WCAG AA, rygor `catch (err: unknown)`, brak zapytań N+1 i nieograniczonych zapytań, obowiązek aktualizacji dokumentacji w tym samym kroku).
 * **Definition of Done (DoD):**
-  - ✅ Wszystkie linki w `README.md` są aktywne, a `PRD.md` i `plan.md` odzwierciedlają 100% tabel, kolumn i wdrożonych funkcji.
+  - ✅ Wszystkie linki w `README.md` są aktywne, `PRD.md` i `plan.md` odzwierciedlają 100% tabel, kolumn i wdrożonych funkcji (`LOW-08`, `LOW-11`), a zasady dla przyszłych promptów zapobiegają dryfowi i regresjom.
 
 ---
 
@@ -1071,7 +1072,7 @@ gantt
     NORM-13 Touch Targets & Tablet RWD   :done, 2026-11, 1d
     NORM-14 Calendar i18n & Slug Mapping :2026-12, 1d
     NORM-15 Calendar Confirm & 44px UX   :2026-12, 1d
-    NORM-16 Fix README Links & Sync Docs :2026-12, 1d
+    NORM-16 Fix README Links & Sync Docs :done, 2026-11, 1d
     NORM-17 Decompose Files > 300 Lines  :2026-12, 2d
     section Nowe Funkcje (Low)
     LOW-07 Pantry Recipe Recommender     :2027-01, 18d
@@ -1143,7 +1144,7 @@ gantt
 | **NORM-13** | ✅ Zrealizowane | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` / powiększone przyciski mobilne oraz responsywność tabletowa (`768px–1023px`) i `LoginScreen`. |
 | **NORM-14** | ⏳ Oczekujące | 🟢 Normal | i18n / Kalkulacje | 0.5 dnia | Przeniesienie ostatnich polskich tekstów i surowych slugów `meal_categories` w `AddCalendarMealDialog` do słowników i18n. |
 | **NORM-15** | ⏳ Oczekujące | 🟢 Normal | UX / Kalendarz | 0.5-1 dzień | Strefy dotyku `>= 44x44px` oraz `ConfirmDeleteDialog` w modalach i kartach Kalendarza. |
-| **NORM-16** | ⏳ Oczekujące | 🟢 Normal | Documentation | 0.5 dnia | Naprawa linków ADR i wersji w `README.md` oraz dopisanie `LOW-08`/`LOW-11` i brakujących tabel/kolumn w `PRD.md`/`plan.md`. |
+| **NORM-16** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Naprawa linków ADR/wersji w `README.md`, dopisanie `LOW-08`/`LOW-11`/DDL w `PRD.md`/`plan.md` oraz wzmocnienie `AGENTS.md` i `.agents/rules/01..06`. |
 | **NORM-17** | ⏳ Oczekujące | 🟢 Normal | Architecture / Modularity | 1-2 dni | Dalsza dekompozycja 24 plików przekraczających 300 linii (w tym 7 plików `409–421` linii). |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
@@ -1158,5 +1159,5 @@ gantt
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
 > 1. **Domknięcie rozjazdów i bezpieczeństwa (`HIGH-11`..`HIGH-13`):** Podłączenie `activeListItems` / `archivedListItems` i sekcji kategorii w Kalendarzu, wdrożenie edycji przepisów (`updateMeal`) oraz usunięcie martwego przełącznika `Global`, walidacja UUID w `.or()`, role właściciela gospodarstwa oraz reguła `no-explicit-any`.  
-> 2. **Wydajność, spójność logiki biznesowej i higiena (`MED-14`..`MED-18`, `NORM-14`..`NORM-17`):** Okno dat w Kalendarzu, paginacja Historii, eliminacja zapytań N+1, naprawa 4 luk logiki domenowej (`LIST_COMPLETED`, scalanie po archiwizacji, zbiorczy transfer tygodnia, edycja ułamkowa), migracja szablonów `LOW-08` do Supabase, ograniczenia `CHECK` w PostgreSQL oraz pełna synchronizacja dokumentacji (`README.md`, `PRD.md`, `plan.md`).  
+> 2. **Wydajność, spójność logiki biznesowej i higiena (`MED-14`..`MED-18`, `NORM-14`, `NORM-15`, `NORM-17`):** Okno dat w Kalendarzu, paginacja Historii, eliminacja zapytań N+1, naprawa 4 luk logiki domenowej (`LIST_COMPLETED`, scalanie po archiwizacji, zbiorczy transfer tygodnia, edycja ułamkowa), migracja szablonów `LOW-08` do Supabase, ograniczenia `CHECK` w PostgreSQL oraz dokończenie i18n, a11y 44px i dekompozycji plików `>300L` (`NORM-16` i aktualizacja reguł agentów zostały wdrożone).  
 > 3. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-16`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`), trybu „Gotuję Teraz" (`LOW-10`) oraz planowania Batch Cooking (`LOW-13`) i importu URL (`LOW-14`).

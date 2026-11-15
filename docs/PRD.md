@@ -44,11 +44,28 @@ CREATE TABLE users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE household_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_household_member UNIQUE (household_id, user_id)
+);
+
+CREATE TABLE household_invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT unique_household_invite UNIQUE (household_id, email)
+);
+
 CREATE TABLE product_categories (
   id SERIAL PRIMARY KEY,
   household_id UUID REFERENCES households(id) ON DELETE CASCADE, -- NULL dla kategorii globalnych
   name TEXT NOT NULL,
-  sort_order INT NOT NULL -- domyślne ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
+  sort_order INT NOT NULL, -- domyślne ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
+  is_non_food BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE household_category_settings (
@@ -67,6 +84,7 @@ CREATE TABLE household_category_settings (
 CREATE TABLE products (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID REFERENCES households(id),
+  type TEXT NOT NULL DEFAULT 'Household' CHECK (type IN ('Global', 'Household')),
   name TEXT NOT NULL,
   unit_type unit_enum NOT NULL,
   category_id INT REFERENCES product_categories(id),
@@ -87,6 +105,7 @@ CREATE TABLE meal_categories (
 CREATE TABLE meals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID REFERENCES households(id),
+  type TEXT NOT NULL DEFAULT 'Household' CHECK (type IN ('Global', 'Household')),
   name TEXT NOT NULL,
   description TEXT,
   preparation_steps TEXT,
@@ -193,13 +212,13 @@ CREATE TABLE meal_plans (
 ```
 
 ## 5. Opis Biznesowy Funkcjonalności
-*   **Baza Potraw (CRUD):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw.
+*   **Baza Potraw (CRUD) i Przelicznik Miar Kuchennych (`LOW-11`):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw (wraz z przelicznikiem miar kuchennych: `tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` na jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
 *   **Zarządzanie Makro i Skalowanie:** Produkty definiują makro na 100g/100ml lub 1 sztukę. Przy dodawaniu posiłku użytkownik określa docelową kaloryczność, co automatycznie wylicza mnożnik dla proporcjonalnej ilości składników.
 *   **Moduł Kalendarza i Planowania Posiłków (ADR-009):**
     *   **3 Perspektywy Czasowe:** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (kategorie posiłków, pełne makro B/W/T, lista składników).
     *   **Synchronizacja z Procesem Zakupowym:** Śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`).
     *   **Wykrywanie Niepewności (⚠️):** Jeśli jakikolwiek składnik dania zostanie usunięty z koszyka lub listy przed zakupem, pojawia się wskaźnik niepewności z możliwością podglądu braków i natychmiastowego ich przywrócenia jednym kliknięciem.
-    *   **Elastyczność i Skalowanie:** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc oraz duplikowanie posiłku na kolejny dzień.
+    *   **Elastyczność, Skalowanie i Szablony Tygodniowe (`LOW-08`):** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc, duplikowanie posiłku na kolejny dzień oraz zapisywanie/nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikiem porcji `0.5x–4x` (`WeeklyTemplatesModal`).
     *   **Tryb Archiwalny:** Przeszłe dni są zablokowane do edycji (tylko do odczytu) z trwałym oznaczeniem zrealizowanych posiłków.
 *   **Wiele Aktywnych List Zakupowych i Elastyczny Transfer z Koszyka (ADR-005):**
     *   Gospodarstwo domowe może posiadać jednocześnie wiele aktywnych list zakupowych (np. *"Bieżące spożywcze"*, *"Dom / Majsterkowanie"*, *"Apteka"*).

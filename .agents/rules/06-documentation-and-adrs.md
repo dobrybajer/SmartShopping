@@ -7,11 +7,19 @@ To prevent architectural drift and knowledge loss, documentation in SmartShoppin
 
 ## 1. Documentation Synchronization
 
-1. **Continuous Updates:**
-   - Whenever an architectural change or significant feature is added, the agent **MUST** update:
-     - `docs/PRD.md` (Product Requirements Document)
-     - `docs/plan.md` (Implementation roadmap and completion status)
-2. **No Monolithic Bloat:**
+1. **Continuous Updates & Drift Prevention (Same-Turn Rule):**
+   - Documentation updates MUST happen in the **same task/turn** as code or database schema changes — never deferred "for later".
+   - Whenever an architectural pattern, schema migration, UI module, or significant feature is added or changed, the agent **MUST** synchronize:
+     - `docs/PRD.md` — functional requirements, exact SQL DDL (`CREATE TABLE` / `ALTER TABLE` / constraints matching `supabase/migrations/`), and user flows.
+     - `docs/plan.md` — implementation phase status, components, stores, and verification outcomes.
+     - `docs/Roadmap.md` — mark completed backlog items (`✅ Zrealizowane`), add verification file/test links, update Section 7 Gantt + summary table, and register any newly deferred technical debt without duplicate IDs.
+     - `README.md` — feature overview, current tech stack versions matching `package.json`, and valid links to every file in `docs/adr/`.
+2. **Mandatory Documentation Sync Checklist:**
+   - Schema changed (`supabase/migrations/*` or `src/types/supabase.ts`)? -> Verify `docs/PRD.md` DDL and Section 3 (`RLS`) match 1:1.
+   - New or modified feature? -> Verify `docs/PRD.md` functional specs, `docs/plan.md` phase checklist, and `README.md` features list match implementation.
+   - New ADR authored? -> Verify `README.md` ADR registry link points to the exact filename in `docs/adr/` and follows `.agents/skills/deep-dive-adr/SKILL.md`.
+   - New rule or invariant discovered? -> Verify `AGENTS.md` (including its 10-Point Pre-Completion Self-Audit Checklist) and the relevant `.agents/rules/01..06` stay consistent without contradictions.
+3. **No Monolithic Bloat:**
    - Instead of continuously bloating single documents with non-standard patterns, create dedicated Architectural Decision Records in `docs/adr/`.
 
 ---
@@ -25,7 +33,7 @@ Before finalizing any ADR, the agent and contributor must rigorously probe:
 1. **User Flows & UX Duality:** Full alignment between Mobile PWA (one-handed thumb zone, 44x44px, bottom sheets, swipe gestures, haptics) and Desktop (sidebar, header, centered dialogs, keyboard shortcuts, multi-column tables).
 2. **Edge Cases & Corner Scenarios:** Offline behavior in supermarket aisles, simultaneous multi-device family edits, boundary limits, and network drop recovery.
 3. **Data Model & Supabase RLS:** Schema structure, foreign key cascading, and strict household multi-tenancy policies via `public.get_user_household_ids(auth.uid())`.
-4. **State Management & Optimistic UI:** Zustand state transitions, background PostgREST updates, and automatic rollback on network failure.
+4. **State Management & Optimistic UI:** Zustand state transitions, background PostgREST updates, offline queuing (`offlineMutationQueue`), and error rollback with Toast feedback on failure.
 5. **Performance & Latency:** Indexing strategy, query optimization, and bundle impact.
 6. **Industry & Market Standards:** Benchmarks against market leaders (AnyList, Paprika, Whisk, Todoist, Cronometer).
 7. **Failure Modes & Telemetry:** User-facing notifications (Toasts/Alerts) and error recovery.

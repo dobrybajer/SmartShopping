@@ -14,9 +14,9 @@
   - **Optimistic UI + OCC (Optimistic Concurrency Control):** Natychmiastowe odhaczanie pozycji (`< 16ms`) z ochroną przed wyścigami zapisu (WebSockets Supabase Realtime + kolejka Offline Queue z synchronizacją po powrocie sieci).
   - Automatyczna agregacja produktów i grupowanie według definiowanego przez gospodarstwo układu alejek sklepowych (`household_category_settings`).
 - **Książka Kucharska i Planer Kalendarzowy (Miesiąc / Tydzień / Dzień):**
-  - Przepisy z automatycznym wyliczaniem makroskładników (`kcal`, `B`, `W`, `T`) i dynamicznym skalowaniem gramatury składników do docelowej kaloryczności porcji.
+  - Przepisy z automatycznym wyliczaniem makroskładników (`kcal`, `B`, `W`, `T`), obsługą miar kuchennych (`szklanki`, `łyżki`, `łyżeczki`, `szczypty`, `dag`, `kg`, `l`) z konwersją na jednostki bazowe oraz dynamicznym skalowaniem gramatury składników do docelowej kaloryczności porcji.
   - Dwu-poziomowa hierarchia produktów (Produkty Ogólne i Szczegółowe) z dynamicznym trasowaniem makro przez wariant referencyjny (`ADR-010`).
-  - Kalendarz posiłków z 3 perspektywami czasowymi, śledzeniem statusów składników (`Zaplanowane` → `W koszyku` → `Na liście` → `Kupione` / `W spiżarni`) oraz detekcją niepewności (`⚠️`).
+  - Kalendarz posiłków z 3 perspektywami czasowymi, szablonami tygodniowymi (zapisywanie i nakładanie tygodnia Pn–Pt / Pn–Nd z mnożnikiem porcji `0.5x–4x`), śledzeniem statusów składników (`Zaplanowane` → `W koszyku` → `Na liście` → `Kupione` / `W spiżarni`) oraz detekcją niepewności (`⚠️`).
 - **Inteligentna Spiżarnia (`Pantry`):**
   - Automatyczne zasilanie spiżarni kupionymi produktami w momencie archiwizacji listy zakupowej (atomowe RPC `archive_shopping_list`).
   - Wskaźniki świeżości zapasów, śledzenie dat ważności (`expiration_date`) oraz automatyczne zdejmowanie zużytych składników po ugotowaniu potrawy.
@@ -33,7 +33,7 @@
 
 | Warstwa | Technologie |
 | :--- | :--- |
-| **Frontend** | React 19, TypeScript 5.8 (Strict Mode), Vite 6 |
+| **Frontend** | React 19, TypeScript 6.0 (Strict Mode), Vite 8.2 |
 | **Styling & UI** | Tailwind CSS, Radix UI / shadcn/ui, Lucide React |
 | **Zarządzanie Stanem** | Zustand (persystencja `localStorage`, Optimistic UI, kolejka offline) |
 | **Backend & Baza Danych** | Supabase (PostgreSQL, PostgREST, GoTrue Google OAuth, Realtime WebSockets, Edge Functions) |
@@ -126,12 +126,12 @@ Szczegółowa dokumentacja architektury oraz standardów projektu znajduje się 
 - **[docs/Roadmap.md](./docs/Roadmap.md)** – Mapa drogowa rozwoju i audytu technicznego
 - **Rejestr Decyzji Architektonicznych (`docs/adr/`):**
   - [ADR-001: Dual Layout Architecture (Mobile PWA & Desktop)](./docs/adr/ADR-001-dual-layout-architecture.md)
-  - [ADR-002: Realtime Optimistic UI & Offline Resilience](./docs/adr/ADR-002-realtime-optimistic-ui.md)
+  - [ADR-002: State & Realtime Architecture](./docs/adr/ADR-002-state-and-realtime-architecture.md)
   - [ADR-003: Internationalization (i18n) & English-Only Codebase](./docs/adr/ADR-003-internationalization-i18n.md)
   - [ADR-004: Multi-Theme System & Visual Styling Architecture](./docs/adr/ADR-004-theme-system-and-visual-styling.md)
   - [ADR-005: Multiple Active Shopping Lists Architecture](./docs/adr/ADR-005-multiple-active-shopping-lists.md)
   - [ADR-006: Custom Product Categories & Aisle Sorting](./docs/adr/ADR-006-custom-product-categories-and-aisle-sorting.md)
   - [ADR-007: Multiplatform Web Push Notifications](./docs/adr/ADR-007-multiplatform-web-push-notifications.md)
   - [ADR-008: Household Pantry Management & Smart Inventory Sync](./docs/adr/ADR-008-pantry-management-and-inventory-sync.md)
-  - [ADR-009: Meal Planning Calendar & Shopping Sync](./docs/adr/ADR-009-meal-planning-calendar-and-shopping-sync.md)
+  - [ADR-009: Meal Planning & Calendar Module](./docs/adr/ADR-009-meal-planning-and-calendar-module.md)
   - [ADR-010: Two-Level Hierarchical Product Catalog & Smart Nutrition Routing](./docs/adr/ADR-010-hierarchical-product-catalog-and-smart-nutrition-routing.md)

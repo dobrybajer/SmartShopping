@@ -49,7 +49,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 1. **Zarządzanie Potrawami (Książka Kucharska):**
    * Widok listy potraw z wyszukiwarką.
    * Widok szczegółów potrawy (makro, kroki przygotowania, komentarze).
-   * Formularz dodawania/edycji (z Bottom Sheet do dodawania składników).
+   * Formularz dodawania/edycji (z Bottom Sheet/sekcją składników, importem JSON oraz przelicznikiem miar kuchennych `LOW-11`: `tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` → jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
 2. **Logika Koszyka (Draft):**
    * Budowa globalnego stanu koszyka (Zustand).
    * Algorytm dodawania potrawy z uwzględnieniem skalowania porcji (mnożnik docelowych kalorii).
@@ -341,7 +341,7 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
      * **Tydzień:** przełącznik Pn-Pt (roboczy) vs Pn-Nd (pełny); na mobile wertykalna lista kart dni z nagłówkami; na desktopie siatka kolumnowa.
      * **Dzień:** pasek makroskładników (kcal, B/W/T), sekcje kategorii posiłków, składniki, integracja ze spiżarnią, przycisk transferu do koszyka oraz popup/sheet "Niepewność" (⚠️) z przywróceniem brakujących produktów.
      * **Archiwum:** przeszłe dni zablokowane do edycji (tylko do odczytu) z trwałymi oznaczeniami ukończenia.
-   * Dialogi / Sheety: `AddCalendarMealDialog` / `AddCalendarMealSheet` (wybór z Przepiśnika lub Ad-Hoc, skalowanie porcji).
+   * Dialogi / Sheety: `AddCalendarMealDialog` / `AddCalendarMealSheet` (wybór z Przepiśnika lub Ad-Hoc, skalowanie porcji), `WeeklyTemplatesModal` (`LOW-08` — zapisywanie i nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikami porcji `0.5x–4x`, opartych o `weeklyTemplateCalculations.ts`).
 5. **Testy i Weryfikacja Jakości:**
    * 100% pokrycia testami czystych funkcji kalkulacji statusów i makro (`calendarStatus.test.ts`).
    * Testy integracyjne serwisu i store'a (`mealPlanService.test.ts`, `useMealPlanStore.test.ts`).
