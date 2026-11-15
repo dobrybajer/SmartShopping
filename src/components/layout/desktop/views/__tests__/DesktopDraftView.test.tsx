@@ -30,7 +30,7 @@ const mockCreateActiveListFromDraft = vi.spyOn(
   created_at: '2026-08-25T20:00:00Z',
   updated_at: '2026-08-25T20:00:00Z',
   items: []
-} as any)
+} as never)
 
 describe('DesktopDraftView - Desktop Layout Item Selection & Transfer', () => {
   const sampleItems: DraftItem[] = [

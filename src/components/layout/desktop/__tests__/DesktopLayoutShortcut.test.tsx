@@ -17,10 +17,10 @@ describe('DesktopLayout - Ctrl+Alt+P Shortcut & JSON Import Integration', () => 
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold,
       userHouseholds: [mockHousehold]
-    } as any)
+    } as never)
     vi.mocked(productService.getProducts).mockResolvedValue([])
     vi.mocked(productService.getCategories).mockResolvedValue([])
-    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'm-1' } as any)
+    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'm-1' } as never)
   })
 
   it('Flow 01: Opens JsonRecipeImportDialog upon pressing Ctrl + Alt + P globally', async () => {

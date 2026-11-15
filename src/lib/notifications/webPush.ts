@@ -37,7 +37,7 @@ export function getNotificationPermission(): PushPermissionState {
  */
 export function isIosStandalone(): boolean {
   if (typeof window === 'undefined') return false
-  const nav = window.navigator as any
+  const nav = window.navigator as Navigator & { standalone?: boolean }
   return !!nav.standalone || window.matchMedia('(display-mode: standalone)').matches
 }
 

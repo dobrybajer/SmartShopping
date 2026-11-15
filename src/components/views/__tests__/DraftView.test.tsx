@@ -30,7 +30,7 @@ const mockCreateActiveListFromDraft = vi.spyOn(
   created_at: '2026-08-25T20:00:00Z',
   updated_at: '2026-08-25T20:00:00Z',
   items: []
-} as any)
+} as never)
 
 describe('DraftView - Selective Item Checkout & Multi-List Transfer Flows', () => {
   const sampleItems: DraftItem[] = [

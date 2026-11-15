@@ -5,6 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export function isUuid(val?: string | null): val is string {
+  return !!val && UUID_REGEX.test(val)
+}
+
 /**
  * Formats a date string, ISO timestamp, or Date object into DD.MM.YYYY format
  */

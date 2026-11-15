@@ -52,8 +52,8 @@ describe('DesktopCalendarView - Desktop User Flow Suite (ADR-009)', () => {
     localStorage.setItem('smartshopping_layout_preference', 'desktop')
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold,
-      user: { id: 'user-1' } as any
-    } as any)
+      user: { id: 'user-1' }
+    } as never)
 
     useMealPlanStore.setState({
       mealPlans: [mockPlan],

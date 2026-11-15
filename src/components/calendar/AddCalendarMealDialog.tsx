@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import type { MealPlanItem, CreateCalendarMealInput } from '@/types/calendar'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
-import { useTranslation } from '@/i18n'
+import { useTranslation, type TranslationKey } from '@/i18n'
 import { useAuth } from '@/hooks/useAuth'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { useShallow } from 'zustand/react/shallow'
@@ -265,19 +265,21 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
         <div className="flex flex-wrap gap-1.5">
           {mealCategories.map((cat) => {
             const isSelected = selectedCategoryId === cat.id
+            const catKey = `categories.${cat.name}` as TranslationKey
+            const catLabel = t(catKey) !== catKey ? t(catKey) : cat.name
             return (
               <button
                 key={cat.id}
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer capitalize",
+                  "px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer",
                   isSelected
                     ? "bg-primary border-primary text-primary-foreground font-semibold"
                     : "bg-card border-border text-muted-foreground hover:text-foreground"
                 )}
               >
-                {cat.name}
+                {catLabel}
               </button>
             )
           })}

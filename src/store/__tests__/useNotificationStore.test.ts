@@ -46,7 +46,7 @@ describe('useNotificationStore - Zustand State & Actions (ADR-007)', () => {
 
   it('Flow 02: subscribe() triggers haptic feedback and updates store state', async () => {
     const vibrateSpy = vi.spyOn(navigator, 'vibrate')
-    vi.mocked(notificationService.subscribe).mockResolvedValue({ endpoint: 'https://test-sub' } as any)
+    vi.mocked(notificationService.subscribe).mockResolvedValue({ endpoint: 'https://test-sub' } as never)
 
     const success = await useNotificationStore.getState().subscribe(mockHouseholdId)
 

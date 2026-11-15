@@ -47,9 +47,9 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 **Cel:** Aplikacja posiada działającą logikę zarządzania potrawami i listami.
 
 1. **Zarządzanie Potrawami (Książka Kucharska):**
-   * Widok listy potraw z wyszukiwarką.
-   * Widok szczegółów potrawy (makro, kroki przygotowania, komentarze).
-   * Formularz dodawania/edycji (z Bottom Sheet/sekcją składników, importem JSON oraz przelicznikiem miar kuchennych `LOW-11`: `tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` → jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
+   * Widok listy potraw z wyszukiwarką (`CookbookView`, `DesktopCookbookView`, `CookbookMealCard`, `CookbookMealActions`).
+   * Widok szczegółów potrawy (makro, kroki przygotowania, komentarze, akcja edycji dla przepisów gospodarstwa).
+   * Formularz dodawania i pełnej edycji przepisów (`AddMealSheet`, `useMealForm`, `mealService.updateMeal` / `getMealById`) z wyborem kategorii `meal_categories` (`category_id`), trybem wyłącznie `Household` spójnym z RLS (`HIGH-08` / `HIGH-12`), obsługą błędów przez `toast.error`, importem JSON oraz przelicznikiem miar kuchennych `LOW-11` (`tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` → jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
 2. **Logika Koszyka (Draft):**
    * Budowa globalnego stanu koszyka (Zustand).
    * Algorytm dodawania potrawy z uwzględnieniem skalowania porcji (mnożnik docelowych kalorii).
@@ -328,18 +328,19 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
      * Włączenie replikacji Supabase Realtime dla `meal_plans`.
    * Aktualizacja typów TypeScript w `src/types/supabase.ts` oraz view modeli domenowych w `src/types/calendar.ts`.
 2. **Czyste Funkcje Kalkulacji (`src/lib/calculations/calendarStatus.ts`):**
-   * Funkcja `calculateMealPlanStatus`: wyliczenie statusu (`planned`, `in_draft`, `in_list`, `bought`, `uncertain`) na podstawie obecności składników w Spiżarni, Koszyku oraz Aktywnej Liście.
+   * Funkcja `calculateMealPlanStatus`: wyliczenie statusu (`planned`, `in_draft`, `in_list`, `bought`, `uncertain`) na podstawie obecności składników w Spiżarni (`pantryItems`), Koszyku (`draftItems`), Aktywnych Listach (`activeListItems`) oraz Zarchiwizowanych Listach (`archivedListItems`).
    * Funkcja `calculateDayMacros`: sumowanie kalorii, białka, węglowodanów i tłuszczów w danym dniu ze skalowaniem porcji.
    * Funkcja `generateDraftItemsFromMealPlan`: generowanie pozycji `AddToDraftPayload` z referencją do kalendarza.
 3. **Warstwa Serwisów & Stanu (Zustand):**
-   * Serwis `mealPlanService.ts` obsługujący CRUD posiłków w kalendarzu, pobieranie zakresu dat, duplikację na kolejny dzień oraz transfer składników do koszyka.
+   * Serwis `mealPlanService.ts` obsługujący CRUD posiłków w kalendarzu (z relacją `meal_category:meal_categories(*)`), pobieranie zakresu dat, duplikację na kolejny dzień oraz transfer składników do koszyka.
+   * Serwis `shoppingListPipeline.ts` (`getCalendarPipelineItems`) i `useShoppingStore` (`activeListItems`, `archivedListItems`, `syncListItemsToPipeline`) synchronizujące pełny pipeline zakupowy z Kalendarzem (`HIGH-11`).
    * Store `useMealPlanStore.ts` z Optimistic UI, auto-rollbackiem przy błędzie sieci oraz subskrypcją Realtime dla domowników.
 4. **Komponenty i Dual Layout:**
    * Nawigacja: 7. zakładka w `BottomNavigation.tsx` (Mobile) z dopasowaniem pod ekrany 360px+ oraz 7. pozycja w `DesktopSidebar.tsx` (Desktop).
    * Widoki kalendarza:
      * **Miesiąc:** siatka 7 kolumn (Pn-Nd) z kropkami statusów, zwięzłą liczbą kalorii i płynnym przejściem do dnia po kliknięciu.
      * **Tydzień:** przełącznik Pn-Pt (roboczy) vs Pn-Nd (pełny); na mobile wertykalna lista kart dni z nagłówkami; na desktopie siatka kolumnowa.
-     * **Dzień:** pasek makroskładników (kcal, B/W/T), sekcje kategorii posiłków, składniki, integracja ze spiżarnią, przycisk transferu do koszyka oraz popup/sheet "Niepewność" (⚠️) z przywróceniem brakujących produktów.
+     * **Dzień:** pasek makroskładników (kcal, B/W/T), sekcje kategorii posiłków (`DayCalendarView` + `DayMealPlanCard` z odznakami kategorii), składniki, integracja ze spiżarnią, przycisk transferu do koszyka oraz popup/sheet "Niepewność" (⚠️) z przywróceniem brakujących produktów.
      * **Archiwum:** przeszłe dni zablokowane do edycji (tylko do odczytu) z trwałymi oznaczeniami ukończenia.
    * Dialogi / Sheety: `AddCalendarMealDialog` / `AddCalendarMealSheet` (wybór z Przepiśnika lub Ad-Hoc, skalowanie porcji), `WeeklyTemplatesModal` (`LOW-08` — zapisywanie i nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikami porcji `0.5x–4x`, opartych o `weeklyTemplateCalculations.ts`).
 5. **Testy i Weryfikacja Jakości:**
@@ -368,3 +369,17 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
 5. **Testy i Weryfikacja Jakości:**
    * Testy jednostkowe kalkulacji makro i dopasowania spiżarni w `macroCalculations.test.ts` i `pantryCalculations.test.ts`.
    * Testy User Flows w Vitest i React Testing Library dla formularza produktów, drzewka autocomplete, wyliczania makro w przepisie i ochrony przed usunięciem rodzica.
+
+## Faza 17: Utwardzenie RLS Ról Gospodarstwa, Walidacja UUID PostgREST, Edge Function Push i Reguła `no-explicit-any` (`HIGH-13`) (Zakończona)
+**Cel:** Zamknięcie luk bezpieczeństwa i spójności kodu zdefiniowanych w `HIGH-13`.
+
+1. **Baza Danych & RLS (Supabase):**
+   * Migracja PostgreSQL `supabase/migrations/20261116120000_household_roles_and_rls_hardening.sql`:
+     * Kolumna `role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'member'))` w `household_members`, indeks `idx_household_members_household_role` oraz backfill najstarszego członka jako `'owner'`.
+     * Funkcja `public.is_household_owner(_household_id, _user_id)` (`SECURITY DEFINER`, `SET search_path = public`), aktualizacja `create_household_with_member` (twórca `'owner'`, limit 120 znaków) oraz zaostrzenie polityk `households` (`INSERT` / `DELETE`) i `household_members` (`DELETE`).
+     * Aktualizacja `src/types/supabase.ts` oraz pokrycie testami audytu `Audit 09` w `src/lib/__tests__/rlsSecurityAudit.test.ts`.
+2. **Warstwa Serwisów & Edge Functions:**
+   * Wspólny walidator `isUuid()` w `src/lib/utils.ts` użyty przed wszystkimi filtrami `.or(...)` PostgREST w `productService.ts` i `mealService.ts`.
+   * Utwardzenie `supabase/functions/send-push-notification/index.ts`: walidacja UUID `householdId`, limitów znaków `title` (<= 120) i `body` (<= 500), ścieżek względnych `/^\/(?!\/)/` dla `url`/`icon`/`badge`, konfiguracja `ALLOWED_ORIGIN` CORS oraz usunięcie `any` (`parsePushError(err: unknown)`).
+3. **Reguła Lintera & Czysty TypeScript:**
+   * Włączenie reguły `"typescript/no-explicit-any": "error"` w `.oxlintrc.json` i całkowita eliminacja jawnego typu `any` w kodzie produkcyjnym oraz testach.

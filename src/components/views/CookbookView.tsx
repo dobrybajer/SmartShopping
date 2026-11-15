@@ -29,7 +29,7 @@ export const CookbookView: React.FC = () => {
         </div>
 
         <Button
-          onClick={() => ctrl.setIsAddMealOpen(true)}
+          onClick={ctrl.openNewMeal}
           size="icon"
           className="h-11 w-11 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl shrink-0 shadow-lg cursor-pointer"
           title={t('cookbook.addRecipe')}
@@ -129,6 +129,7 @@ export const CookbookView: React.FC = () => {
               pantryItemsByParentId={ctrl.pantryItemsByParentId}
               variant="mobile"
               onSelect={ctrl.openMealDetails}
+              onEdit={ctrl.handleEditMeal}
               onDelete={ctrl.handleDeleteMeal}
             />
           ))}
@@ -139,12 +140,14 @@ export const CookbookView: React.FC = () => {
         meal={ctrl.activeMeal}
         open={ctrl.isDetailsOpen}
         onOpenChange={ctrl.setIsDetailsOpen}
+        onEdit={(meal) => ctrl.handleEditMeal(undefined, meal)}
       />
 
       <AddMealSheet
         open={ctrl.isAddMealOpen}
-        onOpenChange={ctrl.setIsAddMealOpen}
-        onMealCreated={ctrl.loadMeals}
+        onOpenChange={ctrl.handleAddMealOpenChange}
+        mealToEdit={ctrl.mealToEdit}
+        onMealSaved={ctrl.loadMeals}
       />
 
       <ConfirmDeleteDialog

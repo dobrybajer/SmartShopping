@@ -1,7 +1,8 @@
 import React from 'react'
-import { useTranslation } from '@/i18n'
+import { useTranslation, type TranslationKey } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { useMealForm } from '@/hooks/useMealForm'
+import type { MealWithIngredients } from '@/store/useShoppingStore'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
 import { MealIngredientsSection } from '@/components/meals/MealIngredientsSection'
 import {
@@ -21,23 +22,34 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Save, Sparkles, Home, Globe } from 'lucide-react'
+import { Plus, Save, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AddMealSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  mealToEdit?: MealWithIngredients | null
   onMealCreated?: () => void
+  onMealSaved?: () => void
 }
 
 export const AddMealSheet: React.FC<AddMealSheetProps> = ({
   open,
   onOpenChange,
-  onMealCreated
+  mealToEdit = null,
+  onMealCreated,
+  onMealSaved
 }) => {
   const { isDesktop } = useDeviceLayout()
   const { t } = useTranslation()
-  const form = useMealForm({ open, onOpenChange, onMealCreated })
+  const form = useMealForm({ open, onOpenChange, mealToEdit, onMealCreated, onMealSaved })
+
+  const dialogTitle = form.isEditing
+    ? t('dialogs.mealForm.editTitle')
+    : t('dialogs.mealForm.addTitle')
+  const submitLabel = form.isEditing
+    ? t('dialogs.mealForm.submitEdit')
+    : t('dialogs.mealForm.submitAdd')
 
   const headerContent = (
     <div className="flex items-center gap-2.5">
@@ -46,7 +58,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
       </div>
       <div>
         <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-          {t('dialogs.mealForm.addTitle')}
+          {dialogTitle}
         </h3>
         <p className="text-xs text-muted-foreground mt-0.5">{t('cookbook.subtitle')}</p>
       </div>
@@ -55,54 +67,37 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
 
   const bodyContent = (
     <div className="py-4 flex flex-col gap-4 text-xs flex-1 overflow-y-auto px-6 scrollbar-thin">
-      <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-background border border-border">
-        <label className="font-bold text-foreground text-xs flex items-center justify-between">
-          <span>{t('dialogs.mealForm.categoryLabel')}</span>
-          <span className="text-[10px] text-muted-foreground font-normal">
-            {t('dialogs.mealForm.scopeLabel')}
-          </span>
-        </label>
+      {form.mealCategories.length > 0 && (
+        <div className="flex flex-col gap-2 p-3 rounded-xl bg-background border border-border">
+          <label className="font-bold text-foreground text-xs">
+            {t('dialogs.mealForm.categoryLabel')}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {form.mealCategories.map((cat) => {
+              const isSelected = form.categoryId === cat.id
+              const labelKey = `categories.${cat.name}` as TranslationKey
+              const translated = t(labelKey)
+              const label = translated === labelKey ? cat.name : translated
 
-        <div className="grid grid-cols-2 gap-2 mt-1">
-          <button
-            type="button"
-            onClick={() => form.setMealType('Household')}
-            className={cn(
-              'flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer',
-              form.mealType === 'Household'
-                ? 'bg-primary/10 border-primary/50 text-primary ring-1 ring-primary/30 shadow-xs'
-                : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            <div className="flex items-center gap-1.5 font-bold text-xs">
-              <Home className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>{t('navigation.households')}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground leading-tight">
-              {form.household?.name || t('navigation.households')}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => form.setMealType('Global')}
-            className={cn(
-              'flex flex-col items-start gap-1 p-2.5 rounded-xl border text-left transition-all cursor-pointer',
-              form.mealType === 'Global'
-                ? 'bg-sky-500/10 border-sky-500/50 text-sky-300 ring-1 ring-sky-500/30 shadow-xs'
-                : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            <div className="flex items-center gap-1.5 font-bold text-xs">
-              <Globe className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>{t('common.global')}</span>
-            </div>
-            <span className="text-[10px] text-muted-foreground leading-tight">
-              {t('products.globalProduct')}
-            </span>
-          </button>
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => form.setCategoryId(isSelected ? null : cat.id)}
+                  className={cn(
+                    'min-h-[44px] px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer',
+                    isSelected
+                      ? 'bg-primary text-primary-foreground border-primary font-bold shadow-xs'
+                      : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted'
+                  )}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div>
         <label className="font-semibold text-foreground block mb-1">
@@ -215,7 +210,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
         className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl flex items-center justify-center gap-2 shadow-lg cursor-pointer"
       >
         <Save className="w-5 h-5" />
-        <span>{t('dialogs.mealForm.submitAdd')}</span>
+        <span>{submitLabel}</span>
       </Button>
     </div>
   )
@@ -229,7 +224,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
             className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
           >
             <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-              <DialogTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</DialogTitle>
+              <DialogTitle className="sr-only">{dialogTitle}</DialogTitle>
               <DialogDescription className="sr-only">{t('cookbook.subtitle')}</DialogDescription>
               {headerContent}
             </DialogHeader>
@@ -244,7 +239,7 @@ export const AddMealSheet: React.FC<AddMealSheetProps> = ({
             className="max-h-[92vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden"
           >
             <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-              <SheetTitle className="sr-only">{t('dialogs.mealForm.addTitle')}</SheetTitle>
+              <SheetTitle className="sr-only">{dialogTitle}</SheetTitle>
               <SheetDescription className="sr-only">{t('cookbook.subtitle')}</SheetDescription>
               {headerContent}
             </SheetHeader>

@@ -38,7 +38,7 @@ describe('HouseholdsDialog Flow - Top Creation, Inline Rename & Switching', () =
       deleteHousehold: mockDeleteHousehold,
       addUserToHousehold: mockAddUserToHousehold,
       getHouseholdMembers: mockGetHouseholdMembers
-    } as any)
+    } as never)
   })
 
   it('Flow 01: Places "Utwórz Nowe Gospodarstwo" at top and does not render separate "Aktywne Gospodarstwo" card', async () => {

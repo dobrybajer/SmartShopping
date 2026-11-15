@@ -239,6 +239,55 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
       expect(res.boughtCount).toBe(2)
     })
 
+    it('treats checked/in_pantry archived list items as "bought", but rejects unchecked archived items (HIGH-11)', () => {
+      const archivedChecked: ShoppingListItemRow[] = [
+        {
+          id: 'arch-1',
+          shopping_list_id: 'list-old',
+          product_id: 'prod-1',
+          total_quantity: 4,
+          is_checked: true,
+          added_ad_hoc: false,
+          in_pantry: false,
+          meal_plan_item_id: 'plan-101'
+        },
+        {
+          id: 'arch-2',
+          shopping_list_id: 'list-old',
+          product_id: 'prod-2',
+          total_quantity: 20,
+          is_checked: false,
+          added_ad_hoc: false,
+          in_pantry: true,
+          meal_plan_item_id: 'plan-101'
+        }
+      ]
+
+      const boughtRes = calculateMealPlanStatus(mockMealPlan, { archivedListItems: archivedChecked })
+      expect(boughtRes.status).toBe('bought')
+      expect(boughtRes.boughtCount).toBe(1)
+      expect(boughtRes.pantryCoveredCount).toBe(1)
+
+      const archivedUnchecked: ShoppingListItemRow[] = [
+        {
+          ...archivedChecked[0],
+          is_checked: true
+        },
+        {
+          ...archivedChecked[1],
+          is_checked: false,
+          in_pantry: false
+        }
+      ]
+
+      const uncertainRes = calculateMealPlanStatus(mockMealPlan, {
+        archivedListItems: archivedUnchecked
+      })
+      expect(uncertainRes.status).toBe('uncertain')
+      expect(uncertainRes.boughtCount).toBe(1)
+      expect(uncertainRes.missingIngredients.map((m) => m.productId)).toEqual(['prod-2'])
+    })
+
     it('triggers "uncertain" (⚠️) when an ingredient was deleted from draft/list', () => {
       // User only has eggs in draft, butter was removed!
       const draftItems: DraftItem[] = [

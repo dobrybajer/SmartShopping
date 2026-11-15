@@ -115,8 +115,8 @@ describe('DesktopActiveListView - Desktop Segmented Tabs & Multi-List Management
 
     vi.spyOn(shoppingListService, 'getActiveListsSummary').mockResolvedValue(sampleSummaries)
     vi.spyOn(shoppingListService, 'getListWithDetails').mockImplementation(async (id: string) => {
-      if (id === 'list-2') return sampleListDetails2 as any
-      return sampleListDetails1 as any
+      if (id === 'list-2') return sampleListDetails2 as never
+      return sampleListDetails1 as never
     })
   })
 

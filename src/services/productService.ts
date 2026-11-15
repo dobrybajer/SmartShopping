@@ -1,12 +1,10 @@
 import { supabase } from '@/lib/supabase'
+import { isUuid } from '@/lib/utils'
 import type { Database } from '@/types/supabase'
 
 export type ProductCategory = Database['public']['Tables']['product_categories']['Row']
 export type Product = Database['public']['Tables']['products']['Row']
 export type ProductInsert = Database['public']['Tables']['products']['Insert']
-
-const isUuid = (val?: string | null): val is string =>
-  !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
 
 export const productService = {
   async getCategories(householdId?: string | null): Promise<ProductCategory[]> {
@@ -29,7 +27,7 @@ export const productService = {
     try {
       let query = supabase.from('products').select('*')
 
-      if (householdId) {
+      if (isUuid(householdId)) {
         query = query.or(`household_id.eq.${householdId},type.eq.Global,household_id.is.null`)
       } else {
         query = query.or('type.eq.Global,household_id.is.null')

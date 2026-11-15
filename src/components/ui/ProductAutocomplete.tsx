@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { Search, Globe, Home, Check, Layers } from 'lucide-react'
-import { useTranslation } from '@/i18n'
+import { useTranslation, type TranslationKey } from '@/i18n'
 
 export interface AutocompleteItem {
   product: Product
@@ -198,9 +198,9 @@ export const ProductAutocomplete: React.FC<ProductAutocompleteProps> = ({
     if (!categoryId) return null
     const cat = categories.find((c) => c.id === categoryId)
     if (!cat) return null
-    return t(`categories.${cat.name}` as any) !== `categories.${cat.name}`
-      ? t(`categories.${cat.name}` as any)
-      : cat.name
+    const key = `categories.${cat.name}` as TranslationKey
+    const translated = t(key)
+    return translated !== key ? translated : cat.name
   }
 
   return (

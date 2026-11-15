@@ -5,6 +5,7 @@ import { computeMealCardMacros } from '@/hooks/useCookbookController'
 import { matchHierarchicalPantry } from '@/lib/calculations/pantryCalculations'
 import { useTranslation } from '@/i18n'
 import { Badge } from '@/components/ui/badge'
+import { CookbookMealActions } from '@/components/cookbook/CookbookMealActions'
 import {
   Home,
   Globe,
@@ -12,7 +13,6 @@ import {
   Utensils,
   ShoppingCart,
   Check,
-  Trash2,
   Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,6 +25,7 @@ interface CookbookMealCardProps {
   variant?: 'desktop' | 'mobile'
   onSelect: (meal: MealWithIngredients) => void
   onQuickAdd?: (e: React.MouseEvent, meal: MealWithIngredients) => void
+  onEdit?: (e: React.MouseEvent, meal: MealWithIngredients) => void
   onDelete: (e: React.MouseEvent, meal: MealWithIngredients) => void
 }
 
@@ -36,6 +37,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
   variant = 'desktop',
   onSelect,
   onQuickAdd,
+  onEdit,
   onDelete
 }) => {
   const { t } = useTranslation()
@@ -140,13 +142,12 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
                 </span>
               </div>
             )}
-            <button
-              onClick={(e) => onDelete(e, meal)}
-              className="text-muted-foreground hover:text-destructive p-1.5 transition-colors cursor-pointer"
-              title={t('common.delete')}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <CookbookMealActions
+              meal={meal}
+              isGlobal={isGlobal}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </div>
         </div>
 
@@ -271,14 +272,12 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={(e) => onDelete(e, meal)}
-              className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
-              title={t('common.delete')}
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <CookbookMealActions
+              meal={meal}
+              isGlobal={isGlobal}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </div>
         </div>
 

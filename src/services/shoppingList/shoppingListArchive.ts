@@ -165,7 +165,8 @@ async function archiveActiveListLegacyFallback(
             category_name: catName,
             sort_order: catSortOrder,
             quantity: item.total_quantity,
-            is_ad_hoc: Boolean(item.added_ad_hoc)
+            is_ad_hoc: Boolean(item.added_ad_hoc),
+            meal_plan_item_id: item.meal_plan_item_id ?? undefined
           })
         }
       })
@@ -196,7 +197,8 @@ export async function archiveActiveList(listId: string, householdId: string): Pr
       category_name: item.category_name || 'other',
       sort_order: item.sort_order ?? 99,
       quantity: Number(item.quantity || 0),
-      is_ad_hoc: Boolean(item.is_ad_hoc)
+      is_ad_hoc: Boolean(item.is_ad_hoc),
+      meal_plan_item_id: item.meal_plan_item_id ?? undefined
     }))
   }
 
@@ -303,7 +305,7 @@ export async function loadArchivedFallbackItems(listData: ShoppingList): Promise
         is_checked: Boolean(snap.is_checked),
         in_pantry: Boolean(snap.in_pantry),
         added_ad_hoc: false,
-        meal_plan_item_id: null,
+        meal_plan_item_id: snap.meal_plan_item_id ?? null,
         updated_at: listData.updated_at
       }))
     }

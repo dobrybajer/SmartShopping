@@ -97,12 +97,11 @@ export function useJsonRecipeImport({ open, onOpenChange, onSuccess }: UseJsonRe
           let productId = productLookup.get(lowerName)
 
           if (!productId) {
-            const isGlobalRecipe = recipe.type === 'Global'
             const created = await productService.createProduct({
               name: ing.name.trim(),
               unit_type: ing.unit,
-              household_id: isGlobalRecipe ? null : household.id,
-              type: isGlobalRecipe ? 'Global' : 'Household',
+              household_id: household.id,
+              type: 'Household',
               kcal_per_100: ing.kcal_per_100 ?? 0,
               protein_per_100: ing.protein_per_100 ?? 0,
               carbs_per_100: ing.carbs_per_100 ?? 0,
@@ -126,8 +125,8 @@ export function useJsonRecipeImport({ open, onOpenChange, onSuccess }: UseJsonRe
         }
 
         const createdMeal = await mealService.createMeal({
-          household_id: recipe.type === 'Global' ? null : household.id,
-          type: recipe.type || 'Household',
+          household_id: household.id,
+          type: 'Household',
           name: recipe.name,
           description: recipe.description,
           preparation_steps: recipe.preparation_steps,

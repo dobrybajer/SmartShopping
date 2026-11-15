@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { mealPlanService } from '@/services/mealPlanService'
+import { shoppingListService } from '@/services/shoppingListService'
 import { generateDraftItemsFromMealPlan } from '@/lib/calculations/calendarStatus'
 import {
   buildMealPlanInputsFromTemplate,
@@ -68,6 +69,19 @@ function getTodayString(): string {
   return `${year}-${month}-${day}`
 }
 
+async function refreshCalendarPipelineItems(householdId: string): Promise<void> {
+  if (typeof shoppingListService.getCalendarPipelineItems !== 'function') return
+  try {
+    const { activeListItems, archivedListItems } =
+      await shoppingListService.getCalendarPipelineItems(householdId)
+    const shoppingState = useShoppingStore.getState()
+    shoppingState.setActiveListItems(activeListItems)
+    shoppingState.setArchivedListItems(archivedListItems)
+  } catch {
+    // Preserve existing cached pipeline state when network/query is unavailable
+  }
+}
+
 export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   mealPlans: [],
   weeklyTemplates: [],
@@ -105,7 +119,10 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     })
 
     try {
-      const items = await mealPlanService.getMealPlans(householdId, startDate, endDate)
+      const [items] = await Promise.all([
+        mealPlanService.getMealPlans(householdId, startDate, endDate),
+        refreshCalendarPipelineItems(householdId)
+      ])
       set({ mealPlans: items, isLoading: false })
     } catch (err) {
       console.error('[useMealPlanStore] Error loading meal plans:', err)
@@ -349,7 +366,10 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   syncFromRealtime: async () => {
     const hhId = get().activeHouseholdId
     if (!hhId) return
-    const items = await mealPlanService.getMealPlans(hhId)
+    const [items] = await Promise.all([
+      mealPlanService.getMealPlans(hhId),
+      refreshCalendarPipelineItems(hhId)
+    ])
     set({ mealPlans: items })
   },
 

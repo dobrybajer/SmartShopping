@@ -39,18 +39,18 @@ export function useActiveListController() {
     }))
   )
   const {
-    setDraftItems,
-    draftItems,
+    addMultipleToDraft,
     setSelectedActiveListId,
     activeListsSummary,
-    setActiveListsSummary
+    setActiveListsSummary,
+    syncListItemsToPipeline
   } = useShoppingStore(
     useShallow((state) => ({
-      setDraftItems: state.setDraftItems,
-      draftItems: state.draftItems,
+      addMultipleToDraft: state.addMultipleToDraft,
       setSelectedActiveListId: state.setSelectedActiveListId,
       activeListsSummary: state.activeListsSummary,
-      setActiveListsSummary: state.setActiveListsSummary
+      setActiveListsSummary: state.setActiveListsSummary,
+      syncListItemsToPipeline: state.syncListItemsToPipeline
     }))
   )
 
@@ -130,7 +130,10 @@ export function useActiveListController() {
   const activeListRef = useRef<ActiveListWithDetails | null>(activeList)
   useEffect(() => {
     activeListRef.current = activeList
-  }, [activeList])
+    if (activeList) {
+      syncListItemsToPipeline(activeList.id, activeList.items)
+    }
+  }, [activeList, syncListItemsToPipeline])
 
   useActiveListRealtime(
     household?.id ?? null,
@@ -295,10 +298,20 @@ export function useActiveListController() {
     setIsArchiving(false)
 
     if (uncheckedItemsToDraft.length > 0) {
-      setDraftItems([...draftItems, ...uncheckedItemsToDraft])
+      addMultipleToDraft(uncheckedItemsToDraft)
+    }
+    if (typeof shoppingListService.getCalendarPipelineItems === 'function') {
+      shoppingListService
+        .getCalendarPipelineItems(household.id)
+        .then(({ activeListItems, archivedListItems }) => {
+          const shopState = useShoppingStore.getState()
+          shopState.setActiveListItems(activeListItems)
+          shopState.setArchivedListItems(archivedListItems)
+        })
+        .catch(() => {})
     }
     await loadActiveLists()
-  }, [activeList, household, draftItems, setDraftItems, loadActiveLists])
+  }, [activeList, household, addMultipleToDraft, loadActiveLists])
 
   const handleDeleteList = useCallback(async () => {
     if (!activeList || !household) return false
@@ -308,6 +321,16 @@ export function useActiveListController() {
 
     if (success) {
       setIsDeleteListModalOpen(false)
+      if (typeof shoppingListService.getCalendarPipelineItems === 'function') {
+        shoppingListService
+          .getCalendarPipelineItems(household.id)
+          .then(({ activeListItems, archivedListItems }) => {
+            const shopState = useShoppingStore.getState()
+            shopState.setActiveListItems(activeListItems)
+            shopState.setArchivedListItems(archivedListItems)
+          })
+          .catch(() => {})
+      }
       await loadActiveLists()
     }
     return success

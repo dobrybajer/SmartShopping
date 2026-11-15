@@ -132,10 +132,14 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
     vi.clearAllMocks()
 
     vi.spyOn(shoppingListService, 'getActiveListsSummary').mockResolvedValue(sampleSummaries)
-    vi.spyOn(notificationService, 'notify').mockResolvedValue(undefined as any)
+    vi.spyOn(notificationService, 'notify').mockResolvedValue({
+      success: true,
+      sentCount: 0,
+      totalCount: 0
+    })
     vi.spyOn(shoppingListService, 'getListWithDetails').mockImplementation(async (id: string) => {
-      if (id === 'list-2') return sampleListDetails2 as any
-      return sampleListDetails1 as any
+      if (id === 'list-2') return sampleListDetails2 as never
+      return sampleListDetails1 as never
     })
   })
 

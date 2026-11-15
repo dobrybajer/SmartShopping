@@ -1,5 +1,5 @@
 import type { Database, UnitEnum } from '@/types/supabase'
-import type { MealWithIngredients } from '@/store/useShoppingStore'
+import type { MealCategory, MealWithIngredients } from '@/store/useShoppingStore'
 
 export type MealPlanRow = Database['public']['Tables']['meal_plans']['Row']
 export type MealPlanInsert = Database['public']['Tables']['meal_plans']['Insert']
@@ -13,6 +13,7 @@ export type MealPlanStatus =
   | 'uncertain'    // ⚠️ One or more ingredients deleted or missing before purchase
 
 export interface MealPlanItem extends MealPlanRow {
+  meal_category?: MealCategory | null
   meal?: MealWithIngredients | null
 }
 

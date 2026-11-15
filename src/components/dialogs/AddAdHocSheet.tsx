@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
-import { useTranslation } from '@/i18n'
+import { useTranslation, type TranslationKey } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
@@ -57,7 +57,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
 
     if (household) {
       const prods = await productService.getProducts(household.id)
-      setProducts(prods as any)
+      setProducts(prods)
     }
 
     setSelectedCategoryId((prev) => {
@@ -143,7 +143,7 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
     setIsSavingToDb(false)
 
     if (newProduct) {
-      setProducts((prev) => [...prev, newProduct as any])
+      setProducts((prev) => [...prev, newProduct])
     }
 
     setIsConfirmModalOpen(false)
@@ -156,9 +156,9 @@ export const AddAdHocSheet: React.FC<AddAdHocSheetProps> = ({ open, onOpenChange
   }
 
   const getCategoryLabel = (catName: string) => {
-    return t(`categories.${catName}` as any) !== `categories.${catName}`
-      ? t(`categories.${catName}` as any)
-      : catName
+    const key = `categories.${catName}` as TranslationKey
+    const translated = t(key)
+    return translated !== key ? translated : catName
   }
 
   const headerContent = (

@@ -15,7 +15,7 @@ describe('NotificationPromptBanner - Soft-Prompt User Flow Tests (ADR-007)', () 
 
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold
-    } as any)
+    } as never)
 
     useNotificationStore.setState({
       permission: 'default',

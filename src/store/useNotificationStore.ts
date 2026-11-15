@@ -44,8 +44,9 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
         isIosSafariNonPwa: status.isIosSafariNonPwa,
         error: null
       })
-    } catch (err: any) {
-      set({ error: err?.message || translate('notifications.errors.statusCheckFailed') })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : undefined
+      set({ error: msg || translate('notifications.errors.statusCheckFailed') })
     }
   },
 
@@ -68,11 +69,12 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
         error: null
       })
       return isSubscribed
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useNotificationStore] Subscribe error:', err)
+      const msg = err instanceof Error ? err.message : undefined
       set({
         isLoading: false,
-        error: err?.message || translate('notifications.errors.subscribeFailed')
+        error: msg || translate('notifications.errors.subscribeFailed')
       })
       return false
     }
@@ -91,11 +93,12 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
         error: null
       })
       return success
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useNotificationStore] Unsubscribe error:', err)
+      const msg = err instanceof Error ? err.message : undefined
       set({
         isLoading: false,
-        error: err?.message || translate('notifications.errors.unsubscribeFailed')
+        error: msg || translate('notifications.errors.unsubscribeFailed')
       })
       return false
     }
@@ -131,9 +134,10 @@ export const useNotificationStore = create<NotificationStoreState>((set) => ({
 
       set({ error: null })
       return true
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[useNotificationStore] Test notification error:', err)
-      set({ error: err?.message || translate('notifications.errors.testFailed', {}, lang) })
+      const msg = err instanceof Error ? err.message : undefined
+      set({ error: msg || translate('notifications.errors.testFailed', {}, lang) })
       return false
     }
   }

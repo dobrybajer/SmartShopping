@@ -183,7 +183,7 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
         product: null
       }
 
-      const match = matchHierarchicalPantry(specificProduct, { 'prod-hass': mockItem as any }, {})
+      const match = matchHierarchicalPantry(specificProduct, { 'prod-hass': mockItem as never }, {})
       expect(match.isInPantry).toBe(true)
       expect(match.totalQuantity).toBe(2)
       expect(match.isHierarchical).toBe(false)
@@ -216,7 +216,7 @@ describe('pantryCalculations - Pure Freshness & Age Heuristics (ADR-008)', () =>
       }
 
       const byParent = {
-        'prod-general-avo': [childItem1 as any, childItem2 as any]
+        'prod-general-avo': [childItem1 as never, childItem2 as never]
       }
 
       const match = matchHierarchicalPantry(generalProduct, {}, byParent)

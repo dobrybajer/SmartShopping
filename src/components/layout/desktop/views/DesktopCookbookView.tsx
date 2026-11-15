@@ -30,7 +30,7 @@ export const DesktopCookbookView: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <Button
-            onClick={() => ctrl.setIsAddMealOpen(true)}
+            onClick={ctrl.openNewMeal}
             className="h-11 px-5 bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
@@ -161,6 +161,7 @@ export const DesktopCookbookView: React.FC = () => {
               variant="desktop"
               onSelect={ctrl.openMealDetails}
               onQuickAdd={ctrl.handleQuickAdd}
+              onEdit={ctrl.handleEditMeal}
               onDelete={ctrl.handleDeleteMeal}
             />
           ))}
@@ -171,12 +172,14 @@ export const DesktopCookbookView: React.FC = () => {
         meal={ctrl.activeMeal}
         open={ctrl.isDetailsOpen}
         onOpenChange={ctrl.setIsDetailsOpen}
+        onEdit={(meal) => ctrl.handleEditMeal(undefined, meal)}
       />
 
       <AddMealSheet
         open={ctrl.isAddMealOpen}
-        onOpenChange={ctrl.setIsAddMealOpen}
-        onMealCreated={ctrl.loadMeals}
+        onOpenChange={ctrl.handleAddMealOpenChange}
+        mealToEdit={ctrl.mealToEdit}
+        onMealSaved={ctrl.loadMeals}
       />
 
       <ConfirmDeleteDialog

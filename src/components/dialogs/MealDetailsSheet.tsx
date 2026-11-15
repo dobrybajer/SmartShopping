@@ -3,7 +3,6 @@ import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingS
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShallow } from 'zustand/react/shallow'
 import { resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
-import { matchHierarchicalPantry } from '@/lib/calculations/pantryCalculations'
 import { useTranslation } from '@/i18n'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
@@ -23,21 +22,23 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Flame, Scale, Globe, Home, Plus, Check, Warehouse, UtensilsCrossed } from 'lucide-react'
+import { Flame, Scale, Globe, Home, Plus, Check, UtensilsCrossed, Pencil } from 'lucide-react'
 import { CookMealDeductModal } from './CookMealDeductModal'
+import { MealDetailsIngredientsSection } from './MealDetailsIngredientsSection'
 import { buildCookableIngredientsFromMeal } from '@/lib/calculations/pantryConsumption'
-import { cn } from '@/lib/utils'
 
 interface MealDetailsSheetProps {
   meal: MealWithIngredients | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit?: (meal: MealWithIngredients) => void
 }
 
 export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
   meal,
   open,
-  onOpenChange
+  onOpenChange,
+  onEdit
 }) => {
   const addMealToDraft = useShoppingStore((state) => state.addMealToDraft)
   const { pantryMapByProductId, pantryItemsByParentId } = usePantryStore(
@@ -47,7 +48,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
     }))
   )
   const { isDesktop } = useDeviceLayout()
-  const { t, formatQuantity } = useTranslation()
+  const { t } = useTranslation()
   const [targetKcal, setTargetKcal] = useState<number | ''>('')
   const [isAdded, setIsAdded] = useState(false)
   const [isCookModalOpen, setIsCookModalOpen] = useState(false)
@@ -97,7 +98,7 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
         {isGlobal ? (
           <Badge
             variant="secondary"
-            className="text-[10px] px-2 py-0.5 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1 shrink-0"
+            className="text-[10px] px-2 py-0.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1 shrink-0"
           >
             <Globe className="w-3 h-3" />
             <span>{t('common.global')}</span>
@@ -172,121 +173,25 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
         <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border text-center font-mono">
           <div className="p-2 rounded-lg bg-card border border-border">
             <span className="text-[10px] text-muted-foreground block">{t('common.proteinShort')}</span>
-            <span className="text-xs font-bold text-blue-400">{scaledProtein} g</span>
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{scaledProtein} g</span>
           </div>
           <div className="p-2 rounded-lg bg-card border border-border">
             <span className="text-[10px] text-muted-foreground block">{t('common.carbsShort')}</span>
-            <span className="text-xs font-bold text-amber-400">{scaledCarbs} g</span>
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{scaledCarbs} g</span>
           </div>
           <div className="p-2 rounded-lg bg-card border border-border">
             <span className="text-[10px] text-muted-foreground block">{t('common.fatShort')}</span>
-            <span className="text-xs font-bold text-rose-400">{scaledFat} g</span>
+            <span className="text-xs font-bold text-rose-600 dark:text-rose-400">{scaledFat} g</span>
           </div>
         </div>
       </div>
 
-      {/* Ingredients List */}
-      <div>
-        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
-          {t('cookbook.ingredients')} ({meal.ingredients.length})
-        </h4>
-        <div className="flex flex-col gap-2">
-          {meal.ingredients.map((ing) => {
-            const scaledQty = Math.round((ing.base_quantity * multiplier) * 10) / 10
-            const pantryMatch = ing.product
-              ? matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId)
-              : null
-            const hasStock = !!pantryMatch?.isInPantry
-            const isFullyCovered = hasStock && (pantryMatch?.totalQuantity ?? 0) >= scaledQty
-
-            return (
-              <div
-                key={ing.id}
-                className="p-3 rounded-xl bg-background border border-border flex items-center justify-between text-xs gap-2"
-              >
-                <div className="flex flex-col min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-foreground">
-                      {ing.product?.name || 'Product'}
-                    </span>
-                    {ing.product?.is_general && (
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
-                        {t('products.generalBadge')}
-                      </span>
-                    )}
-                    {ing.is_pantry_item && (
-                      <span className="text-[10px] text-muted-foreground">({t('cookbook.pantryItem')})</span>
-                    )}
-                  </div>
-
-                  {ing.product?.is_general && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[10px] text-muted-foreground">{t('cookbook.macroVia')}</span>
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded">
-                        {ing.reference_product?.name || t('cookbook.noReferenceWarning')}
-                      </span>
-                    </div>
-                  )}
-
-                  {hasStock && pantryMatch && (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border",
-                          isFullyCovered
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                            : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                        )}
-                        title={
-                          pantryMatch.isHierarchical
-                            ? `${pantryMatch.matchingItems.map((m) => `${m.item.product?.name || m.item.ad_hoc_name}: ${formatQuantity(m.item.quantity, m.item.unit_type)}`).join(', ')}`
-                            : undefined
-                        }
-                      >
-                        <Warehouse className="w-3 h-3 shrink-0" />
-                        <span>
-                          {isFullyCovered
-                            ? t('pantry.availableInPantry', { quantity: formatQuantity(pantryMatch.totalQuantity, ing.product?.unit_type || 'pcs') })
-                            : t('pantry.partiallyInPantry', { quantity: formatQuantity(pantryMatch.totalQuantity, ing.product?.unit_type || 'pcs') })}
-                          {pantryMatch.isHierarchical && ` (${pantryMatch.matchingItems.length})`}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <span className="font-mono text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md shrink-0">
-                  {formatQuantity(scaledQty, ing.product?.unit_type || 'g')}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Preparation Steps */}
-      {meal.preparation_steps && (
-        <div>
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
-            {t('cookbook.steps')}
-          </h4>
-          <p className="text-xs text-foreground whitespace-pre-line leading-relaxed bg-background p-3 rounded-xl border border-border">
-            {meal.preparation_steps}
-          </p>
-        </div>
-      )}
-
-      {/* Comments */}
-      {meal.comments && (
-        <div>
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
-            {t('cookbook.notes')}
-          </h4>
-          <p className="text-xs text-muted-foreground italic bg-background p-3 rounded-xl border border-border">
-            "{meal.comments}"
-          </p>
-        </div>
-      )}
+      <MealDetailsIngredientsSection
+        meal={meal}
+        multiplier={multiplier}
+        pantryMapByProductId={pantryMapByProductId}
+        pantryItemsByParentId={pantryItemsByParentId}
+      />
     </div>
   )
 
@@ -311,16 +216,31 @@ export const MealDetailsSheet: React.FC<MealDetailsSheetProps> = ({
           </>
         )}
       </Button>
-      {cookIngredients.length > 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setIsCookModalOpen(true)}
-          className="w-full h-10 border-emerald-500/35 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
-        >
-          <UtensilsCrossed className="w-4 h-4" />
-          <span>{t('pantry.cookModal.buttonLabel')}</span>
-        </Button>
+      {((!isGlobal && onEdit) || cookIngredients.length > 0) && (
+        <div className="flex items-center gap-2">
+          {!isGlobal && onEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onEdit(meal)}
+              className="flex-1 h-11 border-border text-foreground hover:border-primary/50 hover:text-primary font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Pencil className="w-4 h-4" />
+              <span>{t('cookbook.editMeal')}</span>
+            </Button>
+          )}
+          {cookIngredients.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCookModalOpen(true)}
+              className="flex-1 h-11 border-emerald-500/35 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <UtensilsCrossed className="w-4 h-4" />
+              <span>{t('pantry.cookModal.buttonLabel')}</span>
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )

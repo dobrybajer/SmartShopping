@@ -39,10 +39,15 @@ describe('AddMealSheet Flow - Pantry Checkbox Removal & ProductFormSheet Integra
     vi.clearAllMocks()
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold
-    } as any)
-    vi.mocked(productService.getProducts).mockResolvedValue(mockProducts as any)
-    vi.mocked(productService.getCategories).mockResolvedValue(mockCategories as any)
-    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'meal-1' } as any)
+    } as never)
+    vi.mocked(productService.getProducts).mockResolvedValue(mockProducts as never)
+    vi.mocked(productService.getCategories).mockResolvedValue(mockCategories as never)
+    vi.mocked(mealService.getMealCategories).mockResolvedValue([
+      { id: 1, name: 'breakfast' },
+      { id: 2, name: 'lunch' }
+    ])
+    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'meal-1' } as never)
+    vi.mocked(mealService.updateMeal).mockResolvedValue({ id: 'meal-edit-1' } as never)
   })
 
   it('Flow 01: Renders recipe form and verifies that "produkt spiżarniowy" checkbox is completely absent', async () => {
@@ -130,7 +135,7 @@ describe('AddMealSheet Flow - Pantry Checkbox Removal & ProductFormSheet Integra
       carbs_per_100: 3,
       fat_per_100: 20
     }
-    vi.mocked(productService.createProduct).mockResolvedValue(createdProduct as any)
+    vi.mocked(productService.createProduct).mockResolvedValue(createdProduct as never)
 
     render(<AddMealSheet open={true} onOpenChange={vi.fn()} />)
 
@@ -201,6 +206,106 @@ describe('AddMealSheet Flow - Pantry Checkbox Removal & ProductFormSheet Integra
           ]
         })
       )
+    })
+  })
+
+  it('Flow 05: Hides dead Global scope toggle and persists selected meal category (HIGH-12)', async () => {
+    render(<AddMealSheet open={true} onOpenChange={vi.fn()} />)
+
+    const breakfastBtn = await screen.findByRole('button', { name: /Śniadanie|Breakfast/i })
+    expect(screen.queryByRole('button', { name: /Globalny|Global/i })).not.toBeInTheDocument()
+
+    fireEvent.click(breakfastBtn)
+
+    const recipeNameInput = screen.getByPlaceholderText(/np\. Jajecznica z awokado|e\.g\. Scrambled eggs/i)
+    fireEvent.change(recipeNameInput, { target: { value: 'Owsianka Mocy' } })
+
+    const submitMealBtn = screen.getByRole('button', { name: /Utwórz Przepis|Create Recipe/i })
+    fireEvent.click(submitMealBtn)
+
+    await waitFor(() => {
+      expect(mealService.createMeal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          household_id: 'hh-1',
+          type: 'Household',
+          name: 'Owsianka Mocy',
+          category_id: 1
+        })
+      )
+    })
+  })
+
+  it('Flow 06: Prefills recipe form in edit mode and submits via mealService.updateMeal (HIGH-12)', async () => {
+    const onMealSaved = vi.fn()
+    const onOpenChange = vi.fn()
+
+    render(
+      <AddMealSheet
+        open={true}
+        onOpenChange={onOpenChange}
+        onMealSaved={onMealSaved}
+        mealToEdit={{
+          id: 'meal-edit-1',
+          household_id: 'hh-1',
+          type: 'Household',
+          name: 'Stary Przepis',
+          description: 'Krótki opis',
+          preparation_steps: 'Krok 1',
+          comments: 'Uwaga',
+          category_id: 2,
+          tags: ['Obiad'],
+          ingredients: [
+            {
+              id: 'ing-1',
+              meal_id: 'meal-edit-1',
+              product_id: 'prod-1',
+              reference_product_id: null,
+              base_quantity: 200,
+              is_pantry_item: false,
+              product: {
+                id: 'prod-1',
+                household_id: 'hh-1',
+                name: 'Makaron Spaghetti',
+                unit_type: 'g',
+                category_id: 1,
+                kcal_per_100: 350,
+                protein_per_100: 12,
+                carbs_per_100: 70,
+                fat_per_100: 2,
+                is_ad_hoc: false,
+                is_general: false,
+                parent_id: null,
+                type: 'Household'
+              },
+              reference_product: null
+            }
+          ]
+        }}
+      />
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: /Edytuj Przepis|Edit Recipe/i, level: 3 })
+    ).toBeInTheDocument()
+
+    const nameInput = screen.getByDisplayValue('Stary Przepis')
+    fireEvent.change(nameInput, { target: { value: 'Nowy Przepis' } })
+
+    const saveBtn = screen.getByRole('button', { name: /Zapisz Przepis|Save Recipe/i })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(mealService.updateMeal).toHaveBeenCalledWith(
+        'meal-edit-1',
+        expect.objectContaining({
+          name: 'Nowy Przepis',
+          category_id: 2,
+          type: 'Household'
+        })
+      )
+      expect(mealService.createMeal).not.toHaveBeenCalled()
+      expect(onMealSaved).toHaveBeenCalled()
+      expect(onOpenChange).toHaveBeenCalledWith(false)
     })
   })
 })

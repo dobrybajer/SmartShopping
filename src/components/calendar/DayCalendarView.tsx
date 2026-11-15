@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import type { MealPlanItem } from '@/types/calendar'
-import { useTranslation } from '@/i18n'
+import type { PantryItemWithDetails } from '@/types/pantry'
+import { useTranslation, type TranslationKey } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
@@ -10,33 +11,51 @@ import {
   calculateDayMacros,
   getEffectiveMultiplier
 } from '@/lib/calculations/calendarStatus'
-import { convertQuantity } from '@/lib/calculations/pantryCalculations'
 import { CalendarMacroBar } from './CalendarMacroBar'
-import { MealPlanStatusBadge } from './MealPlanStatusBadge'
+import { DayMealPlanCard } from './DayMealPlanCard'
 import { UncertaintyWarningModal } from './UncertaintyWarningModal'
 import { AddCalendarMealDialog } from './AddCalendarMealDialog'
 import { CookMealDeductModal } from '@/components/dialogs/CookMealDeductModal'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { buildCookableIngredientsFromMeal } from '@/lib/calculations/pantryConsumption'
 import {
   ChevronLeft,
   ChevronRight,
   Plus,
   ShoppingCart,
-  Copy,
-  Edit2,
-  Trash2,
   Lock,
-  Warehouse,
-  Utensils,
-  UtensilsCrossed
+  Utensils
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn, formatLocalDateISO, addDaysISO } from '@/lib/utils'
+import { formatLocalDateISO, addDaysISO } from '@/lib/utils'
 
 interface DayCalendarViewProps {
   selectedDate: string // YYYY-MM-DD
   onDateChange: (date: string) => void
   onAddMealClick?: () => void
+}
+
+const STANDARD_MEAL_CATEGORY_SLUGS: Record<number, string> = {
+  1: 'breakfast',
+  2: 'lunch',
+  3: 'dinner',
+  4: 'snack',
+  5: 'dessert'
+}
+
+function getCategoryLabel(slug: string, t: (key: TranslationKey) => string): string {
+  const key = `categories.${slug}` as TranslationKey
+  const translated = t(key)
+  return translated !== key ? translated : slug
+}
+
+function resolveMealCategoryGroup(plan: MealPlanItem): { slug: string; order: number } {
+  const catId = plan.meal_category?.id ?? plan.meal_category_id ?? plan.meal?.category_id ?? null
+  const slug =
+    plan.meal_category?.name ||
+    (catId !== null ? STANDARD_MEAL_CATEGORY_SLUGS[catId] : undefined) ||
+    'other'
+  return { slug, order: catId ?? 99 }
 }
 
 export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
@@ -60,14 +79,45 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
       transferDayToDraft: state.transferDayToDraft
     }))
   )
-  const pantryItems = usePantryStore((state) => state.pantryItems)
-  const draftItems = useShoppingStore((state) => state.draftItems)
+  const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryItems: state.pantryItems,
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
+  const { draftItems, activeListItems, archivedListItems } = useShoppingStore(
+    useShallow((state) => ({
+      draftItems: state.draftItems,
+      activeListItems: state.activeListItems,
+      archivedListItems: state.archivedListItems
+    }))
+  )
 
-  // Modals state
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<MealPlanItem | null>(null)
   const [uncertaintyItem, setUncertaintyItem] = useState<MealPlanItem | null>(null)
   const [cookPlanItem, setCookPlanItem] = useState<MealPlanItem | null>(null)
+  const [planToDelete, setPlanToDelete] = useState<MealPlanItem | null>(null)
+
+  const { resolvedPantryMap, resolvedParentMap } = useMemo(() => {
+    if (Object.keys(pantryMapByProductId).length > 0 || pantryItems.length === 0) {
+      return {
+        resolvedPantryMap: pantryMapByProductId,
+        resolvedParentMap: pantryItemsByParentId
+      }
+    }
+    const byProduct: Record<string, PantryItemWithDetails> = {}
+    const byParent: Record<string, PantryItemWithDetails[]> = {}
+    for (const item of pantryItems) {
+      if (item.product_id) byProduct[item.product_id] = item
+      if (item.product?.parent_id) {
+        if (!byParent[item.product.parent_id]) byParent[item.product.parent_id] = []
+        byParent[item.product.parent_id].push(item)
+      }
+    }
+    return { resolvedPantryMap: byProduct, resolvedParentMap: byParent }
+  }, [pantryItems, pantryMapByProductId, pantryItemsByParentId])
 
   const cookIngredients = cookPlanItem
     ? buildCookableIngredientsFromMeal(
@@ -76,22 +126,31 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
       )
     : []
 
-  // Date Math (local calendar time to avoid UTC midnight shift)
   const todayStr = formatLocalDateISO()
   const isPastDate = selectedDate < todayStr
   const isToday = selectedDate === todayStr
 
-  const shiftDay = (delta: number) => {
-    onDateChange(addDaysISO(selectedDate, delta))
-  }
+  const dayPlans = useMemo(
+    () => mealPlans.filter((p) => p.date === selectedDate),
+    [mealPlans, selectedDate]
+  )
+  const dayMacros = useMemo(() => calculateDayMacros(dayPlans), [dayPlans])
 
-  // Filter plans for this day
-  const dayPlans = mealPlans.filter((p) => p.date === selectedDate)
-  const dayMacros = calculateDayMacros(dayPlans)
+  const groupedDayPlans = useMemo(() => {
+    const groups = new Map<string, { slug: string; order: number; plans: MealPlanItem[] }>()
+    for (const plan of dayPlans) {
+      const { slug, order } = resolveMealCategoryGroup(plan)
+      const existing = groups.get(slug)
+      if (existing) {
+        existing.plans.push(plan)
+      } else {
+        groups.set(slug, { slug, order, plans: [plan] })
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => a.order - b.order)
+  }, [dayPlans])
 
-  // Format date display
-  const dateObj = new Date(selectedDate + 'T00:00:00')
-  const formattedDate = dateObj.toLocaleDateString(locale, {
+  const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -100,11 +159,10 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
 
   return (
     <div className="flex flex-col gap-4 pb-12">
-      {/* 1. Day Navigation Bar */}
       <div className="flex items-center justify-between p-3 rounded-2xl bg-card border border-border shadow-xs">
         <button
           type="button"
-          onClick={() => shiftDay(-1)}
+          onClick={() => onDateChange(addDaysISO(selectedDate, -1))}
           className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
           title={t('calendar.prevDay')}
           aria-label={t('calendar.prevDay')}
@@ -113,9 +171,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         </button>
 
         <div className="flex flex-col items-center">
-          <span className="text-sm font-bold capitalize text-foreground">
-            {formattedDate}
-          </span>
+          <span className="text-sm font-bold capitalize text-foreground">{formattedDate}</span>
           {isToday ? (
             <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
               {t('calendar.today')}
@@ -130,7 +186,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
 
         <button
           type="button"
-          onClick={() => shiftDay(1)}
+          onClick={() => onDateChange(addDaysISO(selectedDate, 1))}
           className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
           title={t('calendar.nextDay')}
           aria-label={t('calendar.nextDay')}
@@ -139,7 +195,6 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         </button>
       </div>
 
-      {/* 2. Past Archive Notice */}
       {isPastDate && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground">
           <Lock className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -147,10 +202,8 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         </div>
       )}
 
-      {/* 3. Daily Macro Bar */}
       <CalendarMacroBar macros={dayMacros} />
 
-      {/* 4. Action Bar (Transfer Day to Draft + Add Meal) */}
       {!isPastDate && (
         <div className="flex items-center gap-2">
           <Button
@@ -168,14 +221,13 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
               className="rounded-xl border-border gap-2 text-foreground hover:bg-muted font-medium"
               title={t('calendar.transferDayToDraft')}
             >
-              <ShoppingCart className="w-4 h-4 text-sky-400" />
+              <ShoppingCart className="w-4 h-4 text-sky-600 dark:text-sky-400" />
               <span className="hidden sm:inline">{t('calendar.transferDayToDraft')}</span>
             </Button>
           )}
         </div>
       )}
 
-      {/* 5. Planned Meals List */}
       {dayPlans.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-card/40 border border-dashed border-border text-center gap-2">
           <Utensils className="w-8 h-8 text-muted-foreground/40" />
@@ -195,183 +247,55 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
-          {dayPlans.map((plan) => {
-            const statusDetails = calculateMealPlanStatus(plan, {
-              pantryItems,
-              draftItems,
-              isPastDate
-            })
-
-            const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
-            const ingredients = plan.meal?.ingredients || []
-
+        <div className="flex flex-col gap-4">
+          {groupedDayPlans.map((group) => {
+            const categoryLabel = getCategoryLabel(group.slug, t)
             return (
-              <div
-                key={plan.id}
-                className="flex flex-col gap-3 p-4 rounded-2xl bg-card border border-border shadow-xs transition-all hover:border-border/80"
-              >
-                {/* Header: Title + Status Badge */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-base font-bold text-foreground">{mealName}</span>
-                      {plan.is_ad_hoc && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
-                          Ad-Hoc
-                        </span>
-                      )}
-                    </div>
-
-                    <span className="text-xs text-muted-foreground">
-                      {plan.servings} {t('calendar.servings')}
-                      {plan.target_kcal ? ` · ${plan.target_kcal} kcal` : ''}
-                    </span>
-                  </div>
-
-                  <MealPlanStatusBadge
-                    details={statusDetails}
-                    onClickUncertainty={() => setUncertaintyItem(plan)}
-                  />
+              <section key={group.slug} className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between px-1">
+                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                    {categoryLabel}
+                  </h3>
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    {group.plans.length}
+                  </span>
                 </div>
-
-                {/* Notes if present */}
-                {plan.notes && (
-                  <p className="text-xs text-muted-foreground italic bg-muted/30 p-2 rounded-lg border border-border/50">
-                    "{plan.notes}"
-                  </p>
-                )}
-
-                {/* Ingredients preview */}
-                {ingredients.length > 0 && (
-                  <div className="flex flex-col gap-1 pt-1 border-t border-border/40">
-                    <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-                      {t('cookbook.ingredients')} ({ingredients.length})
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {ingredients.map((ing) => {
-                        const multiplier = getEffectiveMultiplier(plan)
-                        const requiredQty = Math.round(ing.base_quantity * multiplier * 10) / 10
-                        const unitType = ing.product?.unit_type || 'pcs'
-                        const directItem = pantryItems.find((p) => p.product_id === ing.product_id)
-                        const directStock = directItem
-                          ? (convertQuantity(directItem.quantity || 0, directItem.unit_type, unitType) ?? 0)
-                          : 0
-                        const childStock = ing.product?.is_general
-                          ? pantryItems
-                              .filter((p) => 'product' in p && p.product?.parent_id === ing.product_id)
-                              .reduce(
-                                (sum, p) =>
-                                  sum + (convertQuantity(p.quantity || 0, p.unit_type, unitType) ?? 0),
-                                0
-                              )
-                          : 0
-                        const inPantry =
-                          ing.is_pantry_item === true || Math.max(directStock, childStock) >= requiredQty
-
-                        return (
-                          <span
-                            key={ing.id}
-                            className={cn(
-                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs border",
-                              inPantry
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
-                                : "bg-muted/40 border-border text-foreground"
-                            )}
-                          >
-                            {inPantry && <Warehouse className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
-                            <span>{ing.product?.name}</span>
-                            <span className="text-[10px] opacity-70">
-                              ({requiredQty} {ing.product?.unit_type})
-                            </span>
-                          </span>
-                        )
+                <div className="flex flex-col gap-3">
+                  {group.plans.map((plan) => (
+                    <DayMealPlanCard
+                      key={plan.id}
+                      plan={plan}
+                      statusDetails={calculateMealPlanStatus(plan, {
+                        pantryItems,
+                        draftItems,
+                        activeListItems,
+                        archivedListItems,
+                        isPastDate
                       })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Action buttons (Disabled if past) */}
-                {!isPastDate && (
-                  <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-2">
-                    <div className="flex items-center gap-1.5">
-                      {/* Send to Draft */}
-                      {ingredients.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => transferMealToDraft(plan)}
-                          className="h-8 gap-1.5 text-xs text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 rounded-lg px-2"
-                        >
-                          <ShoppingCart className="w-3.5 h-3.5" />
-                          <span>{t('calendar.transferToDraft')}</span>
-                        </Button>
-                      )}
-
-                      {/* Cook meal / deduct ingredients from pantry */}
-                      {ingredients.length > 0 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setCookPlanItem(plan)}
-                          className="h-8 gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg px-2"
-                          title={t('pantry.cookModal.buttonLabel')}
-                        >
-                          <UtensilsCrossed className="w-3.5 h-3.5" />
-                          <span>{t('pantry.cookModal.buttonShort')}</span>
-                        </Button>
-                      )}
-
-                      {/* Duplicate to next day */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          duplicateMealPlan(plan, addDaysISO(selectedDate, 1))
-                        }}
-                        className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground rounded-lg px-2"
-                        title={t('calendar.duplicateNextDay')}
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{t('calendar.duplicateNextDay')}</span>
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      {/* Edit */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingItem(plan)
-                          setIsAddMealOpen(true)
-                        }}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground rounded-lg"
-                        title={t('common.edit')}
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-
-                      {/* Delete */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteMealPlan(plan.id)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 rounded-lg"
-                        title={t('common.delete')}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                      pantryMapByProductId={resolvedPantryMap}
+                      pantryItemsByParentId={resolvedParentMap}
+                      isPastDate={isPastDate}
+                      categoryLabel={categoryLabel}
+                      onTransferToDraft={(target) => transferMealToDraft(target)}
+                      onCook={setCookPlanItem}
+                      onDuplicateNextDay={(target) =>
+                        duplicateMealPlan(target, addDaysISO(selectedDate, 1))
+                      }
+                      onEdit={(target) => {
+                        setEditingItem(target)
+                        setIsAddMealOpen(true)
+                      }}
+                      onDelete={setPlanToDelete}
+                      onOpenUncertainty={setUncertaintyItem}
+                    />
+                  ))}
+                </div>
+              </section>
             )
           })}
         </div>
       )}
 
-      {/* Add / Edit Meal Dialog */}
       <AddCalendarMealDialog
         isOpen={isAddMealOpen}
         onClose={() => {
@@ -382,7 +306,6 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         editingItem={editingItem}
       />
 
-      {/* Uncertainty Details Sheet */}
       {uncertaintyItem && (
         <UncertaintyWarningModal
           isOpen={!!uncertaintyItem}
@@ -392,13 +315,14 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
             calculateMealPlanStatus(uncertaintyItem, {
               pantryItems,
               draftItems,
+              activeListItems,
+              archivedListItems,
               isPastDate
             }).missingIngredients
           }
         />
       )}
 
-      {/* Cook Meal & Deduct Pantry Modal */}
       {cookPlanItem && (
         <CookMealDeductModal
           open={!!cookPlanItem}
@@ -407,6 +331,20 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
           ingredients={cookIngredients}
         />
       )}
+
+      <ConfirmDeleteDialog
+        open={!!planToDelete}
+        onOpenChange={(open) => !open && setPlanToDelete(null)}
+        itemName={
+          planToDelete?.meal?.name || planToDelete?.custom_name || t('calendar.defaultMealName')
+        }
+        onConfirm={async () => {
+          if (planToDelete) {
+            await deleteMealPlan(planToDelete.id)
+            setPlanToDelete(null)
+          }
+        }}
+      />
     </div>
   )
 }

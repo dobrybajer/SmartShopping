@@ -43,6 +43,7 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   const [activeMeal, setActiveMeal] = useState<MealWithIngredients | null>(null)
+  const [mealToEdit, setMealToEdit] = useState<MealWithIngredients | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [addedMealId, setAddedMealId] = useState<string | null>(null)
@@ -127,6 +128,25 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     setIsDetailsOpen(true)
   }
 
+  const openNewMeal = () => {
+    setMealToEdit(null)
+    setIsAddMealOpen(true)
+  }
+
+  const handleEditMeal = (e: React.MouseEvent | undefined, meal: MealWithIngredients) => {
+    e?.stopPropagation()
+    setIsDetailsOpen(false)
+    setMealToEdit(meal)
+    setIsAddMealOpen(true)
+  }
+
+  const handleAddMealOpenChange = (open: boolean) => {
+    setIsAddMealOpen(open)
+    if (!open) {
+      setMealToEdit(null)
+    }
+  }
+
   const resetFilters = () => {
     setSearchQuery('')
     setTypeFilter('all')
@@ -151,10 +171,12 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     globalCount,
     totalCount: meals.length,
     activeMeal,
+    mealToEdit,
     isDetailsOpen,
     setIsDetailsOpen,
     isAddMealOpen,
     setIsAddMealOpen,
+    handleAddMealOpenChange,
     mealToDelete,
     isDeleteModalOpen,
     setIsDeleteModalOpen,
@@ -166,6 +188,8 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     handleDeleteMeal,
     handleConfirmDeleteMeal,
     openMealDetails,
+    openNewMeal,
+    handleEditMeal,
     resetFilters
   }
 }

@@ -25,10 +25,11 @@ export function useTransferToActiveList({
 }: UseTransferToActiveListParams) {
   const { household } = useAuth()
   const { t } = useTranslation()
-  const { selectedActiveListId, setSelectedActiveListId } = useShoppingStore(
+  const { selectedActiveListId, setSelectedActiveListId, syncListItemsToPipeline } = useShoppingStore(
     useShallow((state) => ({
       selectedActiveListId: state.selectedActiveListId,
-      setSelectedActiveListId: state.setSelectedActiveListId
+      setSelectedActiveListId: state.setSelectedActiveListId,
+      syncListItemsToPipeline: state.syncListItemsToPipeline
     }))
   )
 
@@ -84,6 +85,7 @@ export function useTransferToActiveList({
         )
 
         if (created) {
+          syncListItemsToPipeline(created.id, created.items)
           setSelectedActiveListId(created.id)
           onSuccess(created.id)
           onOpenChange(false)
@@ -97,6 +99,7 @@ export function useTransferToActiveList({
         )
 
         if (updated) {
+          syncListItemsToPipeline(updated.id, updated.items)
           setSelectedActiveListId(updated.id)
           onSuccess(updated.id)
           onOpenChange(false)

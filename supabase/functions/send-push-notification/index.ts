@@ -5,15 +5,52 @@ import webpush from "https://esm.sh/web-push@3.6.7";
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")?.trim() || "";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")?.trim() || "";
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT")?.trim() || "mailto:notifications@smartshopping.app";
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN")?.trim() || "*";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const RELATIVE_PATH_REGEX = /^\/(?!\/)/;
+
+const MAX_TITLE_LENGTH = 120;
+const MAX_BODY_LENGTH = 500;
+const MAX_TAG_LENGTH = 80;
+const MAX_URL_LENGTH = 512;
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  ...(ALLOWED_ORIGIN !== "*" ? { Vary: "Origin" } : {}),
 };
+
+interface PushErrorDetails {
+  statusCode?: number;
+  message: string;
+  body?: unknown;
+}
+
+function parsePushError(err: unknown): PushErrorDetails {
+  if (err && typeof err === "object") {
+    const record = err as Record<string, unknown>;
+    return {
+      statusCode: typeof record.statusCode === "number" ? record.statusCode : undefined,
+      message: typeof record.message === "string" ? record.message : String(err),
+      body: record.body,
+    };
+  }
+  return { message: err instanceof Error ? err.message : String(err) };
+}
+
+function isValidRelativePath(value: unknown, maxLen: number): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= maxLen &&
+    RELATIVE_PATH_REGEX.test(value)
+  );
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -49,17 +86,66 @@ serve(async (req) => {
       });
     }
 
-    const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const rawBody: unknown = await req.json();
+    if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
+      return new Response(JSON.stringify({ error: "Invalid JSON payload" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const bodyData = await req.json();
-    const { householdId, title, body, tag, url, icon, badge, includeSender } = bodyData;
+    const bodyRecord = rawBody as Record<string, unknown>;
+    const householdId = bodyRecord.householdId;
+    const rawTitle = bodyRecord.title;
+    const rawBodyText = bodyRecord.body;
+    const rawTag = bodyRecord.tag;
+    const rawUrl = bodyRecord.url;
+    const rawIcon = bodyRecord.icon;
+    const rawBadge = bodyRecord.badge;
+    const includeSender = bodyRecord.includeSender === true;
 
-    if (!householdId || !title || !body) {
+    if (typeof householdId !== "string" || !UUID_REGEX.test(householdId)) {
+      return new Response(JSON.stringify({ error: "Invalid or missing householdId (UUID expected)" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (typeof rawTitle !== "string" || rawTitle.trim().length === 0 || rawTitle.trim().length > MAX_TITLE_LENGTH) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields (householdId, title, body)" }),
+        JSON.stringify({ error: `Invalid title (non-empty string max ${MAX_TITLE_LENGTH} chars expected)` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    if (typeof rawBodyText !== "string" || rawBodyText.trim().length === 0 || rawBodyText.trim().length > MAX_BODY_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Invalid body (non-empty string max ${MAX_BODY_LENGTH} chars expected)` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let safeUrl = "/";
+    if (rawUrl !== undefined && rawUrl !== null && rawUrl !== "") {
+      if (!isValidRelativePath(rawUrl, MAX_URL_LENGTH)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid url (must be a safe relative path starting with /)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      safeUrl = rawUrl;
+    }
+
+    const title = rawTitle.trim();
+    const body = rawBodyText.trim();
+    const tag =
+      typeof rawTag === "string" && rawTag.trim().length > 0 && rawTag.trim().length <= MAX_TAG_LENGTH
+        ? rawTag.trim()
+        : "smart-shopping-default";
+    const icon = isValidRelativePath(rawIcon, MAX_URL_LENGTH) ? rawIcon : "/icon-192.png";
+    const badge = isValidRelativePath(rawBadge, MAX_URL_LENGTH) ? rawBadge : "/icon-192.png";
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Verify user is a member of the requested household (CRIT-03)
     const { data: member, error: memberError } = await supabaseClient
@@ -77,7 +163,6 @@ serve(async (req) => {
     }
 
     // 1. Fetch subscriptions for household
-    // If includeSender is false (default for broadcast events), suppress the sender's own device
     let query = supabaseClient
       .from("push_subscriptions")
       .select("id, user_id, endpoint, p256dh, auth")
@@ -98,10 +183,10 @@ serve(async (req) => {
 
     if (!subscriptions || subscriptions.length === 0) {
       console.log(`[send-push-notification] 0 subscriptions found for household ${householdId} (includeSender: ${includeSender})`);
-      return new Response(JSON.stringify({ sentCount: 0, totalCount: 0, pruned: 0, message: "No registered subscriptions found" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ sentCount: 0, totalCount: 0, pruned: 0, message: "No registered subscriptions found" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log(`[send-push-notification] Dispatching push to ${subscriptions.length} devices for household ${householdId} (includeSender: ${includeSender})`);
@@ -109,10 +194,10 @@ serve(async (req) => {
     const payload = JSON.stringify({
       title,
       body,
-      tag: tag || "smart-shopping-default",
-      url: url || "/",
-      icon: icon || "/icon-192.png",
-      badge: badge || "/icon-192.png",
+      tag,
+      url: safeUrl,
+      icon,
+      badge,
       vibrate: [100, 50, 100],
     });
 
@@ -131,15 +216,15 @@ serve(async (req) => {
           );
           console.log(`[send-push-notification] Delivery success for ${sub.id}: statusCode ${res?.statusCode || 201}`);
           return res;
-        } catch (err: any) {
+        } catch (err: unknown) {
+          const parsed = parsePushError(err);
           console.error(
             `[send-push-notification] Delivery failed for ${sub.id}:`,
-            err?.statusCode,
-            err?.message,
-            err?.body
+            parsed.statusCode,
+            parsed.message,
+            parsed.body
           );
-          // If browser returned 410 Gone or 404 Not Found, mark for pruning
-          if (err?.statusCode === 410 || err?.statusCode === 404) {
+          if (parsed.statusCode === 410 || parsed.statusCode === 404) {
             deadSubscriptionIds.push(sub.id);
           }
           throw err;
@@ -159,7 +244,7 @@ serve(async (req) => {
     const successCount = sendResults.filter((r) => r.status === "fulfilled").length;
     const errors = sendResults
       .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-      .map((r) => r.reason?.message || String(r.reason));
+      .map((r) => parsePushError(r.reason).message);
 
     return new Response(
       JSON.stringify({
@@ -173,8 +258,9 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || "Internal server error" }), {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

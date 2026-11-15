@@ -138,10 +138,16 @@ export function calculateMealPlanStatus(
     }
     const isPantryStocked = ing.is_pantry_item === true || stockedQty >= requiredQty
 
-    // Check if on archived list (completed / bought)
-    const archivedItem = linkedArchived.find((item) => item.product_id === productId)
+    // Check if on archived list (completed / bought or covered by pantry)
+    const archivedItem = linkedArchived.find(
+      (item) => item.product_id === productId && (item.is_checked || item.in_pantry)
+    )
     if (archivedItem) {
-      boughtCount++
+      if (archivedItem.is_checked) {
+        boughtCount++
+      } else {
+        pantryCoveredCount++
+      }
       continue
     }
 

@@ -3,7 +3,13 @@ import { create } from 'zustand'
 import { en } from './locales/en'
 import { pl } from './locales/pl'
 import type { SupportedLanguage, TranslationDictionary, PluralForms } from './types'
-export type { SupportedLanguage, TranslationDictionary, PluralForms } from './types'
+export type {
+  SupportedLanguage,
+  TranslationDictionary,
+  PluralForms,
+  TranslationKey,
+  TranslationSchema
+} from './types'
 
 export const translations: Record<SupportedLanguage, TranslationDictionary> = { en, pl }
 
@@ -50,24 +56,24 @@ export const useI18nStore = create<I18nState>((set) => ({
 }))
 
 export const formatTranslation = (
-  currentDict: any,
-  fallbackDict: any,
+  currentDict: unknown,
+  fallbackDict: unknown,
   language: SupportedLanguage,
   path: string,
   params?: Record<string, string | number>
 ): string => {
   const keys = path.split('.')
-  let current: any = currentDict
+  let current: unknown = currentDict
 
   for (const key of keys) {
     if (current && typeof current === 'object' && key in current) {
-      current = current[key]
+      current = (current as Record<string, unknown>)[key]
     } else {
       // Fallback to English dictionary
-      let fallback: any = fallbackDict
+      let fallback: unknown = fallbackDict
       for (const fbKey of keys) {
         if (fallback && typeof fallback === 'object' && fbKey in fallback) {
-          fallback = fallback[fbKey]
+          fallback = (fallback as Record<string, unknown>)[fbKey]
         } else {
           fallback = path
           break

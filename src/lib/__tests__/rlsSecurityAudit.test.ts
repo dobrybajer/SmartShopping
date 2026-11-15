@@ -316,4 +316,25 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
       expect(pol.withCheckClause).toContain('p.household_id = products.household_id')
     }
   })
+
+  it('Audit 09 (HIGH-13): households & household_members enforce owner-only household deletion and member removal permissions', () => {
+    const householdInsert = getPoliciesFor('households', 'INSERT')[0]
+    expect(householdInsert.withCheckClause).toContain('auth.uid() IS NOT NULL')
+    expect(householdInsert.withCheckClause).not.toMatch(/^true$/i)
+
+    const householdDelete = getPoliciesFor('households', 'DELETE')[0]
+    expect(householdDelete.usingClause).toContain('is_household_owner')
+    expect(householdDelete.usingClause).not.toContain('get_user_household_ids')
+
+    const memberDelete = getPoliciesFor('household_members', 'DELETE')[0]
+    expect(memberDelete.usingClause).toContain('user_id = auth.uid()')
+    expect(memberDelete.usingClause).toContain('is_household_owner')
+    expect(memberDelete.usingClause).not.toContain('get_user_household_ids')
+
+    // Ensure members cannot escalate their own role via UPDATE RLS
+    const memberUpdates = getPoliciesFor('household_members', 'UPDATE')
+    expect(memberUpdates).toHaveLength(0)
+
+    expect(createdIndexes.has('idx_household_members_household_role')).toBe(true)
+  })
 })

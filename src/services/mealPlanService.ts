@@ -6,7 +6,7 @@ import type {
   UpdateCalendarMealInput,
   MissingIngredient
 } from '@/types/calendar'
-import type { AddToDraftPayload, MealIngredientWithProduct, MealWithIngredients, Product } from '@/store/useShoppingStore'
+import type { AddToDraftPayload, MealCategory, MealIngredientWithProduct, MealWithIngredients, Product } from '@/store/useShoppingStore'
 
 type RawMealPlanIngredientRow = Omit<MealIngredientWithProduct, 'product' | 'reference_product'> & {
   reference_product_id?: string | null
@@ -15,15 +15,18 @@ type RawMealPlanIngredientRow = Omit<MealIngredientWithProduct, 'product' | 'ref
 }
 
 type RawMealPlanMealJoinRow = Omit<MealWithIngredients, 'ingredients'> & {
+  meal_category?: MealCategory | null
   ingredients: RawMealPlanIngredientRow[] | null
 }
 
-type RawMealPlanRow = Omit<MealPlanItem, 'meal'> & {
+type RawMealPlanRow = Omit<MealPlanItem, 'meal' | 'meal_category'> & {
+  meal_category?: MealCategory | null
   meal: RawMealPlanMealJoinRow | null
 }
 
 const MEAL_PLAN_SELECT_QUERY = `
   *,
+  meal_category:meal_categories(*),
   meal:meals(
     id,
     household_id,
@@ -34,6 +37,7 @@ const MEAL_PLAN_SELECT_QUERY = `
     category_id,
     tags,
     type,
+    meal_category:meal_categories(*),
     ingredients:meal_ingredients(
       id,
       meal_id,
@@ -48,8 +52,10 @@ const MEAL_PLAN_SELECT_QUERY = `
 `
 
 function mapMealPlanRow(row: RawMealPlanRow): MealPlanItem {
+  const resolvedCategory = row.meal_category ?? row.meal?.meal_category
   return {
     ...row,
+    ...(resolvedCategory !== undefined ? { meal_category: resolvedCategory } : {}),
     meal: row.meal
       ? {
           ...row.meal,

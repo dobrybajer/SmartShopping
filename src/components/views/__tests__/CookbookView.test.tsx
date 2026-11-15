@@ -17,7 +17,17 @@ vi.mock('@/hooks/useAuth', () => ({
 vi.mock('@/services/mealService', () => ({
   mealService: {
     getMeals: vi.fn(),
+    getMealCategories: vi.fn().mockResolvedValue([]),
+    createMeal: vi.fn(),
+    updateMeal: vi.fn(),
     deleteMeal: vi.fn()
+  }
+}))
+
+vi.mock('@/services/productService', () => ({
+  productService: {
+    getProducts: vi.fn().mockResolvedValue([]),
+    getCategories: vi.fn().mockResolvedValue([])
   }
 }))
 
@@ -283,5 +293,33 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
 
     // Both general chicken (via child) and milk (direct) are in pantry -> 2/2 ("Wszystkie składniki w spiżarni")
     expect(screen.getByText('Wszystkie składniki w spiżarni')).toBeInTheDocument()
+  })
+
+  it('Flow 04: shows Edit button only for Household meals and opens edit form prefilled (HIGH-12)', async () => {
+    const globalMeal: MealWithIngredients = {
+      ...sampleMeals[0],
+      id: 'meal-global',
+      household_id: null,
+      type: 'Global',
+      name: 'Globalne Musli'
+    }
+
+    vi.mocked(mealService.getMeals).mockResolvedValue([sampleMeals[0], globalMeal])
+
+    render(<CookbookView />)
+
+    expect(await screen.findByText('Globalne Musli')).toBeInTheDocument()
+    expect(screen.getByText('Naleśniki')).toBeInTheDocument()
+
+    // Only one Edit button should exist (for Household 'Naleśniki', not Global 'Globalne Musli')
+    const editButtons = screen.getAllByRole('button', { name: /Edytuj Przepis|Edit Recipe/i })
+    expect(editButtons).toHaveLength(1)
+
+    fireEvent.click(editButtons[0])
+
+    expect(
+      await screen.findByRole('heading', { name: /Edytuj Przepis|Edit Recipe/i, level: 3 })
+    ).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Naleśniki')).toBeInTheDocument()
   })
 })

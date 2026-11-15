@@ -18,7 +18,7 @@ Aplikacja oparta na architekturze Serverless (BaaS - Backend as a Service) oraz 
 
 ## 3. Logowanie i Autoryzacja
 *   **Mechanizm:** Supabase Auth skonfigurowany pod **Google OAuth (Logowanie Gmail)**. 
-*   **Kontekst Gospodarstwa (Household):** Każdy zalogowany użytkownik `users` jest przypisany do tabeli `households`. Pozwala to na współdzielenie list zakupowych z innymi domownikami. Polityki RLS (Row Level Security) w PostgreSQL opierają się na `household_id`, gwarantując bezpieczeństwo i izolację danych.
+*   **Kontekst Gospodarstwa (Household) i Role:** Każdy zalogowany użytkownik `users` może należeć do gospodarstw w tabeli `households` poprzez `household_members` z rolą `role` (`'owner'` | `'member'`). Polityki RLS (Row Level Security) w PostgreSQL opierają się na `household_id` oraz funkcji `is_household_owner`: tylko właściciel może usunąć gospodarstwo lub innego domownika, a zwykły członek może samodzielnie opuścić gospodarstwo. Zwykli użytkownicy tworzą przepisy i produkty wyłącznie w zakresie swojego gospodarstwa (`type = 'Household'`, zgodnie z RLS `HIGH-08`).
 
 ## 4. Schemat Bazy Danych (PostgreSQL / Supabase DDL)
 
@@ -48,6 +48,7 @@ CREATE TABLE household_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member' CONSTRAINT chk_household_members_role CHECK (role IN ('owner', 'member')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT unique_household_member UNIQUE (household_id, user_id)
 );
@@ -212,11 +213,11 @@ CREATE TABLE meal_plans (
 ```
 
 ## 5. Opis Biznesowy Funkcjonalności
-*   **Baza Potraw (CRUD) i Przelicznik Miar Kuchennych (`LOW-11`):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw (wraz z przelicznikiem miar kuchennych: `tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` na jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
+*   **Baza Potraw (CRUD) i Przelicznik Miar Kuchennych (`LOW-11`):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw gospodarstwa (`mealService.updateMeal`, wybór kategorii `meal_categories`, bez nieaktywnego tworzenia `Global` z klienta) wraz z przelicznikiem miar kuchennych (`tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` na jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
 *   **Zarządzanie Makro i Skalowanie:** Produkty definiują makro na 100g/100ml lub 1 sztukę. Przy dodawaniu posiłku użytkownik określa docelową kaloryczność, co automatycznie wylicza mnożnik dla proporcjonalnej ilości składników.
 *   **Moduł Kalendarza i Planowania Posiłków (ADR-009):**
-    *   **3 Perspektywy Czasowe:** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (kategorie posiłków, pełne makro B/W/T, lista składników).
-    *   **Synchronizacja z Procesem Zakupowym:** Śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`).
+    *   **3 Perspektywy Czasowe:** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (`DayCalendarView` z grupowaniem w sekcje kategorii posiłków `meal_categories` i odznakami kategorii, pełne makro B/W/T, lista składników).
+    *   **Synchronizacja z Procesem Zakupowym:** Pełne śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`) zasilane na bieżąco z `pantryItems`, `draftItems`, `activeListItems` oraz `archivedListItems` (`useShoppingStore` / `getCalendarPipelineItems`).
     *   **Wykrywanie Niepewności (⚠️):** Jeśli jakikolwiek składnik dania zostanie usunięty z koszyka lub listy przed zakupem, pojawia się wskaźnik niepewności z możliwością podglądu braków i natychmiastowego ich przywrócenia jednym kliknięciem.
     *   **Elastyczność, Skalowanie i Szablony Tygodniowe (`LOW-08`):** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc, duplikowanie posiłku na kolejny dzień oraz zapisywanie/nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikiem porcji `0.5x–4x` (`WeeklyTemplatesModal`).
     *   **Tryb Archiwalny:** Przeszłe dni są zablokowane do edycji (tylko do odczytu) z trwałym oznaczeniem zrealizowanych posiłków.

@@ -16,7 +16,7 @@ describe('NotificationSettings - Component & User Flow Tests (ADR-007)', () => {
       household: mockHousehold,
       userProfile: { name: 'Kamil' },
       user: { id: 'u1', email: 'kamil@example.com' }
-    } as any)
+    } as never)
 
     useNotificationStore.setState({
       permission: 'default',

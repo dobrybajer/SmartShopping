@@ -217,19 +217,23 @@ describe('HIGH-06: Realtime Echo Suppression, Single Vibration & Diff Updates', 
   })
 
   it('useActiveListRealtime hook suppresses local checkbox echo via Supabase channel and processes remote partner updates', () => {
-    const handlers: Array<{ table: string; cb: (payload: any) => void }> = []
-    const mockChannel: any = {
-      on: vi.fn((_type, filter, cb) => {
+    const handlers: Array<{ table: string; cb: (payload: unknown) => void }> = []
+    interface MockChannel {
+      on: (_type: unknown, filter: { table: string }, cb: (payload: unknown) => void) => MockChannel
+      subscribe: (cb?: (status: string) => void) => MockChannel
+    }
+    const mockChannel: MockChannel = {
+      on: vi.fn((_type: unknown, filter: { table: string }, cb: (payload: unknown) => void) => {
         handlers.push({ table: filter.table, cb })
         return mockChannel
       }),
-      subscribe: vi.fn((cb) => {
+      subscribe: vi.fn((cb?: (status: string) => void) => {
         cb?.('SUBSCRIBED')
         return mockChannel
       })
     }
-    vi.spyOn(supabase, 'channel').mockReturnValue(mockChannel)
-    vi.spyOn(supabase, 'removeChannel').mockResolvedValue('ok' as any)
+    vi.spyOn(supabase, 'channel').mockReturnValue(mockChannel as never)
+    vi.spyOn(supabase, 'removeChannel').mockResolvedValue('ok' as never)
 
     const onRefreshRequired = vi.fn()
     const onItemUpdated = vi.fn()

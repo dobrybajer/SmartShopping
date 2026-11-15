@@ -73,7 +73,13 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
     }))
   )
   const pantryItems = usePantryStore((state) => state.pantryItems)
-  const draftItems = useShoppingStore((state) => state.draftItems)
+  const { draftItems, activeListItems, archivedListItems } = useShoppingStore(
+    useShallow((state) => ({
+      draftItems: state.draftItems,
+      activeListItems: state.activeListItems,
+      archivedListItems: state.archivedListItems
+    }))
+  )
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
 
   const todayStr = formatLocalDateISO()
@@ -280,6 +286,8 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                     const statusDetails = calculateMealPlanStatus(plan, {
                       pantryItems,
                       draftItems,
+                      activeListItems,
+                      archivedListItems,
                       isPastDate: day.isPast
                     })
                     const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
@@ -383,6 +391,8 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                       const statusDetails = calculateMealPlanStatus(plan, {
                         pantryItems,
                         draftItems,
+                        activeListItems,
+                        archivedListItems,
                         isPastDate: day.isPast
                       })
                       const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')

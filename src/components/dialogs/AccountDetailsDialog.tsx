@@ -58,7 +58,7 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
     }
   }
 
-  const createdAtDate = userProfile?.created_at || (user as any)?.created_at
+  const createdAtDate = userProfile?.created_at || user?.created_at
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

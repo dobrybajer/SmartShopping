@@ -66,6 +66,7 @@ export interface ArchivedSnapshotItem {
   total_quantity?: number
   is_checked?: boolean | null
   in_pantry?: boolean | null
+  meal_plan_item_id?: string | null
 }
 
 export interface ArchivedItemsSnapshot {
@@ -110,9 +111,15 @@ export interface ArchiveRpcUncheckedItem {
   sort_order?: number | null
   quantity: number
   is_ad_hoc?: boolean
+  meal_plan_item_id?: string | null
 }
 
 export interface ArchiveRpcResult {
   list_name?: string | null
   unchecked_items?: ArchiveRpcUncheckedItem[]
+}
+
+export interface CalendarPipelineItems {
+  activeListItems: ShoppingListItem[]
+  archivedListItems: ShoppingListItem[]
 }

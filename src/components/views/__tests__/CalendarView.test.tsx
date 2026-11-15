@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { CalendarView } from '../CalendarView'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
+import { formatLocalDateISO } from '@/lib/utils'
 import type { MealPlanItem } from '@/types/calendar'
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -36,7 +37,7 @@ vi.mock('@/services/mealPlanService', () => ({
 describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
   const mockHousehold = { id: 'hh-cal-1', name: 'Dom Testowy' }
 
-  const testDate = new Date().toISOString().split('T')[0]
+  const testDate = formatLocalDateISO()
 
   const mockPlan: MealPlanItem = {
     id: 'plan-1',
@@ -93,8 +94,8 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
     vi.clearAllMocks()
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold,
-      user: { id: 'user-1' } as any
-    } as any)
+      user: { id: 'user-1' }
+    } as never)
 
     useMealPlanStore.setState({
       mealPlans: [mockPlan],
@@ -109,7 +110,9 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
 
     useShoppingStore.setState({
       draftItems: [],
-      draftsByHousehold: {}
+      draftsByHousehold: {},
+      activeListItems: [],
+      archivedListItems: []
     })
 
     usePantryStore.setState({
@@ -164,5 +167,63 @@ describe('CalendarView - Mobile PWA User Flow Suite (ADR-009)', () => {
     expect(draftItems).toHaveLength(1)
     expect(draftItems[0].name).toBe('Jajka')
     expect(draftItems[0].meal_plan_item_id).toBe('plan-1')
+  })
+
+  it('Flow 06: groups planned meals by category and reflects active/archived list pipeline statuses (HIGH-11)', async () => {
+    const lunchPlan: MealPlanItem = {
+      ...mockPlan,
+      id: 'plan-2',
+      meal_category_id: 2,
+      meal_category: { id: 2, name: 'lunch' },
+      custom_name: 'Zupa pomidorowa',
+      meal: null
+    }
+
+    useMealPlanStore.setState({
+      mealPlans: [lunchPlan, mockPlan]
+    })
+
+    useShoppingStore.setState({
+      activeListItems: [
+        {
+          id: 'active-item-1',
+          shopping_list_id: 'list-1',
+          product_id: 'prod-egg',
+          total_quantity: 3,
+          is_checked: false,
+          added_ad_hoc: false,
+          in_pantry: false,
+          meal_plan_item_id: 'plan-1'
+        }
+      ]
+    })
+
+    render(<CalendarView />)
+
+    expect(await screen.findByRole('heading', { name: 'Śniadanie' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Obiad' })).toBeInTheDocument()
+    expect(screen.getAllByText('Śniadanie')).toHaveLength(2)
+    expect(screen.getAllByText('Obiad')).toHaveLength(2)
+    expect(screen.getByText('Na liście')).toBeInTheDocument()
+
+    // Marking the item checked on active list updates status to Kupione
+    act(() => {
+      useShoppingStore.setState({
+        activeListItems: [
+          {
+            id: 'active-item-1',
+            shopping_list_id: 'list-1',
+            product_id: 'prod-egg',
+            total_quantity: 3,
+            is_checked: true,
+            added_ad_hoc: false,
+            in_pantry: false,
+            meal_plan_item_id: 'plan-1'
+          }
+        ]
+      })
+    })
+
+    expect(await screen.findByText('Kupione')).toBeInTheDocument()
   })
 })

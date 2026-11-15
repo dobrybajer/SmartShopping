@@ -9,6 +9,7 @@ import {
   getHistoryLists,
   loadArchivedFallbackItems
 } from './shoppingList/shoppingListArchive'
+import { getCalendarPipelineItems } from './shoppingList/shoppingListPipeline'
 import {
   addItemsToActiveList,
   insertDraftItemsToList
@@ -23,6 +24,7 @@ import {
 import type {
   ActiveListItemWithProduct,
   ActiveListWithDetails,
+  CalendarPipelineItems,
   HistoryListItemSummary,
   HistoryShoppingList,
   RawActiveListItemRow,
@@ -35,6 +37,7 @@ import type {
 export type {
   ActiveListItemWithProduct,
   ActiveListWithDetails,
+  CalendarPipelineItems,
   HistoryListItemSummary,
   HistoryShoppingList,
   ShoppingList,
@@ -362,5 +365,6 @@ export const shoppingListService = {
   deleteListItem,
   archiveActiveList,
   getHistoryLists,
+  getCalendarPipelineItems,
   _insertDraftItemsToList: insertDraftItemsToList
 }

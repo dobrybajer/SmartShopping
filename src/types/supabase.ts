@@ -73,18 +73,21 @@ export interface Database {
           id: string
           household_id: string
           user_id: string
+          role: 'owner' | 'member'
           created_at: string | null
         }
         Insert: {
           id?: string
           household_id: string
           user_id: string
+          role?: 'owner' | 'member'
           created_at?: string | null
         }
         Update: {
           id?: string
           household_id?: string
           user_id?: string
+          role?: 'owner' | 'member'
           created_at?: string | null
         }
         Relationships: [
@@ -785,6 +788,13 @@ export interface Database {
           p_name: string
         }
         Returns: Json
+      }
+      is_household_owner: {
+        Args: {
+          _household_id: string
+          _user_id: string
+        }
+        Returns: boolean
       }
       archive_shopping_list: {
         Args: {

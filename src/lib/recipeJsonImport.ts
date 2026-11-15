@@ -143,8 +143,9 @@ export function validateRecipeJson(rawJson: string, lang?: SupportedLanguage): R
   try {
     parsed = JSON.parse(trimmed)
     result.isSyntaxValid = true
-  } catch (err: any) {
-    result.syntaxError = err?.message || translate('dialogs.jsonRecipeImport.validation.invalidSyntax', {}, lang)
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : undefined
+    result.syntaxError = errMsg || translate('dialogs.jsonRecipeImport.validation.invalidSyntax', {}, lang)
     return result
   }
 
@@ -172,7 +173,7 @@ export function validateRecipeJson(rawJson: string, lang?: SupportedLanguage): R
       return
     }
 
-    const obj = item as Record<string, any>
+    const obj = item as Record<string, unknown>
 
     // 1. Name validation
     const name = typeof obj.name === 'string' ? obj.name.trim() : ''
@@ -258,7 +259,7 @@ export function validateRecipeJson(rawJson: string, lang?: SupportedLanguage): R
           })
         }
 
-        const parseNutritionNum = (val: any): number | undefined => {
+        const parseNutritionNum = (val: unknown): number | undefined => {
           if (typeof val === 'number' && !isNaN(val) && val >= 0) return val
           if (typeof val === 'string' && val.trim() !== '') {
             const parsedVal = Number(val)

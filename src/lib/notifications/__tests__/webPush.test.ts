@@ -85,7 +85,7 @@ describe('Web Push Utilities & SW Handler (ADR-007)', () => {
     expect(title).toBe('🛒 Nowy produkt')
     expect(options.body).toBe('Kamil dodał: Mleko')
     expect(options.tag).toBe('list-123')
-    expect((options.data as any)?.url).toBe('/?tab=active&listId=123')
+    expect((options.data as { url?: string } | undefined)?.url).toBe('/?tab=active&listId=123')
     expect(options.renotify).toBe(true)
     expect(options.vibrate).toEqual([100, 50, 100])
   })

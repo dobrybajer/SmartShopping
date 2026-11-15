@@ -24,11 +24,29 @@ vi.mock('@/services/mealPlanService', () => ({
   }
 }))
 
+vi.mock('@/services/shoppingListService', () => ({
+  shoppingListService: {
+    getCalendarPipelineItems: vi.fn().mockResolvedValue({
+      activeListItems: [],
+      archivedListItems: []
+    })
+  }
+}))
+
 vi.mock('@/store/useToastStore', () => ({
   toast: {
     error: vi.fn(),
     info: vi.fn(),
     success: vi.fn()
+  }
+}))
+
+vi.mock('@/services/shoppingListService', () => ({
+  shoppingListService: {
+    getCalendarPipelineItems: vi.fn().mockResolvedValue({
+      activeListItems: [],
+      archivedListItems: []
+    })
   }
 }))
 
@@ -96,7 +114,9 @@ describe('useMealPlanStore', () => {
     })
     useShoppingStore.setState({
       draftItems: [],
-      draftsByHousehold: {}
+      draftsByHousehold: {},
+      activeListItems: [],
+      archivedListItems: []
     })
     usePantryStore.setState({
       pantryItems: []
@@ -199,5 +219,41 @@ describe('useMealPlanStore', () => {
       is_uncertainty_dismissed: true
     })
     expect(useMealPlanStore.getState().mealPlans[0].is_uncertainty_dismissed).toBe(true)
+  })
+
+  it('loadMealPlans syncs active and archived list pipeline items into useShoppingStore (HIGH-11)', async () => {
+    const { shoppingListService } = await import('@/services/shoppingListService')
+    const activeItem = {
+      id: 'active-1',
+      shopping_list_id: 'list-1',
+      product_id: 'prod-oats',
+      total_quantity: 50,
+      is_checked: false,
+      added_ad_hoc: false,
+      in_pantry: false,
+      meal_plan_item_id: 'plan-1'
+    }
+    const archivedItem = {
+      id: 'arch-1',
+      shopping_list_id: 'list-old',
+      product_id: 'prod-milk',
+      total_quantity: 1,
+      is_checked: true,
+      added_ad_hoc: false,
+      in_pantry: false,
+      meal_plan_item_id: 'plan-1'
+    }
+
+    vi.mocked(mealPlanService.getMealPlans).mockResolvedValueOnce([mockPlan])
+    vi.mocked(shoppingListService.getCalendarPipelineItems).mockResolvedValueOnce({
+      activeListItems: [activeItem],
+      archivedListItems: [archivedItem]
+    })
+
+    await useMealPlanStore.getState().loadMealPlans('house-1')
+
+    expect(shoppingListService.getCalendarPipelineItems).toHaveBeenCalledWith('house-1')
+    expect(useShoppingStore.getState().activeListItems).toEqual([activeItem])
+    expect(useShoppingStore.getState().archivedListItems).toEqual([archivedItem])
   })
 })

@@ -11,10 +11,14 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
   })
 
   it('should have 100% key parity between English and Polish dictionaries', () => {
-    const isPluralObject = (obj: any) =>
-      obj && typeof obj === 'object' && 'one' in obj && 'other' in obj
+    const isPluralObject = (obj: unknown): boolean =>
+      Boolean(obj && typeof obj === 'object' && 'one' in obj && 'other' in obj)
 
-    const compareObjects = (objA: Record<string, any>, objB: Record<string, any>, path = '') => {
+    const compareObjects = (
+      objA: Record<string, unknown>,
+      objB: Record<string, unknown>,
+      path = ''
+    ) => {
       const keysA = Object.keys(objA)
       const keysB = Object.keys(objB)
 
@@ -25,7 +29,11 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
         if (typeof objA[key] === 'object' && objA[key] !== null) {
           expect(typeof objB[key], `Type mismatch at: ${fullPath}`).toBe('object')
           if (!isPluralObject(objA[key])) {
-            compareObjects(objA[key], objB[key], fullPath)
+            compareObjects(
+              objA[key] as Record<string, unknown>,
+              objB[key] as Record<string, unknown>,
+              fullPath
+            )
           }
         }
       }
@@ -36,7 +44,10 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
       }
     }
 
-    compareObjects(en, pl)
+    compareObjects(
+      en as unknown as Record<string, unknown>,
+      pl as unknown as Record<string, unknown>
+    )
   })
 
   it('should translate simple keys correctly in active language', () => {
@@ -140,12 +151,14 @@ describe('i18n Translation Engine & Dictionary Parity', () => {
       }
     }
 
-    const getNestedValue = (obj: any, keyPath: string): any => {
+    const getNestedValue = (obj: unknown, keyPath: string): unknown => {
       const parts = keyPath.split('.')
-      let current = obj
+      let current: unknown = obj
       for (const part of parts) {
-        if (current === undefined || current === null) return undefined
-        current = current[part]
+        if (current === undefined || current === null || typeof current !== 'object') {
+          return undefined
+        }
+        current = (current as Record<string, unknown>)[part]
       }
       return current
     }

@@ -24,13 +24,24 @@ describe('JsonRecipeImportDialog - Component & Real-Time Flow Tests', () => {
     vi.clearAllMocks()
     vi.mocked(useAuth).mockReturnValue({
       household: mockHousehold
-    } as any)
-    vi.mocked(productService.getProducts).mockResolvedValue(mockExistingProducts as any)
-    vi.mocked(productService.createProduct).mockImplementation(async (input: any) => ({
+    } as never)
+    vi.mocked(productService.getProducts).mockResolvedValue(mockExistingProducts as never)
+    vi.mocked(productService.createProduct).mockImplementation(async (input) => ({
       id: 'new-prod-id',
-      ...input
+      household_id: input.household_id ?? null,
+      name: input.name,
+      unit_type: input.unit_type ?? 'g',
+      category_id: input.category_id ?? null,
+      kcal_per_100: input.kcal_per_100 ?? null,
+      protein_per_100: input.protein_per_100 ?? null,
+      carbs_per_100: input.carbs_per_100 ?? null,
+      fat_per_100: input.fat_per_100 ?? null,
+      is_ad_hoc: input.is_ad_hoc ?? false,
+      is_general: input.is_general ?? false,
+      parent_id: input.parent_id ?? null,
+      type: input.type ?? 'Household'
     }))
-    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'new-meal-id' } as any)
+    vi.mocked(mealService.createMeal).mockResolvedValue({ id: 'new-meal-id' } as never)
 
     // Mock clipboard
     Object.assign(navigator, {
@@ -181,6 +192,45 @@ describe('JsonRecipeImportDialog - Component & Real-Time Flow Tests', () => {
       // 4. Success callback called
       expect(handleSuccess).toHaveBeenCalled()
       expect(handleOpenChange).toHaveBeenCalledWith(false)
+    })
+  })
+
+  it('Flow 08: Forces Household scope and household_id even when pasted JSON specifies type Global (HIGH-12)', async () => {
+    render(<JsonRecipeImportDialog open={true} onOpenChange={vi.fn()} />)
+
+    const globalRecipeData = {
+      name: 'Przepis z sieci',
+      type: 'Global',
+      ingredients: [
+        {
+          name: 'Ryż jaśminowy',
+          quantity: 100,
+          unit: 'g'
+        }
+      ]
+    }
+
+    const textarea = screen.getByPlaceholderText(/Wklej tutaj kod JSON|Paste recipe JSON/i)
+    fireEvent.change(textarea, { target: { value: JSON.stringify(globalRecipeData) } })
+
+    const saveBtn = screen.getByRole('button', { name: /Zapisz przepis|Save Recipe/i })
+    fireEvent.click(saveBtn)
+
+    await waitFor(() => {
+      expect(productService.createProduct).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Ryż jaśminowy',
+          household_id: 'hh-test-1',
+          type: 'Household'
+        })
+      )
+      expect(mealService.createMeal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Przepis z sieci',
+          household_id: 'hh-test-1',
+          type: 'Household'
+        })
+      )
     })
   })
 })

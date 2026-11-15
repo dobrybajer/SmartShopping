@@ -3,6 +3,7 @@ import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
+import { useShallow } from 'zustand/react/shallow'
 import {
   calculateMealPlanStatus,
   calculateDayMacros
@@ -36,7 +37,13 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   const locale = language === 'pl' ? 'pl-PL' : 'en-US'
   const mealPlans = useMealPlanStore((state) => state.mealPlans)
   const pantryItems = usePantryStore((state) => state.pantryItems)
-  const draftItems = useShoppingStore((state) => state.draftItems)
+  const { draftItems, activeListItems, archivedListItems } = useShoppingStore(
+    useShallow((state) => ({
+      draftItems: state.draftItems,
+      activeListItems: state.activeListItems,
+      archivedListItems: state.archivedListItems
+    }))
+  )
 
   const initialDateObj = new Date(selectedDate + 'T00:00:00')
   const [viewYear, setViewYear] = useState(initialDateObj.getFullYear())
@@ -217,6 +224,8 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
                     calculateMealPlanStatus(p, {
                       pantryItems,
                       draftItems,
+                      activeListItems,
+                      archivedListItems,
                       isPastDate: isPast
                     }).status
                 )

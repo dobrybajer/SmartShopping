@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Database, UnitEnum } from '@/types/supabase'
-import type { ShoppingListSummary } from '@/services/shoppingListService'
+import type { ShoppingListItem, ShoppingListSummary } from '@/services/shoppingListService'
 import {
   appendMealToDraftItems,
   appendMultipleItemsToDraftItems,
@@ -64,6 +64,11 @@ export interface AddToDraftPayload {
   meal_plan_item_id?: string | null
 }
 
+export type PipelineListItemInput = Omit<ShoppingListItem, 'category_id' | 'in_pantry'> & {
+  category_id?: number | null
+  in_pantry?: boolean | null
+}
+
 interface ShoppingStoreState {
   activeHouseholdId: string | null
   draftsByHousehold: Record<string, DraftItem[]>
@@ -71,11 +76,16 @@ interface ShoppingStoreState {
   selectedActiveListId: string | null
   selectedActiveListIdByHousehold: Record<string, string | null>
   activeListsSummary: ShoppingListSummary[]
+  activeListItems: ShoppingListItem[]
+  archivedListItems: ShoppingListItem[]
 
   // Actions
   setActiveHousehold: (householdId: string | null) => void
   setSelectedActiveListId: (id: string | null) => void
   setActiveListsSummary: (lists: ShoppingListSummary[]) => void
+  setActiveListItems: (items: ShoppingListItem[]) => void
+  setArchivedListItems: (items: ShoppingListItem[]) => void
+  syncListItemsToPipeline: (listId: string, items: PipelineListItemInput[]) => void
   addMealToDraft: (meal: MealWithIngredients, targetKcal?: number) => void
   addAdHocToDraft: (item: {
     product_id?: string
@@ -104,6 +114,8 @@ export const useShoppingStore = create<ShoppingStoreState>()(
       selectedActiveListId: null,
       selectedActiveListIdByHousehold: {},
       activeListsSummary: [],
+      activeListItems: [],
+      archivedListItems: [],
 
       setActiveHousehold: (householdId) => {
         const drafts = get().draftsByHousehold || {}
@@ -111,10 +123,12 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const key = householdId || 'default'
         const currentHouseholdItems = drafts[key] || []
         const currentSelectedListId = listIds[key] || null
+        const householdChanged = householdId !== get().activeHouseholdId
         set({
           activeHouseholdId: householdId,
           draftItems: currentHouseholdItems,
-          selectedActiveListId: currentSelectedListId
+          selectedActiveListId: currentSelectedListId,
+          ...(householdChanged ? { activeListItems: [], archivedListItems: [] } : {})
         })
       },
 
@@ -132,6 +146,28 @@ export const useShoppingStore = create<ShoppingStoreState>()(
 
       setActiveListsSummary: (lists) => {
         set({ activeListsSummary: lists })
+      },
+
+      setActiveListItems: (items) => {
+        set({ activeListItems: items })
+      },
+
+      setArchivedListItems: (items) => {
+        set({ archivedListItems: items })
+      },
+
+      syncListItemsToPipeline: (listId, items) => {
+        const normalized: ShoppingListItem[] = items.map((item) => ({
+          ...item,
+          category_id: item.category_id ?? null,
+          in_pantry: item.in_pantry ?? false
+        }))
+        set((state) => ({
+          activeListItems: [
+            ...state.activeListItems.filter((item) => item.shopping_list_id !== listId),
+            ...normalized
+          ]
+        }))
       },
 
       addMealToDraft: (meal, targetKcal) => {

@@ -70,7 +70,7 @@ describe('Theme Engine & Catalog (ADR-004)', () => {
       expect(light.id).toBe('clean-light')
       expect(light.isDark).toBe(false)
 
-      const fallback = getThemeConfig('unknown' as any)
+      const fallback = getThemeConfig('unknown' as never)
       expect(fallback.id).toBe(DEFAULT_THEME)
     })
 
@@ -81,13 +81,16 @@ describe('Theme Engine & Catalog (ADR-004)', () => {
         expect(keyParts[0]).toBe('themes')
         const themeSubKey = keyParts[1] as keyof typeof en.themes
 
-        expect((en.themes as any)[themeSubKey], `en.ts missing themes.${themeSubKey}`).toBeDefined()
-        expect((pl.themes as any)[themeSubKey], `pl.ts missing themes.${themeSubKey}`).toBeDefined()
+        const enThemes = en.themes as Record<string, { name?: string; description?: string }>
+        const plThemes = pl.themes as Record<string, { name?: string; description?: string }>
 
-        expect((en.themes as any)[themeSubKey]?.name).toBeTruthy()
-        expect((pl.themes as any)[themeSubKey]?.name).toBeTruthy()
-        expect((en.themes as any)[themeSubKey]?.description).toBeTruthy()
-        expect((pl.themes as any)[themeSubKey]?.description).toBeTruthy()
+        expect(enThemes[themeSubKey], `en.ts missing themes.${themeSubKey}`).toBeDefined()
+        expect(plThemes[themeSubKey], `pl.ts missing themes.${themeSubKey}`).toBeDefined()
+
+        expect(enThemes[themeSubKey]?.name).toBeTruthy()
+        expect(plThemes[themeSubKey]?.name).toBeTruthy()
+        expect(enThemes[themeSubKey]?.description).toBeTruthy()
+        expect(plThemes[themeSubKey]?.description).toBeTruthy()
       }
     })
   })
@@ -152,7 +155,7 @@ describe('Theme Engine & Catalog (ADR-004)', () => {
       const { result } = renderHook(() => useTheme(), { wrapper })
 
       await act(async () => {
-        await result.current.setTheme('invalid' as any)
+        await result.current.setTheme('invalid' as never)
       })
 
       expect(result.current.currentTheme).toBe('oled-black')

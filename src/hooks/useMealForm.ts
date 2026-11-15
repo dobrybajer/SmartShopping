@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { toast } from '@/store/useToastStore'
 import { useAuth } from '@/hooks/useAuth'
-import { mealService } from '@/services/mealService'
+import { useTranslation } from '@/i18n'
+import { mealService, type MealCategory } from '@/services/mealService'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
+import type { MealWithIngredients } from '@/store/useShoppingStore'
 import {
   convertKitchenUnitToBaseQuantity,
   type KitchenUnit
@@ -24,20 +27,30 @@ export interface MealFormIngredientInput {
 interface UseMealFormParams {
   open: boolean
   onOpenChange: (open: boolean) => void
+  mealToEdit?: MealWithIngredients | null
   onMealCreated?: () => void
+  onMealSaved?: () => void
 }
 
-export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormParams) {
+export function useMealForm({
+  open,
+  onOpenChange,
+  mealToEdit = null,
+  onMealCreated,
+  onMealSaved
+}: UseMealFormParams) {
   const { household } = useAuth()
-  const [mealType, setMealType] = useState<'Household' | 'Global'>('Household')
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [preparationSteps, setPreparationSteps] = useState('')
   const [comments, setComments] = useState('')
+  const [categoryId, setCategoryId] = useState<number | null>(null)
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [availableProducts, setAvailableProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [mealCategories, setMealCategories] = useState<MealCategory[]>([])
   const [ingredients, setIngredients] = useState<MealFormIngredientInput[]>([])
 
   const [selectedProductId, setSelectedProductId] = useState('')
@@ -49,20 +62,77 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const resetFormFields = useCallback(() => {
+    setName('')
+    setDescription('')
+    setPreparationSteps('')
+    setComments('')
+    setCategoryId(null)
+    setTags([])
+    setTagInput('')
+    setIngredients([])
+    setSelectedProductId('')
+    setSelectedProductName('')
+    setSelectedProductUnit('g')
+    setSelectedInputUnit('g')
+    setQuantityInput(100)
+  }, [])
+
   useEffect(() => {
     async function loadData() {
       if (!household) return
-      const [allProds, allCats] = await Promise.all([
+      const [allProds, allCats, allMealCats] = await Promise.all([
         productService.getProducts(household.id),
-        productService.getCategories()
+        productService.getCategories(),
+        mealService.getMealCategories ? mealService.getMealCategories() : Promise.resolve([])
       ])
       setAvailableProducts(allProds)
       setCategories(allCats)
+      setMealCategories(allMealCats)
     }
     if (open) {
       loadData()
     }
   }, [open, household])
+
+  useEffect(() => {
+    if (!open) return
+    if (mealToEdit) {
+      setName(mealToEdit.name || '')
+      setDescription(mealToEdit.description || '')
+      setPreparationSteps(mealToEdit.preparation_steps || '')
+      setComments(mealToEdit.comments || '')
+      setCategoryId(mealToEdit.category_id ?? null)
+      setTags(mealToEdit.tags ? [...mealToEdit.tags] : [])
+      setTagInput('')
+      setIngredients(
+        (mealToEdit.ingredients || [])
+          .filter((ing) => Boolean(ing.product_id || ing.product?.id))
+          .map((ing) => {
+            const unit = ing.product?.unit_type || 'g'
+            return {
+              product_id: ing.product_id || ing.product?.id || '',
+              product_name: ing.product?.name || '',
+              unit_type: unit,
+              base_quantity: ing.base_quantity,
+              input_quantity: ing.base_quantity,
+              input_unit: unit,
+              is_pantry_item: Boolean(ing.is_pantry_item),
+              is_general: Boolean(ing.product?.is_general),
+              reference_product_id: ing.reference_product_id ?? ing.reference_product?.id ?? null,
+              reference_product_name: ing.reference_product?.name
+            }
+          })
+      )
+      setSelectedProductId('')
+      setSelectedProductName('')
+      setSelectedProductUnit('g')
+      setSelectedInputUnit('g')
+      setQuantityInput(100)
+    } else {
+      resetFormFields()
+    }
+  }, [open, mealToEdit, resetFormFields])
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim()
@@ -183,13 +253,14 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     if (!name.trim() || !household) return
     setIsSubmitting(true)
 
-    const result = await mealService.createMeal({
-      household_id: mealType === 'Household' ? household.id : null,
-      type: mealType,
+    const payload = {
+      household_id: household.id,
+      type: 'Household' as const,
       name: name.trim(),
       description: description.trim() || undefined,
       preparation_steps: preparationSteps.trim() || undefined,
       comments: comments.trim() || undefined,
+      category_id: categoryId,
       tags: tags.length > 0 ? tags : undefined,
       ingredients: ingredients.map((ing) => ({
         product_id: ing.product_id,
@@ -197,27 +268,29 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
         is_pantry_item: ing.is_pantry_item,
         reference_product_id: ing.reference_product_id || null
       }))
-    })
+    }
+
+    const result = mealToEdit
+      ? await mealService.updateMeal(mealToEdit.id, payload)
+      : await mealService.createMeal(payload)
 
     setIsSubmitting(false)
 
-    if (result) {
-      if (onMealCreated) onMealCreated()
-      onOpenChange(false)
-      setMealType('Household')
-      setName('')
-      setDescription('')
-      setPreparationSteps('')
-      setComments('')
-      setTags([])
-      setIngredients([])
+    if (!result) {
+      toast.error(t('toasts.errorOccurred'))
+      return
     }
+
+    toast.success(t('toasts.saved'))
+    onMealSaved?.()
+    onMealCreated?.()
+    onOpenChange(false)
+    resetFormFields()
   }
 
   return {
     household,
-    mealType,
-    setMealType,
+    isEditing: Boolean(mealToEdit),
     name,
     setName,
     description,
@@ -226,11 +299,14 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     setPreparationSteps,
     comments,
     setComments,
+    categoryId,
+    setCategoryId,
     tags,
     tagInput,
     setTagInput,
     availableProducts,
     categories,
+    mealCategories,
     ingredients,
     selectedProductId,
     selectedProductName,
