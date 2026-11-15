@@ -35,6 +35,7 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
   const { household } = useAuth()
   const addMealToDraft = useShoppingStore((state) => state.addMealToDraft)
   const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
+  const pantryItemsByParentId = usePantryStore((state) => state.pantryItemsByParentId)
   const { t } = useTranslation()
 
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
@@ -149,6 +150,7 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     setIsAddMealOpen,
     addedMealId,
     pantryMapByProductId,
+    pantryItemsByParentId,
     loadMeals,
     handleQuickAdd,
     handleDeleteMeal,

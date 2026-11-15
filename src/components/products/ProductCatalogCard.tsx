@@ -89,7 +89,7 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h4
                   className={cn(
-                    'text-sm text-foreground group-hover:text-primary transition-colors truncate',
+                    'text-sm text-foreground group-hover:text-primary transition-colors line-clamp-2',
                     isDesktop ? 'font-bold' : 'font-semibold'
                   )}
                 >
@@ -109,7 +109,7 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
                 {isGlobal ? (
                   <Badge
                     variant="secondary"
-                    className="text-[9px] px-1.5 py-0 bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
+                    className="text-[9px] px-1.5 py-0 bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1"
                   >
                     <Globe className="w-2.5 h-2.5" />
                     <span>{t('common.global')}</span>
@@ -233,25 +233,25 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
         </div>
       ) : hasMacros ? (
         <div className="pt-2 border-t border-border flex items-center justify-between gap-2 flex-wrap text-xs">
-          <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-400 font-bold shrink-0">
+          <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-amber-600 dark:text-amber-400 font-bold shrink-0">
             <Flame className="w-3 h-3" />
             <span>
               {Math.round(kcal)} {t('common.kcal')}
             </span>
-            <span className="text-[10px] font-normal text-amber-400/70">/{unitLabel}</span>
+            <span className="text-[10px] font-normal text-amber-600/80 dark:text-amber-400/70">/{unitLabel}</span>
           </div>
 
           <div className="flex items-center gap-1.5 text-[11px] font-medium ml-auto">
             <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
-              <span className="text-blue-400 font-bold">{t('common.proteinShort')}</span>
+              <span className="text-blue-600 dark:text-blue-400 font-bold">{t('common.proteinShort')}</span>
               <span className="text-foreground font-semibold">{protein}g</span>
             </span>
             <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
-              <span className="text-amber-400 font-bold">{t('common.carbsShort')}</span>
+              <span className="text-amber-600 dark:text-amber-400 font-bold">{t('common.carbsShort')}</span>
               <span className="text-foreground font-semibold">{carbs}g</span>
             </span>
             <span className="text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded-md flex items-center gap-1">
-              <span className="text-rose-400 font-bold">{t('common.fatShort')}</span>
+              <span className="text-rose-600 dark:text-rose-400 font-bold">{t('common.fatShort')}</span>
               <span className="text-foreground font-semibold">{fat}g</span>
             </span>
           </div>

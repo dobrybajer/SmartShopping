@@ -74,7 +74,7 @@ export const CalendarView: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground px-3.5 pt-3">
+    <div className="flex flex-col bg-background text-foreground w-full max-w-full overflow-x-hidden">
       {/* 1. View Mode Segmented Controls */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex rounded-2xl bg-card border border-border p-1 shadow-xs flex-1">

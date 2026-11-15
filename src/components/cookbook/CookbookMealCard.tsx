@@ -2,6 +2,7 @@ import React from 'react'
 import type { MealWithIngredients } from '@/store/useShoppingStore'
 import type { PantryItemWithDetails } from '@/types/pantry'
 import { computeMealCardMacros } from '@/hooks/useCookbookController'
+import { matchHierarchicalPantry } from '@/lib/calculations/pantryCalculations'
 import { useTranslation } from '@/i18n'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,6 +20,7 @@ import { cn } from '@/lib/utils'
 interface CookbookMealCardProps {
   meal: MealWithIngredients
   pantryMapByProductId: Record<string, PantryItemWithDetails>
+  pantryItemsByParentId?: Record<string, PantryItemWithDetails[]>
   isJustAdded?: boolean
   variant?: 'desktop' | 'mobile'
   onSelect: (meal: MealWithIngredients) => void
@@ -29,6 +31,7 @@ interface CookbookMealCardProps {
 export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
   meal,
   pantryMapByProductId,
+  pantryItemsByParentId = {},
   isJustAdded = false,
   variant = 'desktop',
   onSelect,
@@ -41,7 +44,9 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
   const macros = computeMealCardMacros(meal)
 
   const pantryIngredientsCount = meal.ingredients.filter(
-    (ing) => ing.product_id && !!pantryMapByProductId[ing.product_id]
+    (ing) =>
+      ing.is_pantry_item === true ||
+      matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId).isInPantry
   ).length
   const totalIngredients = meal.ingredients.length
 
@@ -49,7 +54,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
     <Badge
       variant="secondary"
       className={cn(
-        'bg-sky-500/10 text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1',
+        'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 font-medium flex items-center gap-1',
         isDesktop ? 'text-[10px] px-2 py-0' : 'text-[9px] px-1.5 py-0'
       )}
     >
@@ -75,7 +80,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
         <Badge
           variant="secondary"
           className={cn(
-            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-semibold flex items-center gap-1',
+            'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 font-semibold flex items-center gap-1',
             isDesktop ? 'text-[10px] px-2 py-0 shrink-0' : 'text-[9px] px-1.5 py-0'
           )}
           title={t('pantry.allIngredientsInPantry')}
@@ -87,7 +92,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
         <Badge
           variant="secondary"
           className={cn(
-            'bg-amber-500/10 text-amber-400 border border-amber-500/25 font-semibold flex items-center gap-1',
+            'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 font-semibold flex items-center gap-1',
             isDesktop ? 'text-[10px] px-2 py-0 shrink-0' : 'text-[9px] px-1.5 py-0'
           )}
           title={t('pantry.ingredientsInPantryCount', {
@@ -115,7 +120,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
         <div className="flex items-start justify-between gap-2">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+              <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors line-clamp-2">
                 {meal.name}
               </h4>
               {scopeBadge}
@@ -149,15 +154,15 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
           <div className="flex items-center gap-3 font-mono">
             <span>
               {t('common.proteinShort')}:{' '}
-              <strong className="text-blue-400">{Math.round(macros.protein)}g</strong>
+              <strong className="text-blue-600 dark:text-blue-400">{Math.round(macros.protein)}g</strong>
             </span>
             <span>
               {t('common.carbsShort')}:{' '}
-              <strong className="text-amber-400">{Math.round(macros.carbs)}g</strong>
+              <strong className="text-amber-600 dark:text-amber-400">{Math.round(macros.carbs)}g</strong>
             </span>
             <span>
               {t('common.fatShort')}:{' '}
-              <strong className="text-rose-400">{Math.round(macros.fat)}g</strong>
+              <strong className="text-rose-600 dark:text-rose-400">{Math.round(macros.fat)}g</strong>
             </span>
           </div>
 
@@ -192,7 +197,7 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
               <Utensils className="w-5 h-5" />
             </div>
             <div className="flex flex-col min-w-0">
-              <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors truncate">
+              <h4 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2">
                 {meal.name}
               </h4>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -227,15 +232,15 @@ export const CookbookMealCard: React.FC<CookbookMealCardProps> = ({
           <div className="flex items-center gap-2 font-mono">
             <span className="bg-background px-2 py-0.5 rounded-md border border-border text-foreground">
               {t('common.proteinShort')}:{' '}
-              <strong className="text-blue-400">{Math.round(macros.protein)}g</strong>
+              <strong className="text-blue-600 dark:text-blue-400">{Math.round(macros.protein)}g</strong>
             </span>
             <span className="bg-background px-2 py-0.5 rounded-md border border-border text-foreground">
               {t('common.carbsShort')}:{' '}
-              <strong className="text-amber-400">{Math.round(macros.carbs)}g</strong>
+              <strong className="text-amber-600 dark:text-amber-400">{Math.round(macros.carbs)}g</strong>
             </span>
             <span className="bg-background px-2 py-0.5 rounded-md border border-border text-foreground">
               {t('common.fatShort')}:{' '}
-              <strong className="text-rose-400">{Math.round(macros.fat)}g</strong>
+              <strong className="text-rose-600 dark:text-rose-400">{Math.round(macros.fat)}g</strong>
             </span>
           </div>
 

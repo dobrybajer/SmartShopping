@@ -228,4 +228,60 @@ describe('CookbookView - Pantry Stock Badges & Recipe Availability (ADR-008 Phas
     const inStockBadges = screen.getAllByText(/Dostępne w spiżarni/i)
     expect(inStockBadges.length).toBeGreaterThanOrEqual(2)
   })
+
+  it('Flow 03: detects hierarchical child pantry items on recipe card for general ingredients (MED-08)', async () => {
+    const childChickenItem: PantryItemWithDetails = {
+      id: 'pantry-child-chicken',
+      household_id: 'hh-123',
+      product_id: 'prod-chicken-breast',
+      ad_hoc_name: null,
+      category_id: 4,
+      quantity: 500,
+      unit_type: 'g',
+      last_purchased_at: new Date().toISOString(),
+      last_verified_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      product: {
+        id: 'prod-chicken-breast',
+        name: 'Pierś z kurczaka',
+        unit_type: 'g',
+        category_id: 4,
+        is_general: false,
+        parent_id: 'prod-chicken'
+      }
+    }
+
+    const mealsWithGeneralChicken: MealWithIngredients[] = [
+      {
+        ...sampleMeals[1],
+        ingredients: [
+          {
+            ...sampleMeals[1].ingredients[0],
+            product: {
+              ...sampleMeals[1].ingredients[0].product!,
+              is_general: true
+            }
+          },
+          sampleMeals[1].ingredients[1]
+        ]
+      }
+    ]
+
+    vi.mocked(mealService.getMeals).mockResolvedValueOnce(mealsWithGeneralChicken)
+    usePantryStore.setState({
+      pantryItemsByParentId: {
+        'prod-chicken': [childChickenItem]
+      }
+    })
+
+    render(<CookbookView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Curry z Kurczakiem')).toBeInTheDocument()
+    })
+
+    // Both general chicken (via child) and milk (direct) are in pantry -> 2/2 ("Wszystkie składniki w spiżarni")
+    expect(screen.getByText('Wszystkie składniki w spiżarni')).toBeInTheDocument()
+  })
 })

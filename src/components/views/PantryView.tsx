@@ -45,18 +45,18 @@ export const PantryView: React.FC = () => {
 
       {/* 2. Search, Sort Toggle & Category Filter Chips */}
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="relative flex-1 w-full">
             <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
             <Input
               value={c.searchQuery}
               onChange={(e) => c.setSearchQuery(e.target.value)}
               placeholder={t('pantry.searchPlaceholder')}
-              className="h-9 pl-9 bg-card border-border text-xs rounded-xl"
+              className="h-9 pl-9 bg-card border-border text-xs rounded-xl w-full"
             />
           </div>
 
-          <div className="flex items-center bg-card border border-border rounded-xl p-0.5 shrink-0">
+          <div className="flex items-center bg-card border border-border rounded-xl p-0.5 shrink-0 self-start sm:self-auto">
             <button
               type="button"
               onClick={() => c.setSortMode('aisle')}

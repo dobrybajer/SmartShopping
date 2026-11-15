@@ -202,7 +202,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     <span className={cn("text-xs font-bold leading-tight truncate", isActive ? "text-foreground" : "")}>
                       {item.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground leading-tight truncate">
+                    <span className="text-[11px] text-muted-foreground leading-tight line-clamp-2">
                       {item.description}
                     </span>
                   </div>

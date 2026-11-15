@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useActiveListController } from '@/hooks/useActiveListController'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { ActiveListItemRow } from '@/components/shopping/ActiveListItemRow'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,7 @@ import { PantryConfirmModal } from '@/components/dialogs/PantryConfirmModal'
 import {
   Calendar,
   Radio,
+  WifiOff,
   Archive,
   ShoppingCart,
   Plus,
@@ -27,6 +29,7 @@ import { cn } from '@/lib/utils'
 export const DesktopActiveListView: React.FC = () => {
   const { t, formatDate } = useTranslation()
   const c = useActiveListController()
+  const { isOnline, pendingCount } = useOfflineSync()
   const [searchQuery, setSearchQuery] = useState('')
 
   if (c.loading) {
@@ -161,10 +164,19 @@ export const DesktopActiveListView: React.FC = () => {
                   {formatDate(activeList.target_date || activeList.created_at || new Date())}
                 </span>
                 <span>•</span>
-                <span className="flex items-center gap-1 text-primary">
-                  <Radio className="w-3.5 h-3.5" />
-                  {t('activeList.realtimeSync')}
-                </span>
+                {!isOnline || pendingCount > 0 ? (
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
+                    <WifiOff className="w-3.5 h-3.5" />
+                    {!isOnline
+                      ? `Offline${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                      : `Sync (${pendingCount})`}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-primary">
+                    <Radio className="w-3.5 h-3.5" />
+                    {t('activeList.realtimeSync')}
+                  </span>
+                )}
               </div>
             </div>
           </div>

@@ -8,6 +8,37 @@ import { calculateIngredientMacros, sumMacroNutrients, resolveEffectiveIngredien
 type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['Row']
 
 /**
+ * Computes the effective ingredient multiplier for a planned meal.
+ * If `target_kcal` (> 0) is specified on a recipe meal whose base 1-serving kcal > 0,
+ * scales proportionally (`target_kcal / baseKcal`); otherwise falls back to `servings` (default 1).
+ */
+export function getEffectiveMultiplier(planItem: MealPlanItem): number {
+  const defaultServings = planItem.servings > 0 ? planItem.servings : 1
+  if (planItem.is_ad_hoc || !planItem.meal || !planItem.meal.ingredients || planItem.meal.ingredients.length === 0) {
+    return defaultServings
+  }
+
+  if (planItem.target_kcal && planItem.target_kcal > 0) {
+    let baseKcal = 0
+    for (const ing of planItem.meal.ingredients) {
+      if (!ing.product) continue
+      const effective = resolveEffectiveIngredientMacros(ing.product, ing.reference_product)
+      const macros = calculateIngredientMacros(
+        ing.base_quantity,
+        effective.macros,
+        ing.product.unit_type
+      )
+      baseKcal += macros.kcal
+    }
+    if (baseKcal > 0) {
+      return planItem.target_kcal / baseKcal
+    }
+  }
+
+  return defaultServings
+}
+
+/**
  * Calculates detailed shopping and pantry lifecycle status for a single planned meal item.
  * Evaluates whether ingredients are:
  * - In pantry (ADR-008 stock check or is_pantry_item flag)
@@ -84,10 +115,12 @@ export function calculateMealPlanStatus(
   let pantryCoveredCount = 0
   const missingIngredients: MissingIngredient[] = []
 
+  const multiplier = getEffectiveMultiplier(planItem)
+
   for (const ing of validIngredients) {
     const productId = ing.product_id!
     const product = ing.product!
-    const requiredQty = ing.base_quantity * (planItem.servings > 0 ? planItem.servings : 1)
+    const requiredQty = ing.base_quantity * multiplier
 
     // Check if covered by pantry (unit-aware conversion)
     const directPantry = pantryMap.get(productId)
@@ -213,7 +246,7 @@ export function calculateDayMacros(planItems: MealPlanItem[]): DayMacroSummary {
       continue
     }
 
-    const multiplier = item.servings > 0 ? item.servings : 1
+    const multiplier = getEffectiveMultiplier(item)
 
     for (const ing of item.meal.ingredients) {
       if (!ing.product) continue
@@ -269,7 +302,7 @@ export function generateDraftItemsFromMealPlan(
     }
   }
 
-  const multiplier = planItem.servings > 0 ? planItem.servings : 1
+  const multiplier = getEffectiveMultiplier(planItem)
   const mealName = planItem.meal.name || planItem.custom_name || 'Posiłek'
   const sourceLabel = dayLabel ? `${dayLabel} · ${mealName}` : mealName
 

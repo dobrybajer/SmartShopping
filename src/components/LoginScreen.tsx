@@ -92,7 +92,7 @@ export const LoginScreen: React.FC = () => {
           )}
         </Button>
 
-        <p className="text-zinc-600 text-xs text-center">
+        <p className="text-muted-foreground text-xs text-center">
           {t('auth.demoNotice')}
         </p>
       </div>

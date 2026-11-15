@@ -77,7 +77,7 @@ export const CookbookView: React.FC = () => {
               'cursor-pointer px-2.5 py-1 text-xs flex items-center gap-1',
               ctrl.typeFilter === 'Global'
                 ? 'bg-sky-500 text-black border-sky-400 font-bold'
-                : 'text-zinc-400 border-zinc-800 hover:border-sky-500/40 hover:text-sky-300'
+                : 'text-muted-foreground border-border hover:border-sky-500/40 hover:text-sky-600 dark:hover:text-sky-300'
             )}
           >
             <Globe className="w-3 h-3" />
@@ -85,7 +85,7 @@ export const CookbookView: React.FC = () => {
           </Badge>
         </button>
 
-        {ctrl.allTags.length > 0 && <span className="h-4 w-px bg-zinc-800 shrink-0 mx-0.5" />}
+        {ctrl.allTags.length > 0 && <span className="h-4 w-px bg-border shrink-0 mx-0.5" />}
 
         {ctrl.allTags.map((tag) => (
           <button
@@ -125,6 +125,7 @@ export const CookbookView: React.FC = () => {
               key={meal.id}
               meal={meal}
               pantryMapByProductId={ctrl.pantryMapByProductId}
+              pantryItemsByParentId={ctrl.pantryItemsByParentId}
               variant="mobile"
               onSelect={ctrl.openMealDetails}
               onDelete={ctrl.handleDeleteMeal}

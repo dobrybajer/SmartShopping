@@ -20,7 +20,7 @@ import {
   ShoppingCart
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatLocalDateISO } from '@/lib/utils'
 
 interface WeekCalendarViewProps {
   selectedDate: string // YYYY-MM-DD
@@ -70,7 +70,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   const pantryItems = usePantryStore((state) => state.pantryItems)
   const draftItems = useShoppingStore((state) => state.draftItems)
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatLocalDateISO()
   const monday = getMonday(selectedDate)
   const numDays = weekRangeMode === 'workweek' ? 5 : 7
 

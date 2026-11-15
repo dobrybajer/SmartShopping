@@ -74,7 +74,7 @@ export const DesktopCalendarView: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full p-6 text-foreground">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full text-foreground">
       {/* 1. Desktop Header Bar */}
       <div className="flex items-center justify-between gap-4 p-4 rounded-3xl bg-card border border-border shadow-xs">
         <div className="flex items-center gap-3">
@@ -82,9 +82,9 @@ export const DesktopCalendarView: React.FC = () => {
             <Utensils className="w-5 h-5" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-xl font-bold tracking-tight text-foreground">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
               {t('calendar.title')}
-            </h1>
+            </h2>
             <span className="text-xs text-muted-foreground">
               Planuj posiłki, kontroluj makro i wysyłaj składniki bezpośrednio do listy zakupów
             </span>

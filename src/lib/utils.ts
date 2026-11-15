@@ -88,3 +88,19 @@ export function getLocalDateISOString(dateInput?: Date): string {
   return `${year}-${month}-${day}`
 }
 
+export const formatLocalDateISO = getLocalDateISOString
+
+/**
+ * Shifts a YYYY-MM-DD ISO date string by `deltaDays` in local calendar time,
+ * avoiding UTC conversion timezone shifts around midnight.
+ */
+export function addDaysISO(isoDate: string, deltaDays: number): string {
+  const parts = isoDate.split('-').map(Number)
+  if (parts.length !== 3 || parts.some(isNaN)) {
+    return getLocalDateISOString()
+  }
+  const [y, m, d] = parts
+  const dt = new Date(y, m - 1, d + deltaDays)
+  return getLocalDateISOString(dt)
+}
+

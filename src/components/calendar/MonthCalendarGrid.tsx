@@ -9,7 +9,7 @@ import {
 } from '@/lib/calculations/calendarStatus'
 import { ChevronLeft, ChevronRight, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatLocalDateISO } from '@/lib/utils'
 
 interface MonthCalendarGridProps {
   selectedDate: string // YYYY-MM-DD
@@ -44,7 +44,7 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   const shouldFocusRef = useRef(false)
   const cellRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatLocalDateISO()
 
   useEffect(() => {
     if (shouldFocusRef.current) {
@@ -242,9 +242,11 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
                         'w-full h-14 sm:h-20 rounded-xl p-1 sm:p-2 border transition-all cursor-pointer flex flex-col justify-between items-start text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                         isToday
                           ? 'border-primary bg-primary/10 shadow-xs'
-                          : plansForDay.length > 0
-                            ? 'border-border/80 bg-background/80 hover:border-primary/50'
-                            : 'border-border/40 hover:border-border/80 hover:bg-muted/20'
+                          : isSelected
+                            ? 'ring-2 ring-primary/60 border-primary/60 bg-primary/5'
+                            : plansForDay.length > 0
+                              ? 'border-border/80 bg-background/80 hover:border-primary/50'
+                              : 'border-border/40 hover:border-border/80 hover:bg-muted/20'
                       )}
                     >
                       <div className="w-full flex items-center justify-between">

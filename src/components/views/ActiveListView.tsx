@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useActiveListController } from '@/hooks/useActiveListController'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { ActiveListItemRow } from '@/components/shopping/ActiveListItemRow'
 import { groupItemsByAisle } from '@/lib/calculations/categorySorting'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   Calendar,
   Radio,
+  WifiOff,
   Archive,
   ShoppingCart,
   Plus,
@@ -27,6 +29,7 @@ import { cn } from '@/lib/utils'
 export const ActiveListView: React.FC = () => {
   const { t, formatDate } = useTranslation()
   const c = useActiveListController()
+  const { isOnline, pendingCount } = useOfflineSync()
   const [showOptionsMenu, setShowOptionsMenu] = useState(false)
 
   if (c.loading) {
@@ -214,10 +217,21 @@ export const ActiveListView: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-between text-xs text-muted-foreground font-mono pt-1 border-t border-border/60">
-          <div className="flex items-center gap-1.5">
-            <Radio className="w-3.5 h-3.5 text-primary" />
-            <span className="text-[11px] font-sans">{t('activeList.realtimeSync')}</span>
-          </div>
+          {!isOnline || pendingCount > 0 ? (
+            <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">
+              <WifiOff className="w-3.5 h-3.5" />
+              <span className="text-[11px] font-sans">
+                {!isOnline
+                  ? `Offline${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                  : `Sync (${pendingCount})`}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[11px] font-sans">{t('activeList.realtimeSync')}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5" />
             <span>{formatDate(activeList.target_date || activeList.created_at || new Date())}</span>

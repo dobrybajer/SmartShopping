@@ -395,80 +395,94 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### MED-08: Obsługa Produktów Ogólnych (ADR-010) i Skalowania `target_kcal` w Podglądzie Dnia Kalendarza (`DayCalendarView`) oraz Kartach Przepiśnika (`CookbookMealCard`)
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** UX / Logika Biznesowa / Kalendarz & Przepiśnik
-* **Pliki do modyfikacji:** [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx#L43-L45), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L69-L71), [DayCalendarView.tsx (Ingredients preview)](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L246-L249)
+* **Pliki implementacji:** [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts), [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx), [DesktopCookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCookbookView.tsx), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx)
+* **Pliki testów:** [CookbookView.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/__tests__/CookbookView.test.tsx), [calendarStatus.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/calendarStatus.test.ts)
 * **Problem / Uzasadnienie:**
-  * **Karty Przepiśnika (`CookbookMealCard.tsx`):** Licznik `pantryIngredientsCount` sprawdza wyłącznie bezpośrednie dopasowanie `pantryMapByProductId[ing.product_id]`, ignorując `pantryItemsByParentId` (warianty produktów ogólnych z ADR-010) oraz `ing.is_pantry_item`. Przez to na liście przepisów dania korzystające z produktów ogólnych nie wyświetlają badge'a dostępności w spiżarni, podczas gdy po otwarciu szczegółów (`MealDetailsSheet.tsx`) składniki są poprawnie oznaczane jako dostępne przez `matchHierarchicalPantry`.
-  * **Widok Dnia w Kalendarzu (`DayCalendarView.tsx`):** Podgląd składników na karcie zaplanowanego posiłku (linia 247) oraz lista składników przekazywana do `CookMealDeductModal` (linia 70) mnożą `base_quantity` jedynie przez `plan.servings`, pomijając mnożnik `target_kcal` (`getEffectiveMultiplier`), a sprawdzenie `inPantry` na pigułce składnika nie uwzględnia produktów podrzędnych (`parent_id`).
-* **Planowane Rozwiązanie:**
-  1. W `useCookbookController.ts` i `CookbookMealCard.tsx` użyć `matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId)` do wyznaczania dostępności składników na kartach przepisów.
-  2. W `DayCalendarView.tsx` wykorzystać `getEffectiveMultiplier(plan)` przy wyliczaniu ilości składników na pigułkach i w `buildCookableIngredientsFromMeal`, oraz uwzględnić dopasowanie hierarchiczne ze spiżarni.
+  * **Karty Przepiśnika (`CookbookMealCard.tsx`):** Licznik `pantryIngredientsCount` sprawdzał wyłącznie bezpośrednie dopasowanie `pantryMapByProductId[ing.product_id]`, ignorując `pantryItemsByParentId` (warianty produktów ogólnych z ADR-010) oraz `ing.is_pantry_item`. Przez to na liście przepisów dania korzystające z produktów ogólnych nie wyświetlały badge'a dostępności w spiżarni, podczas gdy po otwarciu szczegółów (`MealDetailsSheet.tsx`) składniki były poprawnie oznaczane jako dostępne przez `matchHierarchicalPantry`.
+  * **Widok Dnia w Kalendarzu (`DayCalendarView.tsx`):** Podgląd składników na karcie zaplanowanego posiłku oraz lista składników przekazywana do `CookMealDeductModal` mnożyły `base_quantity` jedynie przez `plan.servings`, pomijając mnożnik `target_kcal` (`getEffectiveMultiplier`), a sprawdzenie `inPantry` na pigułce składnika nie uwzględniało produktów podrzędnych (`parent_id`).
+* **Wdrożone Rozwiązanie:**
+  1. W `useCookbookController.ts`, `CookbookView.tsx`, `DesktopCookbookView.tsx` i `CookbookMealCard.tsx` zastosowano `matchHierarchicalPantry(ing.product, pantryMapByProductId, pantryItemsByParentId)` oraz flagę `ing.is_pantry_item` do wyznaczania dostępności składników na kartach przepisów.
+  2. W `calendarStatus.ts` wyekstrahowano `getEffectiveMultiplier(planItem)` i użyto go w `calculateMealPlanStatus`, `calculateDayMacros`, `generateDraftItemsFromMealPlan` oraz `DayCalendarView.tsx` (zarówno na pigułkach składników z obsługą produktów podrzędnych `parent_id`, jak i w `buildCookableIngredientsFromMeal`).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Karty przepisów i widok dnia kalendarza obsługują hierarchiczne stany spiżarni (ADR-010) oraz skalowanie `target_kcal`, co zostało zweryfikowane testami jednostkowymi i integracyjnymi.
 
 ---
 
 ### MED-09: Uzupełnienie Pól `is_general`, `parent_id` w `pantryService.addOrIncrementItem` oraz Obsługi Offline/Echo w `handleCommitEdit` Aktywnej Listy
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** State Management / Spiżarnia & Offline PWA
-* **Pliki do modyfikacji:** [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L93-L99), [pantryService.ts (insert)](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L128-L134), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L254-L274)
+* **Pliki implementacji:** [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts)
 * **Problem / Uzasadnienie:**
-  * W [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts) metoda `getPantryItems` pobiera pełne metadane hierarchii produktu (`id, name, unit_type, category_id, is_general, parent_id`), natomiast `addOrIncrementItem` w `.select()` po `UPDATE` i `INSERT` pomija `is_general` oraz `parent_id`. Skutkuje to tym, że nowo dodany do spiżarni wariant produktu nie trafia od razu do słownika `pantryItemsByParentId` w `usePantryStore`.
-  * W [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L254-L274) metoda `handleCommitEdit` (ręczne wpisanie ilości z klawiatury na aktywnej liście) nie korzysta z `applyQuantityChange`, przez co nie rejestruje mutacji w `trackLocalItemMutation` (powodując wibrację od własnego echa Realtime) i nie kolejkuje zmiany w `enqueueMutation` podczas pracy offline.
-* **Planowane Rozwiązanie:**
-  1. Dodać `is_general, parent_id` do projekcji `.select()` w `pantryService.addOrIncrementItem`.
-  2. Zrefaktoryzować `handleCommitEdit` w `useActiveListController.ts`, delegując zapis do `applyQuantityChange(item, parsed)`.
+  * W [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts) metoda `getPantryItems` pobierała pełne metadane hierarchii produktu (`id, name, unit_type, category_id, is_general, parent_id`), natomiast `addOrIncrementItem` w `.select()` po `UPDATE` i `INSERT` pomijała `is_general` oraz `parent_id`. Skutkowało to tym, że nowo dodany do spiżarni wariant produktu nie trafiał od razu do słownika `pantryItemsByParentId` w `usePantryStore`.
+  * W [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts) metoda `handleCommitEdit` (ręczne wpisanie ilości z klawiatury na aktywnej liście) nie korzystała z `applyQuantityChange`, przez co nie rejestrowała mutacji w `trackLocalItemMutation` (powodując wibrację od własnego echa Realtime) i nie kolejkowała zmiany w `enqueueMutation` podczas pracy offline.
+* **Wdrożone Rozwiązanie:**
+  1. Dodano `is_general, parent_id` do projekcji `.select()` po `UPDATE` i `INSERT` w `pantryService.addOrIncrementItem`.
+  2. Zrefaktoryzowano `handleCommitEdit` w `useActiveListController.ts`, delegując zapis do `applyQuantityChange(item, parsed)`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Nowo dodane lub zaktualizowane pozycje spiżarni zawierają pełne metadane hierarchii, a ręczna edycja ilości na aktywnej liście jest objęta ochroną przed echem Realtime i kolejką offline.
 
 ---
 
 ### MED-10: Eliminacja Błędów Strefy Czasowej UTC (`toISOString`) przy Nawigacji Datami w Kalendarzu (`DayCalendarView`, `WeekCalendarView`)
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Logika Dat / Kalendarz Posiłków (ADR-009)
-* **Pliki do modyfikacji:** [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L73-L82), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L73)
+* **Pliki implementacji:** [utils.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/utils.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx)
+* **Pliki testów:** [calendarStatus.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/calendarStatus.test.ts)
 * **Problem / Uzasadnienie:**
-  * W `DayCalendarView.tsx` oraz `WeekCalendarView.tsx` bieżąca data wyznaczana jest przez `new Date().toISOString().split('T')[0]` (czas UTC), a przesuwanie dni (`shiftDay` oraz duplikacja na następny dzień) parsuje `new Date(selectedDate)` (północ UTC), modyfikuje dzień w strefie lokalnej (`setDate`) i ponownie konwertuje do UTC (`toISOString()`).
-  * W polskim czasie lokalnym (CET UTC+1 / CEST UTC+2) między 00:00 a 01:00/02:00 w nocy `todayStr` zwraca datę dnia poprzedniego, a w dniach zmiany czasu (DST) operacja `shiftDay` może przeskoczyć lub powtórzyć ten sam dzień.
-* **Planowane Rozwiązanie:**
-  1. Wydzielić czyste funkcje pomocnicze operujące na lokalnych składowych daty (`formatLocalDateISO`, `addDaysISO`) i zastąpić wszystkie wywołania `.toISOString().split('T')[0]` w komponentach kalendarza.
+  * W `DayCalendarView.tsx`, `WeekCalendarView.tsx` oraz `MonthCalendarGrid.tsx` bieżąca data wyznaczana była przez `new Date().toISOString().split('T')[0]` (czas UTC), a przesuwanie dni (`shiftDay` oraz duplikacja na następny dzień) parsowało `new Date(selectedDate)` (północ UTC), modyfikowało dzień w strefie lokalnej (`setDate`) i ponownie konwertowało do UTC (`toISOString()`).
+  * W polskim czasie lokalnym (CET UTC+1 / CEST UTC+2) między 00:00 a 01:00/02:00 w nocy `todayStr` zwracało datę dnia poprzedniego, a w dniach zmiany czasu (DST) operacja `shiftDay` mogła przeskoczyć lub powtórzyć ten sam dzień.
+* **Wdrożone Rozwiązanie:**
+  1. W [utils.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/utils.ts) wyeksportowano czyste funkcje pomocnicze operujące na lokalnych składowych daty (`formatLocalDateISO`, `addDaysISO`) i zastąpiono wywołania `.toISOString().split('T')[0]` w komponentach kalendarza.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Nawigacja po dniach, tygodniach i miesiącach w Kalendarzu działa deterministycznie w lokalnej strefie czasowej bez dryfu UTC o północy.
 
 ---
 
 ### MED-11: Wizualny Wskaźnik Pracy Offline (`isOnline` / `pendingCount`) zamiast Stałego Statusu „Realtime" oraz Stylizacja `isSelected` w `MonthCalendarGrid`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** UI/UX / Feedback Stanu Aplikacji / Kalendarz & Offline PWA
-* **Pliki do modyfikacji:** [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L79), [DesktopHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopHeader.tsx#L72-L81), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L217-L220), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx#L164-L167), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L209-L248)
+* **Pliki implementacji:** [DesktopHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopHeader.tsx), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx), [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx)
+* **Pliki testów:** [MonthCalendarGrid.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/__tests__/MonthCalendarGrid.test.tsx)
 * **Problem / Uzasadnienie:**
-  * **Brak wizualnego wskaźnika Offline / Pending Sync:** Hook `useOfflineSync()` wywoływany w [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L79) zwraca `{ isOnline, pendingCount, syncNow }`, jednak wynik ten jest ignorowany. W konsekwencji w `DesktopHeader.tsx` (linia 72), `ActiveListView.tsx` (linia 219) i `DesktopActiveListView.tsx` (linia 166) aplikacja nieprzerwanie wyświetla zielony pulsujący wskaźnik *„Synchronizacja na żywo (Realtime)"* nawet wtedy, gdy użytkownik stracił zasięg w markecie (`!isOnline`) i mutacje odkładają się w kolejce `offlineMutationQueue` (`pendingCount > 0`).
-  * **Brak wyróżnienia zaznaczonego dnia (`isSelected`) w siatce miesiąca:** W [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L209-L248) zmienna `isSelected` ustawia `aria-selected={isSelected}`, ale przycisk dnia nie posiada dla `isSelected` żadnej klasy wizualnej (wyróżniony jest wyłącznie `isToday`).
-* **Planowane Rozwiązanie:**
-  1. Powiązać wskaźnik statusu w `DesktopHeader`, `AppHeader`, `ActiveListView` i `DesktopActiveListView` ze stanem `useOfflineSync()` — pokazując bursztynowy badge *„Tryb Offline (X do synchronizacji)"* przy `!isOnline` lub `pendingCount > 0`.
-  2. Dodać wyraźne obramowanie/tło dla `isSelected && !isToday` (np. `ring-2 ring-primary/60 bg-primary/5`) w `MonthCalendarGrid.tsx`.
+  * **Brak wizualnego wskaźnika Offline / Pending Sync:** W `DesktopHeader.tsx`, `ActiveListView.tsx` i `DesktopActiveListView.tsx` aplikacja nieprzerwanie wyświetlała zielony wskaźnik *„Realtime"* nawet wtedy, gdy użytkownik stracił zasięg w markecie (`!isOnline`) lub posiadał oczekujące mutacje w kolejce `offlineMutationQueue` (`pendingCount > 0`).
+  * **Brak wyróżnienia zaznaczonego dnia (`isSelected`) w siatce miesiąca:** W [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx) zmienna `isSelected` ustawiała `aria-selected={isSelected}`, ale przycisk dnia nie posiadał dla `isSelected && !isToday` żadnej klasy wizualnej.
+* **Wdrożone Rozwiązanie:**
+  1. Powiązano wskaźnik statusu w `DesktopHeader`, `ActiveListView` i `DesktopActiveListView` z hookiem `useOfflineSync()` — wyświetlając bursztynowy wskaźnik `Offline` / `Sync (X)` przy `!isOnline` lub `pendingCount > 0`.
+  2. Dodano wyraźne obramowanie i tło dla `isSelected && !isToday` (`ring-2 ring-primary/60 border-primary/60 bg-primary/5`) w `MonthCalendarGrid.tsx`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Status synchronizacji dynamicznie odzwierciedla stan sieci i kolejki offline, a zaznaczony dzień w widoku miesiąca posiada wyraźne wyróżnienie wizualne.
 
 ---
 
 ### MED-12: Poprawa Kontrastu Odznak Semantycznych (`-400` / `zinc-*`) w Jasnym Motywie `clean-light` oraz Usunięcie Podwójnych Paddingów w Kalendarzu
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Design System / Motywy Kolorystyczne / Layout (`clean-light`, `CalendarView`, `DesktopCalendarView`)
-* **Pliki do modyfikacji:** [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx#L79-L88), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx#L95), [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx#L52-L162), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L112-L256), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L77), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L77-L92)
+* **Pliki implementacji:** [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx), [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx)
 * **Problem / Uzasadnienie:**
-  * **Twardo zakodowane klasy ciemnego motywu psujące czytelność w `clean-light` (zmierzone `1.92 : 1` w Microsoft Edge):** W [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx#L79-L88) filtr *„Globalne"* używa `text-zinc-400 border-zinc-800` oraz separatora `bg-zinc-800`. Pomiar `getComputedStyle` w żywej przeglądarce Microsoft Edge potwierdził, że podczas gdy 5 ciemnych motywów spełnia normę WCAG AA (`6.61:1 – 10.11:1`), w jasnym motywie `clean-light` (`rgb(255, 255, 255)`) odznaki używające klas `-400` (`rgba(52, 211, 153, 0.9)`, `text-amber-400`, `text-sky-400`, `text-emerald-400`) osiągają kontrast zaledwie **`1.92 : 1`** (znacznie poniżej wymaganego minimum `4.5 : 1` WCAG AA).
-  * **Podwójne paddingi i zdublowany nagłówek `<h1>` w Kalendarzu:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L77) nakłada `min-h-screen px-3.5 pt-3` wewnątrz `<main className="p-4">` z `MobileLayout` (oraz powoduje wewnętrzny poziomy overflow `main.scrollWidth > main.clientWidth` na tablecie `768x1024`), a [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L77-L92) dokłada `p-6` wewnątrz `p-8` i renderuje w DOM drugi widoczny nagłówek `<h1>` (`["Kalendarz", "Planer Posiłków & Kalendarz"]`).
-* **Planowane Rozwiązanie:**
-  1. Zastąpić twardo zakodowane klasy `zinc-800`/`zinc-400`/`zinc-600` tokenami semantycznymi (`border-border`, `text-muted-foreground`) oraz dostosować odcienie odznak semantycznych (`amber`, `sky`, `emerald`, `rose`, `blue`) tak, by w motywie `clean-light` używały ciemniejszych wariantów tekstowych (`-600`/`-700`, kontrast `>= 4.5:1`).
-  2. Usunąć redundantne `min-h-screen px-3.5 pt-3` z `CalendarView.tsx`, zlikwidować overflow `<main>` na tablecie oraz usunąć `p-6` i zdublowany `<h1>` z `DesktopCalendarView.tsx`.
+  * **Twardo zakodowane klasy ciemnego motywu psujące czytelność w `clean-light`:** W `CookbookView.tsx` i `LoginScreen.tsx` występowały twardo zakodowane klasy `zinc-800`/`zinc-400`/`zinc-600`, a w `CookbookMealCard.tsx` i `ProductCatalogCard.tsx` odznaki używały wyłącznie jasnych klas `-400` o niskim kontraście na białym tle.
+  * **Podwójne paddingi i zdublowany nagłówek `<h1>` w Kalendarzu:** `CalendarView.tsx` nakładał redundantne `min-h-screen px-3.5 pt-3` wewnątrz `<main className="p-4">`, a `DesktopCalendarView.tsx` dokładał `p-6` wewnątrz `p-8` i renderował w DOM drugi nagłówek `<h1>`.
+* **Wdrożone Rozwiązanie:**
+  1. Zastąpiono klasy `zinc-*` tokenami semantycznymi (`border-border`, `text-muted-foreground`) oraz zastosowano adaptacyjne warianty kolorystyczne (`text-*-600 dark:text-*-400`) dla odznak semantycznych w `CookbookMealCard.tsx`, `ProductCatalogCard.tsx` i `DayCalendarView.tsx`.
+  2. Usunięto redundantne `min-h-screen px-3.5 pt-3` z `CalendarView.tsx` oraz `p-6` i zdublowane `<h1>` (zamienione na `<h2>`) z `DesktopCalendarView.tsx`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Odznaki i filtry zachowują wysoki kontrast w jasnym motywie `clean-light` oraz w 5 ciemnych motywach, a widoki Kalendarza nie duplikują paddingów ani nagłówka `<h1>`.
 
 ---
 
 ### MED-13: Naprawa Ściśniętego Pola Wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz Nadmiernego Ucinania Tekstów (`truncate`) w `DesktopSidebar` i Kartach
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** UI/UX / Layout Flexbox & Grid / Czytelność (`DesktopPantryView.tsx`, `PantryView.tsx`, `DesktopSidebar.tsx`, `ProductCatalogCard.tsx`)
-* **Pliki do modyfikacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L48-L88), [PantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/PantryView.tsx#L48-L87), [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx#L115-L148), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L110-L145)
+* **Pliki implementacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx), [PantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/PantryView.tsx), [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx), [CookbookMealCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/cookbook/CookbookMealCard.tsx)
 * **Problem / Uzasadnienie (Wykryte w inspekcji na żywo w Microsoft Edge):**
-  * **Ściśnięte pole wyszukiwania w Spiżarni (`88.5px` szerokości na ekranie `1440px`!):** W [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L48-L88) pasek narzędzi używa `grid-cols-1 md:grid-cols-3`, gdzie `md:col-span-2` zajmują pigułki statystyk świeżości, a w pozostałej `1/3` szerokości umieszczono w jednym wierszu zarówno `<Input>` wyszukiwarki, jak i przełącznik sortowania (`Wg alejek` `85px` + `Wg daty ważności` `126px`). W efekcie pole `Szukaj produktów w spiżarni...` zostaje ściśnięte do **`88.5px` szerokości** na Desktopie `1440px` oraz **`101.1px`** w mobilnym [PantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/PantryView.tsx#L48-L87) na ekranie `360px`.
-  * **Wszystkie 6 opisów podrzędnych w `DesktopSidebar.tsx` są ucięte ponad połową długości:** W [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx) opisy zakładek mają `truncate` w wąskiej kolumnie (`clientWidth: 165–189px` przy `scrollWidth: 285–417px`, np. *„Zsynchronizowana w czasie rzeczywistym lista posortowana wed..."*).
-  * **Przedwczesne ucinanie nazw produktów i przepisów na Desktopie (`1440px`):** W `DesktopProductsView` (`ProductCatalogCard.tsx`) nazwa produktu *„Mleko bez laktozy 1.5%"* jest ucinana już na szerokości `clientWidth: 92px` (`scrollWidth: 155px`), a w `DesktopCookbookView` nazwa przepisu na `148px` (`scrollWidth: 331px`).
-* **Planowane Rozwiązanie:**
-  1. W `DesktopPantryView.tsx` oraz `PantryView.tsx` rozdzielić wiersz wyszukiwarki (`w-full` / osobna kolumna `min-w-[240px]`) od przełącznika sortowania (`Wg alejek` / `Wg daty ważności`), aby input wyszukiwania miał pełną, wygodną szerokość.
-  2. W `DesktopSidebar.tsx` pozwolić opisom zakładek na zawijanie do 2 linii (`line-clamp-2` zamiast `truncate`), a w `ProductCatalogCard.tsx` i `CookbookMealCard.tsx` zastosować `line-clamp-2` dla nazw produktów i przepisów.
+  * **Ściśnięte pole wyszukiwania w Spiżarni:** W `DesktopPantryView.tsx` oraz `PantryView.tsx` pole `<Input>` wyszukiwarki dzieliło wąską przestrzeń z przełącznikiem sortowania (`Wg alejek` / `Wg daty ważności`), przez co ulegało ściśnięciu do `88.5px` na Desktopie i `101.1px` na Mobile.
+  * **Nadmierne ucinanie opisów i tytułów (`truncate`):** W `DesktopSidebar.tsx` opisy zakładek oraz w `ProductCatalogCard.tsx` i `CookbookMealCard.tsx` nazwy produktów i przepisów były jednowierszowo ucinane przez `truncate`.
+* **Wdrożone Rozwiązanie:**
+  1. W `DesktopPantryView.tsx` oraz `PantryView.tsx` przebudowano układ paska narzędzi tak, aby pole wyszukiwania miało pełną szerokość na Mobile (`w-full`) oraz dedykowaną przestrzeń na Desktopie (`sm:w-64 lg:w-72 min-w-[220px]`).
+  2. Zastąpiono `truncate` klasą `line-clamp-2` na opisach zakładek w `DesktopSidebar.tsx` oraz na tytułach w `ProductCatalogCard.tsx` i `CookbookMealCard.tsx`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Wyszukiwarka w Spiżarni ma wygodną szerokość na obu układach (Mobile i Desktop), a długie nazwy produktów/przepisów i opisy w pasku bocznym zawijają się czytelnie do 2 wierszy.
 
 ---
 
@@ -801,12 +815,12 @@ gantt
     MED-02 Data Retention Script         :done, 2026-11, 10d
     MED-03 Dismiss Uncertainty ⚠️        :done, 2026-11, 7d
     MED-04 Pantry Mixed Unit Math        :done, 2026-11, 7d
-    MED-08 Hierarchical Pantry in Cards  :2026-11, 1d
-    MED-09 Pantry Select & Offline Edit  :2026-11, 1d
-    MED-10 Local Date Math in Calendar   :2026-11, 1d
-    MED-11 Offline Badge & Grid Selected :2026-11, 1d
-    MED-12 Light Theme Contrast & Layout :2026-11, 1d
-    MED-13 Pantry Search & Sidebar Trunc :2026-11, 1d
+    MED-08 Hierarchical Pantry in Cards  :done, 2026-11, 1d
+    MED-09 Pantry Select & Offline Edit  :done, 2026-11, 1d
+    MED-10 Local Date Math in Calendar   :done, 2026-11, 1d
+    MED-11 Offline Badge & Grid Selected :done, 2026-11, 1d
+    MED-12 Light Theme Contrast & Layout :done, 2026-11, 1d
+    MED-13 Pantry Search & Sidebar Trunc :done, 2026-11, 1d
     section Normalne (Higiena & PWA)
     NORM-05 Eliminate `any` in Services  :done, 2026-11, 7d
     NORM-06 Sync PRD.md Specs            :done, 2026-11, 3d
@@ -858,12 +872,12 @@ gantt
 | **MED-05** | ✅ Zrealizowane | 🟡 Medium | Biznes / Spiżarnia | 3 dni | Zdejmowanie zużytych składników ze spiżarni po realizacji posiłku (`CookMealDeductModal`). |
 | **MED-06** | ✅ Zrealizowane | 🟡 Medium | Database / RPC | 2 dni | Transakcyjne zamykanie listy i zasilanie spiżarni w 1 wywołaniu `archive_shopping_list`. |
 | **MED-07** | ✅ Zrealizowane | 🟡 Medium | DevOps / Tooling | 1 dzień | Automatyczna brama jakości CI/CD na GitHubie chroniąca przed regresjami. |
-| **MED-08** | ⏳ Oczekujące | 🟡 Medium | UX / Przepiśnik & Kalendarz | 1 dzień | Hierarchiczne wykrywanie spiżarni na kartach przepisów i skalowanie składników wg `target_kcal` w widoku dnia. |
-| **MED-09** | ⏳ Oczekujące | 🟡 Medium | State / Offline & Spiżarnia | 0.5 dnia | Pełne metadane hierarchii po dodaniu do spiżarni i obsługa offline/echo przy ręcznej edycji ilości na liście. |
-| **MED-10** | ⏳ Oczekujące | 🟡 Medium | Logika Dat / Kalendarz | 0.5 dnia | Eliminacja przesunięć daty o północy i podczas zmiany czasu (DST) w Kalendarzu (`toISOString`). |
-| **MED-11** | ⏳ Oczekujące | 🟡 Medium | UI/UX / Offline & Kalendarz | 0.5 dnia | Wizualny wskaźnik pracy Offline (`pendingCount`) zamiast stałego „Realtime" oraz wyróżnienie `isSelected` w siatce miesiąca. |
-| **MED-12** | ⏳ Oczekujące | 🟡 Medium | Design / Motyw `clean-light` | 1 dzień | Poprawa kontrastu odznak semantycznych (`-400`/`zinc-*`) na jasnym tle (`1.92:1` → `>=4.5:1`) i usunięcie podwójnych paddingów w Kalendarzu. |
-| **MED-13** | ⏳ Oczekujące | 🟡 Medium | UI/UX / Spiżarnia & Sidebar | 0.5 dnia | Naprawa ściśniętego pola wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz nadmiernego `truncate` w `DesktopSidebar` i kartach. |
+| **MED-08** | ✅ Zrealizowane | 🟡 Medium | UX / Przepiśnik & Kalendarz | 1 dzień | Hierarchiczne wykrywanie spiżarni na kartach przepisów i skalowanie składników wg `target_kcal` w widoku dnia. |
+| **MED-09** | ✅ Zrealizowane | 🟡 Medium | State / Offline & Spiżarnia | 0.5 dnia | Pełne metadane hierarchii po dodaniu do spiżarni i obsługa offline/echo przy ręcznej edycji ilości na liście. |
+| **MED-10** | ✅ Zrealizowane | 🟡 Medium | Logika Dat / Kalendarz | 0.5 dnia | Eliminacja przesunięć daty o północy i podczas zmiany czasu (DST) w Kalendarzu (`toISOString`). |
+| **MED-11** | ✅ Zrealizowane | 🟡 Medium | UI/UX / Offline & Kalendarz | 0.5 dnia | Wizualny wskaźnik pracy Offline (`pendingCount`) zamiast stałego „Realtime" oraz wyróżnienie `isSelected` w siatce miesiąca. |
+| **MED-12** | ✅ Zrealizowane | 🟡 Medium | Design / Motyw `clean-light` | 1 dzień | Poprawa kontrastu odznak semantycznych (`-400`/`zinc-*`) na jasnym tle (`1.92:1` → `>=4.5:1`) i usunięcie podwójnych paddingów w Kalendarzu. |
+| **MED-13** | ✅ Zrealizowane | 🟡 Medium | UI/UX / Spiżarnia & Sidebar | 0.5 dnia | Naprawa ściśniętego pola wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz nadmiernego `truncate` w `DesktopSidebar` i kartach. |
 | **NORM-01** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Oznaczenie Fazy 15 jako zakończonej w [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md). |
 | **NORM-02** | ✅ Zrealizowane | 🟢 Normal | Frontend / Architecture | 2 dni | Dekompozycja monolitów (> 430 linii) do 14 hooków kontrolerów i 12 subkomponentów UI. |
 | **NORM-03** | ✅ Zrealizowane | 🟢 Normal | Frontend / a11y | 2 dni | Pełne role WAI-ARIA, nawigacja klawiaturą, strefy dotyku 44px i kontrast WCAG AA we wszystkich 6 motywach. |

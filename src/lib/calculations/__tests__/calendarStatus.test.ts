@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   calculateMealPlanStatus,
   calculateDayMacros,
-  generateDraftItemsFromMealPlan
+  generateDraftItemsFromMealPlan,
+  getEffectiveMultiplier
 } from '../calendarStatus'
+import { addDaysISO, formatLocalDateISO } from '@/lib/utils'
 import type { MealPlanItem } from '@/types/calendar'
 import type { DraftItem } from '@/store/useShoppingStore'
 import type { Database } from '@/types/supabase'
@@ -393,6 +395,39 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
       // Only eggs should be in draft, butter is stocked in pantry
       expect(items).toHaveLength(1)
       expect(items[0].product_id).toBe('prod-1')
+    })
+
+    it('scales recipe meal quantities and macros proportionally when target_kcal is set (MED-08)', () => {
+      // Base 1-serving meal is 2 eggs (140 kcal) + 10g butter (72 kcal) = 212 kcal
+      // Setting target_kcal = 636 kcal -> effective multiplier = 636 / 212 = 3
+      const targetKcalPlan: MealPlanItem = {
+        ...mockMealPlan,
+        servings: 1,
+        target_kcal: 636
+      }
+
+      expect(getEffectiveMultiplier(targetKcalPlan)).toBeCloseTo(3, 4)
+
+      const macros = calculateDayMacros([targetKcalPlan])
+      expect(macros.kcal).toBe(636)
+
+      const items = generateDraftItemsFromMealPlan(targetKcalPlan, {
+        excludePantryItems: false
+      })
+      expect(items[0].quantity).toBe(6) // 2 * 3 pcs
+      expect(items[1].quantity).toBe(30) // 10 * 3 g
+    })
+  })
+
+  describe('Local date ISO helpers (MED-10)', () => {
+    it('shifts dates in local calendar time without UTC timezone drift', () => {
+      expect(addDaysISO('2026-11-15', 1)).toBe('2026-11-16')
+      expect(addDaysISO('2026-11-15', -1)).toBe('2026-11-14')
+      expect(addDaysISO('2026-12-31', 1)).toBe('2027-01-01')
+      expect(addDaysISO('2026-03-01', -1)).toBe('2026-02-28')
+
+      const localDate = new Date(2026, 10, 15, 0, 30, 0) // 00:30 local time
+      expect(formatLocalDateISO(localDate)).toBe('2026-11-15')
     })
   })
 })

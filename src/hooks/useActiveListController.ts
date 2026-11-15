@@ -258,19 +258,10 @@ export function useActiveListController() {
       setEditValue('')
 
       if (!isNaN(parsed) && parsed > 0 && parsed !== item.total_quantity && activeList) {
-        const previousItems = activeList.items
-        setActiveList({
-          ...activeList,
-          items: activeList.items.map((i) => (i.id === item.id ? { ...i, total_quantity: parsed } : i))
-        })
-
-        const success = await shoppingListService.updateItemQuantity(item.id, parsed)
-        if (!success) {
-          setActiveList({ ...activeList, items: previousItems })
-        }
+        await applyQuantityChange(item, parsed)
       }
     },
-    [editValue, activeList]
+    [editValue, activeList, applyQuantityChange]
   )
 
   const handleConfirmDeleteItem = useCallback(async () => {

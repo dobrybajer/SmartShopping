@@ -7,8 +7,10 @@ import { useShoppingStore } from '@/store/useShoppingStore'
 import { useShallow } from 'zustand/react/shallow'
 import {
   calculateMealPlanStatus,
-  calculateDayMacros
+  calculateDayMacros,
+  getEffectiveMultiplier
 } from '@/lib/calculations/calendarStatus'
+import { convertQuantity } from '@/lib/calculations/pantryCalculations'
 import { CalendarMacroBar } from './CalendarMacroBar'
 import { MealPlanStatusBadge } from './MealPlanStatusBadge'
 import { UncertaintyWarningModal } from './UncertaintyWarningModal'
@@ -29,7 +31,7 @@ import {
   UtensilsCrossed
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatLocalDateISO, addDaysISO } from '@/lib/utils'
 
 interface DayCalendarViewProps {
   selectedDate: string // YYYY-MM-DD
@@ -67,18 +69,19 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
   const [cookPlanItem, setCookPlanItem] = useState<MealPlanItem | null>(null)
 
   const cookIngredients = cookPlanItem
-    ? buildCookableIngredientsFromMeal(cookPlanItem.meal?.ingredients, cookPlanItem.servings)
+    ? buildCookableIngredientsFromMeal(
+        cookPlanItem.meal?.ingredients,
+        getEffectiveMultiplier(cookPlanItem)
+      )
     : []
 
-  // Date Math
-  const todayStr = new Date().toISOString().split('T')[0]
+  // Date Math (local calendar time to avoid UTC midnight shift)
+  const todayStr = formatLocalDateISO()
   const isPastDate = selectedDate < todayStr
   const isToday = selectedDate === todayStr
 
   const shiftDay = (delta: number) => {
-    const d = new Date(selectedDate)
-    d.setDate(d.getDate() + delta)
-    onDateChange(d.toISOString().split('T')[0])
+    onDateChange(addDaysISO(selectedDate, delta))
   }
 
   // Filter plans for this day
@@ -244,8 +247,24 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {ingredients.map((ing) => {
-                        const requiredQty = ing.base_quantity * (plan.servings || 1)
-                        const inPantry = ing.is_pantry_item || (pantryItems.find((p) => p.product_id === ing.product_id)?.quantity ?? 0) >= requiredQty
+                        const multiplier = getEffectiveMultiplier(plan)
+                        const requiredQty = Math.round(ing.base_quantity * multiplier * 10) / 10
+                        const unitType = ing.product?.unit_type || 'pcs'
+                        const directItem = pantryItems.find((p) => p.product_id === ing.product_id)
+                        const directStock = directItem
+                          ? (convertQuantity(directItem.quantity || 0, directItem.unit_type, unitType) ?? 0)
+                          : 0
+                        const childStock = ing.product?.is_general
+                          ? pantryItems
+                              .filter((p) => 'product' in p && p.product?.parent_id === ing.product_id)
+                              .reduce(
+                                (sum, p) =>
+                                  sum + (convertQuantity(p.quantity || 0, p.unit_type, unitType) ?? 0),
+                                0
+                              )
+                          : 0
+                        const inPantry =
+                          ing.is_pantry_item === true || Math.max(directStock, childStock) >= requiredQty
 
                         return (
                           <span
@@ -253,11 +272,11 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                             className={cn(
                               "inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs border",
                               inPantry
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
                                 : "bg-muted/40 border-border text-foreground"
                             )}
                           >
-                            {inPantry && <Warehouse className="w-3 h-3 text-emerald-400" />}
+                            {inPantry && <Warehouse className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />}
                             <span>{ing.product?.name}</span>
                             <span className="text-[10px] opacity-70">
                               ({requiredQty} {ing.product?.unit_type})
@@ -305,9 +324,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                         size="sm"
                         variant="ghost"
                         onClick={() => {
-                          const nextDateObj = new Date(selectedDate)
-                          nextDateObj.setDate(nextDateObj.getDate() + 1)
-                          duplicateMealPlan(plan, nextDateObj.toISOString().split('T')[0])
+                          duplicateMealPlan(plan, addDaysISO(selectedDate, 1))
                         }}
                         className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground rounded-lg px-2"
                         title={t('calendar.duplicateNextDay')}

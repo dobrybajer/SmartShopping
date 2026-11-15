@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { useTranslation } from '@/i18n'
-import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio, FileCode2 } from 'lucide-react'
+import { Plus, ChevronDown, BookOpen, Package, ShoppingBag, Radio, WifiOff, FileCode2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
 import { ProductFormSheet } from '@/components/dialogs/ProductFormSheet'
@@ -21,6 +22,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   onOpenJsonImport
 }) => {
   const { household } = useAuth()
+  const { isOnline, pendingCount } = useOfflineSync()
   const { t } = useTranslation()
 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
@@ -68,17 +70,33 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           {/* Language Switcher */}
           <LanguageSwitcher variant="pill" />
 
-          {/* Realtime Live Indicator */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border text-xs font-medium text-muted-foreground">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-            </span>
-            <span className="flex items-center gap-1">
-              <Radio className="w-3 h-3 text-primary" />
-              <span>{t('common.realtime')}</span>
-            </span>
-          </div>
+          {/* Realtime / Offline Live Indicator */}
+          {!isOnline || pendingCount > 0 ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <span className="relative flex h-2 w-2">
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              </span>
+              <span className="flex items-center gap-1">
+                <WifiOff className="w-3 h-3" />
+                <span>
+                  {!isOnline
+                    ? `Offline${pendingCount > 0 ? ` (${pendingCount})` : ''}`
+                    : `Sync (${pendingCount})`}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-background border border-border text-xs font-medium text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+              </span>
+              <span className="flex items-center gap-1">
+                <Radio className="w-3 h-3 text-primary" />
+                <span>{t('common.realtime')}</span>
+              </span>
+            </div>
+          )}
 
           {/* Global Quick Add Action */}
           <div className="relative" ref={quickAddRef}>

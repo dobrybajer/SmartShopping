@@ -155,6 +155,7 @@ export const DesktopCookbookView: React.FC = () => {
               key={meal.id}
               meal={meal}
               pantryMapByProductId={ctrl.pantryMapByProductId}
+              pantryItemsByParentId={ctrl.pantryItemsByParentId}
               isJustAdded={ctrl.addedMealId === meal.id}
               variant="desktop"
               onSelect={ctrl.openMealDetails}

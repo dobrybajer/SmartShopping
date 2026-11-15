@@ -51,5 +51,13 @@ describe('MonthCalendarGrid Accessibility & Keyboard Navigation (NORM-03)', () =
     fireEvent.click(day16)
     expect(onOpenDayView).toHaveBeenCalledWith('2026-11-16')
   })
+
+  it('visually highlights selected date when it is not today (MED-11)', () => {
+    render(<MonthCalendarGrid selectedDate="2026-11-11" onOpenDayView={vi.fn()} />)
+
+    const selectedBtn = screen.getByRole('button', { name: /^2026-11-11/ })
+    expect(selectedBtn.className).toContain('ring-2')
+    expect(selectedBtn.className).toContain('ring-primary/60')
+  })
 })
 

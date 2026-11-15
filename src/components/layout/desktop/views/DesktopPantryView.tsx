@@ -45,8 +45,8 @@ export const DesktopPantryView: React.FC = () => {
         </div>
 
         {/* 2. Breakdown Pills, Sort Toggle & Search Toolbar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border/80 items-center">
-          <div className="md:col-span-2 flex items-center gap-2.5 text-xs flex-wrap">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-4 border-t border-border/80">
+          <div className="flex items-center gap-2.5 text-xs flex-wrap">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <span className="text-muted-foreground">Świeże / niedawno:</span>
@@ -66,7 +66,7 @@ export const DesktopPantryView: React.FC = () => {
             </div>
 
             {c.stats.expiringAlerts > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400">
                 <CalendarClock className="w-3.5 h-3.5" />
                 <span>{t('pantry.expiry.expiringSoon')}:</span>
                 <strong className="font-mono">{c.stats.expiringAlerts}</strong>
@@ -74,14 +74,14 @@ export const DesktopPantryView: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-1 sm:w-64 lg:w-72 min-w-[220px]">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
               <Input
                 value={c.searchQuery}
                 onChange={(e) => c.setSearchQuery(e.target.value)}
                 placeholder={t('pantry.searchPlaceholder')}
-                className="h-9 pl-9 bg-background border-border text-foreground text-xs rounded-xl"
+                className="h-9 pl-9 bg-background border-border text-foreground text-xs rounded-xl w-full"
               />
             </div>
 
