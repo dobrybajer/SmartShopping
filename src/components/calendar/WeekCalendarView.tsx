@@ -52,7 +52,8 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   onOpenDayView,
   onAddMealClick
 }) => {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const locale = language === 'pl' ? 'pl-PL' : 'en-US'
   const { isDesktop } = useDeviceLayout()
   const {
     mealPlans,
@@ -106,14 +107,13 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   // Week range label (e.g. 13 - 19 paź)
   const firstDay = weekDays[0].dateObj
   const lastDay = weekDays[weekDays.length - 1].dateObj
-  const rangeLabel = `${firstDay.getDate()} - ${lastDay.getDate()} ${lastDay.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`
+  const rangeLabel = `${firstDay.getDate()} - ${lastDay.getDate()} ${lastDay.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}`
 
   // Send entire week to cart
   const handleTransferEntireWeek = () => {
-    let count = 0
     for (const day of weekDays) {
       if (!day.isPast && day.plans.length > 0) {
-        count += transferDayToDraft(day.iso)
+        transferDayToDraft(day.iso)
       }
     }
   }
@@ -127,8 +127,9 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
           <button
             type="button"
             onClick={() => shiftWeek(-1)}
-            className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-            title="Poprzedni tydzień"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+            title={t('calendar.prevWeek')}
+            aria-label={t('calendar.prevWeek')}
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -140,8 +141,9 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
           <button
             type="button"
             onClick={() => shiftWeek(1)}
-            className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-            title="Następny tydzień"
+            className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+            title={t('calendar.nextWeek')}
+            aria-label={t('calendar.nextWeek')}
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -150,7 +152,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
             size="sm"
             variant="ghost"
             onClick={() => onDateSelect(todayStr)}
-            className="text-xs text-primary font-semibold rounded-lg h-8"
+            className="text-xs text-primary font-semibold rounded-lg min-h-[44px] px-3"
           >
             {t('calendar.today')}
           </Button>
@@ -191,11 +193,11 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
             size="sm"
             variant="outline"
             onClick={handleTransferEntireWeek}
-            className="h-8 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium"
-            title="Wyślij tydzień do koszyka"
+            className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium"
+            title={t('calendar.transferWeekToDraftTitle')}
           >
             <ShoppingCart className="w-3.5 h-3.5 text-sky-400" />
-            <span className="hidden md:inline">Tydzień do koszyka</span>
+            <span className="hidden md:inline">{t('calendar.transferWeekToDraft')}</span>
           </Button>
         </div>
       </div>
@@ -210,7 +212,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
           )}
         >
           {weekDays.map((day) => {
-            const dayName = day.dateObj.toLocaleDateString(undefined, { weekday: 'short' })
+            const dayName = day.dateObj.toLocaleDateString(locale, { weekday: 'short' })
             const dayNum = day.dateObj.getDate()
 
             return (
@@ -258,7 +260,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                       draftItems,
                       isPastDate: day.isPast
                     })
-                    const mealName = plan.meal?.name || plan.custom_name || 'Posiłek'
+                    const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
 
                     return (
                       <div
@@ -273,7 +275,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                         </div>
 
                         <span className="text-[10px] text-muted-foreground">
-                          {plan.servings} porcji
+                          {plan.servings} {t('calendar.servingsUnit')}
                         </span>
                       </div>
                     )
@@ -291,7 +293,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                     className="w-full py-1.5 rounded-xl border border-dashed border-border/80 hover:border-primary hover:text-primary text-muted-foreground text-xs flex items-center justify-center gap-1 transition-all mt-auto cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Dodaj</span>
+                    <span>{t('common.add')}</span>
                   </button>
                 )}
               </div>
@@ -302,7 +304,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
         // Mobile Vertical Cards Stack
         <div className="flex flex-col gap-3">
           {weekDays.map((day) => {
-            const dayFull = day.dateObj.toLocaleDateString(undefined, {
+            const dayFull = day.dateObj.toLocaleDateString(locale, {
               weekday: 'long',
               day: 'numeric',
               month: 'short'
@@ -361,7 +363,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                         draftItems,
                         isPastDate: day.isPast
                       })
-                      const mealName = plan.meal?.name || plan.custom_name || 'Posiłek'
+                      const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
 
                       return (
                         <div

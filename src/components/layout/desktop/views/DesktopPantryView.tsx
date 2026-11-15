@@ -49,19 +49,19 @@ export const DesktopPantryView: React.FC = () => {
           <div className="flex items-center gap-2.5 text-xs flex-wrap">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span className="text-muted-foreground">Świeże / niedawno:</span>
+              <span className="text-muted-foreground">{t('pantry.stats.freshLabel')}</span>
               <strong className="text-foreground font-mono">{c.stats.fresh}</strong>
             </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span className="text-muted-foreground">Weryfikacja:</span>
+              <span className="text-muted-foreground">{t('pantry.stats.mediumLabel')}</span>
               <strong className="text-foreground font-mono">{c.stats.medium}</strong>
             </div>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-background border border-border">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-              <span className="text-muted-foreground">Dawno / uzupełnij:</span>
+              <span className="text-muted-foreground">{t('pantry.stats.oldLabel')}</span>
               <strong className="text-foreground font-mono">{c.stats.old}</strong>
             </div>
 

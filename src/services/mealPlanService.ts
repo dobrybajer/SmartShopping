@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { translate } from '@/i18n'
 import type {
   MealPlanItem,
   CreateCalendarMealInput,
@@ -193,8 +194,9 @@ export const mealPlanService = {
     planItem: MealPlanItem,
     dayLabel?: string
   ): AddToDraftPayload {
-    const mealName = planItem.meal?.name || planItem.custom_name || 'Posiłek'
-    const source = dayLabel ? `${dayLabel} · ${mealName} (Przywrócono)` : `${mealName} (Przywrócono)`
+    const mealName = planItem.meal?.name || planItem.custom_name || translate('calendar.defaultMealName')
+    const restoredSuffix = translate('calendar.restoredSuffix')
+    const source = dayLabel ? `${dayLabel} · ${mealName} ${restoredSuffix}` : `${mealName} ${restoredSuffix}`
 
     return {
       product_id: missing.productId,

@@ -132,7 +132,7 @@ export const DraftItemRow: React.FC<DraftItemRowProps> = ({
             }}
             className={cn(
               'flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer',
-              isDesktop ? 'w-8 h-8 rounded-lg' : 'w-7 h-7 rounded-md'
+              isDesktop ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 min-w-[36px] min-h-[36px] rounded-md'
             )}
             title={t('common.decrease')}
             aria-label={t('common.decrease')}
@@ -179,7 +179,7 @@ export const DraftItemRow: React.FC<DraftItemRowProps> = ({
               }}
               className={cn(
                 'font-mono text-xs font-bold text-center text-primary hover:bg-muted transition-colors cursor-text select-none',
-                isDesktop ? 'px-3 py-1 min-w-[4.5rem] rounded-lg' : 'px-2 py-0.5 min-w-[3.5rem] rounded'
+                isDesktop ? 'px-3 py-1 min-w-[4.5rem] rounded-lg' : 'px-2 py-1 min-h-[36px] flex items-center justify-center min-w-[3.5rem] rounded'
               )}
               title={t('common.edit')}
             >
@@ -195,7 +195,7 @@ export const DraftItemRow: React.FC<DraftItemRowProps> = ({
             }}
             className={cn(
               'flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all cursor-pointer',
-              isDesktop ? 'w-8 h-8 rounded-lg' : 'w-7 h-7 rounded-md'
+              isDesktop ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 min-w-[36px] min-h-[36px] rounded-md'
             )}
             title={t('common.increase')}
             aria-label={t('common.increase')}
@@ -213,7 +213,7 @@ export const DraftItemRow: React.FC<DraftItemRowProps> = ({
             }}
             className={cn(
               'flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90',
-              isDesktop ? 'w-9 h-9 rounded-xl hover:opacity-80' : 'w-8 h-8 rounded-lg',
+              isDesktop ? 'w-9 h-9 rounded-xl hover:opacity-80' : 'w-10 h-10 min-w-[40px] min-h-[40px] rounded-lg',
               freshness.badgeBgClass,
               freshness.colorClass
             )}

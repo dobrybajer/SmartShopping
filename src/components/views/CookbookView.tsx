@@ -4,6 +4,7 @@ import { useCookbookController } from '@/hooks/useCookbookController'
 import { CookbookMealCard } from '@/components/cookbook/CookbookMealCard'
 import { MealDetailsSheet } from '@/components/dialogs/MealDetailsSheet'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -144,6 +145,13 @@ export const CookbookView: React.FC = () => {
         open={ctrl.isAddMealOpen}
         onOpenChange={ctrl.setIsAddMealOpen}
         onMealCreated={ctrl.loadMeals}
+      />
+
+      <ConfirmDeleteDialog
+        open={ctrl.isDeleteModalOpen}
+        onOpenChange={ctrl.setIsDeleteModalOpen}
+        itemName={ctrl.mealToDelete?.name}
+        onConfirm={ctrl.handleConfirmDeleteMeal}
       />
     </div>
   )

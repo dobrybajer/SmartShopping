@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useShoppingStore, type MealWithIngredients } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
-import { useTranslation } from '@/i18n'
 import { mealService } from '@/services/mealService'
 import {
   calculateIngredientMacros,
@@ -36,7 +35,6 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
   const addMealToDraft = useShoppingStore((state) => state.addMealToDraft)
   const pantryMapByProductId = usePantryStore((state) => state.pantryMapByProductId)
   const pantryItemsByParentId = usePantryStore((state) => state.pantryItemsByParentId)
-  const { t } = useTranslation()
 
   const [meals, setMeals] = useState<MealWithIngredients[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,6 +46,8 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [addedMealId, setAddedMealId] = useState<string | null>(null)
+  const [mealToDelete, setMealToDelete] = useState<MealWithIngredients | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
 
   const loadMeals = useCallback(async () => {
     if (!household) return
@@ -105,13 +105,20 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     setTimeout(() => setAddedMealId(null), 1500)
   }
 
-  const handleDeleteMeal = async (e: React.MouseEvent, meal: MealWithIngredients) => {
+  const handleDeleteMeal = (e: React.MouseEvent, meal: MealWithIngredients) => {
     e.stopPropagation()
-    if (confirm(t('cookbook.deleteConfirm'))) {
-      const success = await mealService.deleteMeal(meal.id)
-      if (success) {
-        setMeals((prev) => prev.filter((m) => m.id !== meal.id))
-      }
+    setMealToDelete(meal)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDeleteMeal = async () => {
+    if (!mealToDelete) return
+    const targetId = mealToDelete.id
+    const success = await mealService.deleteMeal(targetId)
+    if (success) {
+      setMeals((prev) => prev.filter((m) => m.id !== targetId))
+      setMealToDelete(null)
+      setIsDeleteModalOpen(false)
     }
   }
 
@@ -148,12 +155,16 @@ export function useCookbookController(options: UseCookbookControllerOptions = {}
     setIsDetailsOpen,
     isAddMealOpen,
     setIsAddMealOpen,
+    mealToDelete,
+    isDeleteModalOpen,
+    setIsDeleteModalOpen,
     addedMealId,
     pantryMapByProductId,
     pantryItemsByParentId,
     loadMeals,
     handleQuickAdd,
     handleDeleteMeal,
+    handleConfirmDeleteMeal,
     openMealDetails,
     resetFilters
   }

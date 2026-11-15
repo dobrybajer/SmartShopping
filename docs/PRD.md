@@ -40,7 +40,7 @@ CREATE TABLE users (
   email TEXT UNIQUE NOT NULL,
   name TEXT,
   language VARCHAR(10) DEFAULT 'pl' NOT NULL,
-  theme VARCHAR(32) DEFAULT 'oled-emerald' NOT NULL,
+  theme VARCHAR(32) DEFAULT 'oled-black' NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -259,7 +259,7 @@ CREATE TABLE meal_plans (
 *   **Powiadomienia Push & Realtime:** Odsłuch WebSocket na tabeli `shopping_list_items` oraz natywne powiadomienia Web Push (VAPID) w tle.
 *   **Haptic Feedback & True Black:** Wibracje (`navigator.vibrate`) przy zaznaczaniu checkboxów oraz idealna czerń (`#000000`) dla oszczędności baterii i estetyki OLED.
 *   **Internacjonalizacja (i18n) i Pełny Angielski w Kodzie:** 100% kodu TypeScript, bazy danych i typów w języku angielskim (`unit_enum: 'g', 'ml', 'pcs'`). Domyślny język UI: Polski (`pl`), z obsługą Angielskiego (`en`). Słownik w jednym typowanym miejscu (`src/i18n/`), obsługa pluralizacji przez natywne `Intl.PluralRules`, synchroniczny cache w `localStorage` (dla działania 100% offline w sklepie) oraz asynchroniczny sync z profilem użytkownika `users.language`. Zobacz [ADR-003: Internationalization Strategy](./adr/ADR-003-internationalization-i18n.md).
-*   **System Szat Graficznych i Motywów (Themes):** Silnik 6 starannie dobranych szat graficznych (5 ciemnych/OLED: OLED Emerald [domyślny], Midnight Blue, Forest Sage, Warm Amber, Cyberpunk Violet oraz 1 jasny Clean Light) oparty o semantyczne tokeny CSS variables (`--background`, `--foreground`, `--card`, `--primary`, `--secondary`, `--accent`, etc.) z przełączaniem <1ms bez reflow. Interaktywny selektor z kartami barw (Visual Swatch Cards) w dialogu konta na Desktopie i wysuwanym arkuszu (Bottom Sheet) z haptyką (`navigator.vibrate(50)`) na Mobile PWA, anti-FOUC skrypt w `index.html`, multi-tier persistence (`localStorage` + `public.users.theme` z izolacją per-user i RLS). Zobacz [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md).
+*   **System Szat Graficznych i Motywów (Themes):** Silnik 6 starannie dobranych szat graficznych (5 ciemnych/OLED: OLED Black [domyślny `oled-black`], OLED Emerald, Midnight Blue, Forest Sage, Warm Amber, Cyberpunk Violet oraz 1 jasny Clean Light) oparty o semantyczne tokeny CSS variables (`--background`, `--foreground`, `--card`, `--primary`, `--secondary`, `--accent`, etc.) z przełączaniem <1ms bez reflow. Interaktywny selektor z kartami barw (Visual Swatch Cards) w dialogu konta na Desktopie i wysuwanym arkuszu (Bottom Sheet) z haptyką (`navigator.vibrate(50)`) na Mobile PWA, anti-FOUC skrypt w `index.html`, multi-tier persistence (`localStorage` + `public.users.theme` z izolacją per-user i RLS). Zobacz [ADR-004: Theme System & Visual Styling](./adr/ADR-004-theme-system-and-visual-styling.md).
 *   **Import Przepisów z JSON (Desktop Shortcut `Ctrl+Alt+P`):** Dedykowany, wielkoformatowy edytor modalny (`JsonRecipeImportDialog`) uruchamiany globalnym skrótem klawiszowym `Ctrl+Alt+P` (lub `Cmd+Option+P` na macOS) wyłącznie na Desktopie. Posiada walidację składni i schematu encji w locie (Real-Time Validation), inteligentną normalizację jednostek (`kg` -> `g`, `dag` -> `g`, `l` -> `ml`, `szt`/`pcs` -> `pcs`), wsparcie importu pojedynczego i wsadowego, automatyczne tworzenie brakujących produktów w katalogu oraz natychmiastowy zapis do bazy danych i przekierowanie do Przepiśnika.
 
 ## 7. Instrukcja Konfiguracji (DEV & Vercel)

@@ -137,8 +137,8 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
               type="button"
               onClick={() => onOpenPantry(product)}
               className={cn(
-                'rounded-lg transition-colors cursor-pointer',
-                isDesktop ? 'p-1.5' : 'p-2',
+                'rounded-lg transition-colors cursor-pointer flex items-center justify-center',
+                isDesktop ? 'p-1.5' : 'p-2.5 min-w-[38px] min-h-[38px]',
                 pantryItem
                   ? 'text-primary hover:bg-primary/10'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -155,8 +155,8 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
                   type="button"
                   onClick={() => onEdit(product)}
                   className={cn(
-                    'text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer',
-                    isDesktop ? 'p-1.5' : 'p-2'
+                    'text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer flex items-center justify-center',
+                    isDesktop ? 'p-1.5' : 'p-2.5 min-w-[38px] min-h-[38px]'
                   )}
                   title={t('common.edit')}
                 >
@@ -166,8 +166,8 @@ export const ProductCatalogCard: React.FC<ProductCatalogCardProps> = ({
                   type="button"
                   onClick={() => onRequestDelete(product)}
                   className={cn(
-                    'text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer',
-                    isDesktop ? 'p-1.5' : 'p-2'
+                    'text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer flex items-center justify-center',
+                    isDesktop ? 'p-1.5' : 'p-2.5 min-w-[38px] min-h-[38px]'
                   )}
                   title={t('common.delete')}
                 >

@@ -3,9 +3,10 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Database, UnitEnum } from '@/types/supabase'
 import type { ShoppingListSummary } from '@/services/shoppingListService'
 import {
-  calculateIngredientMacros,
-  resolveEffectiveIngredientMacros
-} from '@/lib/calculations/macroCalculations'
+  appendMealToDraftItems,
+  appendMultipleItemsToDraftItems,
+  appendSingleItemToDraftItems
+} from '@/lib/calculations/draftCalculations'
 
 export type Product = Database['public']['Tables']['products']['Row']
 export type ProductCategory = Database['public']['Tables']['product_categories']['Row']
@@ -70,7 +71,7 @@ interface ShoppingStoreState {
   selectedActiveListId: string | null
   selectedActiveListIdByHousehold: Record<string, string | null>
   activeListsSummary: ShoppingListSummary[]
-  
+
   // Actions
   setActiveHousehold: (householdId: string | null) => void
   setSelectedActiveListId: (id: string | null) => void
@@ -136,61 +137,8 @@ export const useShoppingStore = create<ShoppingStoreState>()(
       addMealToDraft: (meal, targetKcal) => {
         const state = get()
         const key = state.activeHouseholdId || 'default'
-        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
-
-        // 1. Calculate total base calories of the meal (unit-aware for pcs & ADR-010 reference_product)
-        let baseKcalTotal = 0
-        meal.ingredients.forEach((ing) => {
-          if (ing.product) {
-            const effective = resolveEffectiveIngredientMacros(ing.product, ing.reference_product)
-            const macros = calculateIngredientMacros(
-              ing.base_quantity,
-              effective.macros,
-              ing.product.unit_type
-            )
-            baseKcalTotal += macros.kcal
-          }
-        })
-
-        // 2. Compute portion scaling multiplier
-        let multiplier = 1
-        if (targetKcal && targetKcal > 0 && baseKcalTotal > 0) {
-          multiplier = targetKcal / baseKcalTotal
-        }
-
-        // 3. Transform scaled ingredients into draft list items
-        const updatedDraft = [...currentDraft]
-
-        meal.ingredients.forEach((ing) => {
-          if (ing.is_pantry_item) return
-          if (!ing.product) return
-
-          const scaledQuantity = Math.round((ing.base_quantity * multiplier) * 10) / 10
-
-          const existingIndex = updatedDraft.findIndex(
-            (d) => d.product_id === ing.product_id && !d.is_ad_hoc
-          )
-
-          if (existingIndex >= 0) {
-            updatedDraft[existingIndex] = {
-              ...updatedDraft[existingIndex],
-              quantity: Math.round((updatedDraft[existingIndex].quantity + scaledQuantity) * 10) / 10
-            }
-          } else {
-            updatedDraft.push({
-              id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              product_id: ing.product.id,
-              name: ing.product.name,
-              unit_type: ing.product.unit_type,
-              category_id: ing.product.category_id || undefined,
-              category_name: 'other',
-              sort_order: 99,
-              quantity: scaledQuantity,
-              is_ad_hoc: false,
-              meal_source: meal.name
-            })
-          }
-        })
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const updatedDraft = appendMealToDraftItems(currentDraft, meal, targetKcal)
 
         set({
           draftsByHousehold: {
@@ -204,7 +152,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
       addAdHocToDraft: (item) => {
         const state = get()
         const key = state.activeHouseholdId || 'default'
-        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
 
         const newItem: DraftItem = {
           id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -231,167 +179,30 @@ export const useShoppingStore = create<ShoppingStoreState>()(
       addItemToDraft: (item) => {
         const state = get()
         const key = state.activeHouseholdId || 'default'
-        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
-        const isAdHoc = !!item.is_ad_hoc || !item.product_id
-        const targetPlanId = item.meal_plan_item_id || null
-
-        if (!isAdHoc && item.product_id) {
-          const existingIndex = currentDraft.findIndex(
-            (d) => d.product_id === item.product_id && !d.is_ad_hoc && (d.meal_plan_item_id || null) === targetPlanId
-          )
-
-          if (existingIndex >= 0) {
-            const existing = currentDraft[existingIndex]
-            const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
-            currentDraft[existingIndex] = {
-              ...existing,
-              quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
-              category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
-              category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
-              meal_source: existing.meal_source || item.meal_source,
-              meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
-            }
-          } else {
-            currentDraft.push({
-              id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              product_id: item.product_id,
-              name: item.name,
-              unit_type: item.unit_type,
-              category_id: item.category_id,
-              category_name: item.category_name || 'other',
-              sort_order: item.sort_order ?? 99,
-              quantity: item.quantity,
-              is_ad_hoc: false,
-              meal_source: item.meal_source,
-              meal_plan_item_id: targetPlanId
-            })
-          }
-        } else {
-          const existingIndex = currentDraft.findIndex(
-            (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type && (d.meal_plan_item_id || null) === targetPlanId
-          )
-
-          if (existingIndex >= 0) {
-            const existing = currentDraft[existingIndex]
-            const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
-            currentDraft[existingIndex] = {
-              ...existing,
-              quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
-              category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
-              category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-              sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
-              meal_source: existing.meal_source || item.meal_source,
-              meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
-            }
-          } else {
-            currentDraft.push({
-              id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-              product_id: item.product_id,
-              name: item.name,
-              unit_type: item.unit_type,
-              category_id: item.category_id,
-              category_name: item.category_name || 'other',
-              sort_order: item.sort_order ?? 99,
-              quantity: item.quantity,
-              is_ad_hoc: true,
-              meal_source: item.meal_source,
-              meal_plan_item_id: targetPlanId
-            })
-          }
-        }
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const updatedDraft = appendSingleItemToDraftItems(currentDraft, item)
 
         set({
           draftsByHousehold: {
             ...state.draftsByHousehold,
-            [key]: currentDraft
+            [key]: updatedDraft
           },
-          draftItems: currentDraft
+          draftItems: updatedDraft
         })
       },
 
       addMultipleToDraft: (items) => {
         const state = get()
         const key = state.activeHouseholdId || 'default'
-        const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
-
-        for (const item of items) {
-          const isAdHoc = !!item.is_ad_hoc || !item.product_id
-          const targetPlanId = item.meal_plan_item_id || null
-
-          if (!isAdHoc && item.product_id) {
-            const existingIndex = currentDraft.findIndex(
-              (d) => d.product_id === item.product_id && !d.is_ad_hoc && (d.meal_plan_item_id || null) === targetPlanId
-            )
-
-            if (existingIndex >= 0) {
-              const existing = currentDraft[existingIndex]
-              const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
-              currentDraft[existingIndex] = {
-                ...existing,
-                quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
-                category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
-                category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
-                meal_source: existing.meal_source || item.meal_source,
-                meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
-              }
-            } else {
-              currentDraft.push({
-                id: `draft_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                product_id: item.product_id,
-                name: item.name,
-                unit_type: item.unit_type,
-                category_id: item.category_id,
-                category_name: item.category_name || 'other',
-                sort_order: item.sort_order ?? 99,
-                quantity: item.quantity,
-                is_ad_hoc: false,
-                meal_source: item.meal_source,
-                meal_plan_item_id: targetPlanId
-              })
-            }
-          } else {
-            const existingIndex = currentDraft.findIndex(
-              (d) => d.is_ad_hoc && d.name.toLowerCase() === item.name.toLowerCase() && d.unit_type === item.unit_type && (d.meal_plan_item_id || null) === targetPlanId
-            )
-
-            if (existingIndex >= 0) {
-              const existing = currentDraft[existingIndex]
-              const shouldAdoptCategory = (!existing.category_id || existing.category_name === 'other') && !!item.category_id
-              currentDraft[existingIndex] = {
-                ...existing,
-                quantity: Math.round((existing.quantity + item.quantity) * 10) / 10,
-                category_id: shouldAdoptCategory ? item.category_id : existing.category_id,
-                category_name: shouldAdoptCategory && item.category_name ? item.category_name : existing.category_name,
-                sort_order: shouldAdoptCategory && item.sort_order !== undefined ? item.sort_order : existing.sort_order,
-                meal_source: existing.meal_source || item.meal_source,
-                meal_plan_item_id: existing.meal_plan_item_id || targetPlanId
-              }
-            } else {
-              currentDraft.push({
-                id: `adhoc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-                product_id: item.product_id,
-                name: item.name,
-                unit_type: item.unit_type,
-                category_id: item.category_id,
-                category_name: item.category_name || 'other',
-                sort_order: item.sort_order ?? 99,
-                quantity: item.quantity,
-                is_ad_hoc: true,
-                meal_source: item.meal_source,
-                meal_plan_item_id: targetPlanId
-              })
-            }
-          }
-        }
+        const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
+        const updatedDraft = appendMultipleItemsToDraftItems(currentDraft, items)
 
         set({
           draftsByHousehold: {
             ...state.draftsByHousehold,
-            [key]: currentDraft
+            [key]: updatedDraft
           },
-          draftItems: currentDraft
+          draftItems: updatedDraft
         })
       },
 
@@ -430,9 +241,7 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const state = get()
         const key = state.activeHouseholdId || 'default'
         const currentDraft = state.draftsByHousehold[key] || state.draftItems || []
-        const updatedDraft = currentDraft.map((i) =>
-          i.id === id ? { ...i, quantity } : i
-        )
+        const updatedDraft = currentDraft.map((i) => (i.id === id ? { ...i, quantity } : i))
 
         set({
           draftsByHousehold: {

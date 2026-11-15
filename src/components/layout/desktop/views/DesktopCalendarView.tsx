@@ -86,7 +86,7 @@ export const DesktopCalendarView: React.FC = () => {
               {t('calendar.title')}
             </h2>
             <span className="text-xs text-muted-foreground">
-              Planuj posiłki, kontroluj makro i wysyłaj składniki bezpośrednio do listy zakupów
+              {t('calendar.subtitle')}
             </span>
           </div>
         </div>

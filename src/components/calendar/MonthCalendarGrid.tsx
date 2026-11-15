@@ -32,7 +32,8 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   selectedDate,
   onOpenDayView
 }) => {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const locale = language === 'pl' ? 'pl-PL' : 'en-US'
   const mealPlans = useMealPlanStore((state) => state.mealPlans)
   const pantryItems = usePantryStore((state) => state.pantryItems)
   const draftItems = useShoppingStore((state) => state.draftItems)
@@ -74,14 +75,14 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   let startingDayOfWeek = firstDayOfMonth.getDay() - 1
   if (startingDayOfWeek === -1) startingDayOfWeek = 6
 
-  const monthTitle = firstDayOfMonth.toLocaleDateString(undefined, {
+  const monthTitle = firstDayOfMonth.toLocaleDateString(locale, {
     month: 'long',
     year: 'numeric'
   })
 
   const weekDayHeaders = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(2026, 9, 5 + i)
-    return d.toLocaleDateString(undefined, { weekday: 'short' })
+    return d.toLocaleDateString(locale, { weekday: 'short' })
   })
 
   const totalCells = Math.ceil((startingDayOfWeek + totalDays) / 7) * 7

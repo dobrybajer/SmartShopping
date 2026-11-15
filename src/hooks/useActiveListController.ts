@@ -173,13 +173,14 @@ export function useActiveListController() {
           shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
           const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
           if (allDone && newChecked) {
-            const completedByName = userProfile?.name || user?.email?.split('@')[0] || 'Domownik'
+            const completedByName =
+              userProfile?.name || user?.email?.split('@')[0] || t('common.householdMember')
             notificationService
               .notify(
                 'LIST_COMPLETED',
                 {
                   listId: activeList.id,
-                  listName: activeList.name || 'Lista zakupów',
+                  listName: activeList.name || t('common.shoppingList'),
                   completedByName
                 },
                 household.id
@@ -191,7 +192,7 @@ export function useActiveListController() {
         enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
       }
     },
-    [activeList, household, userProfile?.name, user?.email, setActiveListsSummary]
+    [activeList, household, userProfile?.name, user?.email, setActiveListsSummary, t]
   )
 
   const applyQuantityChange = useCallback(

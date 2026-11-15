@@ -127,7 +127,7 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       mealPlans: get().mealPlans.map((item) => (item.id === tempId ? created : item))
     })
 
-    toast.success(translate('calendar.mealAddedToast') || 'Posiłek dodany do planu')
+    toast.success(translate('calendar.mealAddedToast'))
     return created
   },
 
@@ -167,7 +167,7 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       return false
     }
 
-    toast.success(translate('calendar.mealDeletedToast') || 'Posiłek usunięty z planu')
+    toast.success(translate('calendar.mealDeletedToast'))
     return true
   },
 
@@ -179,7 +179,7 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     }
 
     set({ mealPlans: [...get().mealPlans, duplicated] })
-    toast.success(translate('calendar.mealDuplicatedToast') || 'Posiłek skopiowany')
+    toast.success(translate('calendar.mealDuplicatedToast'))
     return duplicated
   },
 
@@ -192,15 +192,12 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     })
 
     if (payloads.length === 0) {
-      toast.info(translate('calendar.noIngredientsToTransfer') || 'Wszystkie składniki masz w spiżarni lub brak składników')
+      toast.info(translate('calendar.noIngredientsToTransfer'))
       return 0
     }
 
     useShoppingStore.getState().addMultipleToDraft(payloads)
-    toast.success(
-      translate('calendar.transferredToDraftSuccess', { count: payloads.length }) ||
-      `Dodano ${payloads.length} składników do koszyka`
-    )
+    toast.success(translate('calendar.transferredToDraftSuccess', { count: payloads.length }))
     return payloads.length
   },
 
@@ -221,25 +218,19 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     }
 
     if (allPayloads.length === 0) {
-      toast.info(translate('calendar.noIngredientsToTransfer') || 'Wszystkie składniki masz w spiżarni lub brak składników')
+      toast.info(translate('calendar.noIngredientsToTransfer'))
       return 0
     }
 
     useShoppingStore.getState().addMultipleToDraft(allPayloads)
-    toast.success(
-      translate('calendar.dayTransferredToDraftSuccess', { count: allPayloads.length }) ||
-      `Dodano ${allPayloads.length} składników z tego dnia do koszyka`
-    )
+    toast.success(translate('calendar.dayTransferredToDraftSuccess', { count: allPayloads.length }))
     return allPayloads.length
   },
 
   restoreMissingIngredient: (missing, planItem) => {
     const payload = mealPlanService.createRestoreDraftPayload(missing, planItem, planItem.date)
     useShoppingStore.getState().addItemToDraft(payload)
-    toast.success(
-      translate('calendar.ingredientRestoredToast', { name: missing.productName }) ||
-      `Przywrócono ${missing.productName} do koszyka`
-    )
+    toast.success(translate('calendar.ingredientRestoredToast', { name: missing.productName }))
   },
 
   dismissUncertainty: async (planId) => {

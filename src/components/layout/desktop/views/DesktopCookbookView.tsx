@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { MealDetailsSheet } from '@/components/dialogs/MealDetailsSheet'
 import { AddMealSheet } from '@/components/dialogs/AddMealSheet'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
 import { Search, Plus, Home, Globe, Utensils } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -176,6 +177,13 @@ export const DesktopCookbookView: React.FC = () => {
         open={ctrl.isAddMealOpen}
         onOpenChange={ctrl.setIsAddMealOpen}
         onMealCreated={ctrl.loadMeals}
+      />
+
+      <ConfirmDeleteDialog
+        open={ctrl.isDeleteModalOpen}
+        onOpenChange={ctrl.setIsDeleteModalOpen}
+        itemName={ctrl.mealToDelete?.name}
+        onConfirm={ctrl.handleConfirmDeleteMeal}
       />
     </div>
   )

@@ -60,7 +60,7 @@ export const PantryItemRow: React.FC<PantryItemRowProps> = ({
   const expiry = calculateExpiryStatus(item.expiration_date)
 
   const isDesktop = variant === 'desktop'
-  const stepBtnSize = isDesktop ? 'w-8 h-8 rounded-lg' : 'w-7 h-7 rounded-md'
+  const stepBtnSize = isDesktop ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 min-w-[36px] min-h-[36px] rounded-md'
 
   const card = (
     <div

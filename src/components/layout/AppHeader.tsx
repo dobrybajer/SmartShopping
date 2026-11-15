@@ -84,7 +84,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
             className={cn(
-              "flex items-center gap-1.5 p-1 pl-1.5 pr-2 rounded-full border transition-all cursor-pointer select-none",
+              "flex items-center gap-1.5 min-h-[44px] min-w-[44px] p-1 pl-2 pr-2.5 rounded-full border transition-all cursor-pointer select-none",
               isMenuOpen
                 ? "bg-muted border-primary/80 shadow-md ring-2 ring-primary/20"
                 : "bg-background border-border hover:border-border/80 hover:bg-muted"

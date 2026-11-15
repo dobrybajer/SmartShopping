@@ -618,59 +618,67 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### NORM-10: Pełna Internacjonalizacja (i18n) Pozostałych Twardo Zakodowanych Tekstów Polskich oraz Ujednolicenie Dialogu Usuwania w Przepiśniku (ADR-003)
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Internacjonalizacja (i18n) / UX / Jakość Kodu (ADR-003)
-* **Pliki do modyfikacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L52-L64), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L90-L105), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L109-L295), [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts#L209-L210), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L130-L241), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L176-L182), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts#L109), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
+* **Pliki implementacji:** [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx), [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts), [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts), [CookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CookbookView.tsx), [DesktopCookbookView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCookbookView.tsx), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
 * **Problem / Uzasadnienie:**
   * W kilku miejscach pozostały twardo zakodowane polskie etykiety pomijające słowniki `src/i18n/locales/{pl,en}.ts`:
-    - [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx#L52-L64): `'Świeże / niedawno:'`, `'Weryfikacja:'`, `'Dawno / uzupełnij:'`.
+    - [DesktopPantryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopPantryView.tsx): `'Świeże / niedawno:'`, `'Weryfikacja:'`, `'Dawno / uzupełnij:'`.
     - [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx) & [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx): `'Tydzień do koszyka'`, `'Wyślij tydzień do koszyka'`, `'Poprzedni tydzień'`, `'Następny tydzień'`, `'Poprzedni dzień'`, `'Następny dzień'`, `'Dodaj'`, `'porcji'`, `'Składniki'`, `'Posiłek'` oraz wywołania `toLocaleDateString(undefined, ...)` zamiast aktywnego języka `language === 'pl' ? 'pl-PL' : 'en-US'`.
-    - [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts#L209-L210): `'Posiłek'`, `'(Przywrócono)'`.
-    - [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L176-L182): `'Domownik'`, `'Lista zakupów'`.
-  * Dodatkowo w [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts#L109) usuwanie przepisu wywołuje natywne okno przeglądarki `window.confirm(...)` zamiast spójnego wizualnie komponentu `ConfirmDeleteDialog`.
-* **Planowane Rozwiązanie:**
-  1. Przenieść wszystkie powyższe ciągi znaków do słowników `pl.ts` i `en.ts` oraz przekazać aktywne `language` do `toLocaleDateString`.
-  2. Zastąpić `window.confirm(...)` w `useCookbookController.ts` stanem modala i komponentem `ConfirmDeleteDialog` w `CookbookView.tsx` oraz `DesktopCookbookView.tsx`.
+    - [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts): `'Posiłek'`, `'(Przywrócono)'`.
+    - [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts): `'Domownik'`, `'Lista zakupów'`.
+  * Dodatkowo w [useCookbookController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useCookbookController.ts) usuwanie przepisu wywoływało natywne okno przeglądarki `window.confirm(...)` zamiast spójnego wizualnie komponentu `ConfirmDeleteDialog`.
+* **Wdrożone Rozwiązanie:**
+  1. Przeniesiono wszystkie powyższe ciągi znaków do słowników `pl.ts` i `en.ts` oraz przekazano aktywne `locale` (`language === 'pl' ? 'pl-PL' : 'en-US'`) do wszystkich wywołań `toLocaleDateString` w Kalendarzu.
+  2. Zastąpiono `window.confirm(...)` w `useCookbookController.ts` stanem modala (`mealToDelete`, `isDeleteModalOpen`, `handleConfirmDeleteMeal`) i komponentem `ConfirmDeleteDialog` w `CookbookView.tsx` oraz `DesktopCookbookView.tsx`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Pełna lokalizacja PL/EN bez twardo zakodowanych ciągów znaków oraz spójny modal potwierdzenia usunięcia przepisu w obu layoutach.
 
 ---
 
 ### NORM-11: Dalsza Dekompozycja Warstwy Serwisów (`shoppingListService.ts` – 1012 linii) i Store (`useShoppingStore.ts` – 468 linii)
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Architektura / Modułowość Kodu (Zasada 2.4 z `AGENTS.md`)
-* **Pliki do modyfikacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts), [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts)
+* **Pliki implementacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [shoppingListTypes.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTypes.ts), [shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts), [shoppingListTransfer.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTransfer.ts), [shoppingListItems.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListItems.ts), [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts), [draftCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/draftCalculations.ts)
 * **Problem / Uzasadnienie:**
   * Po dekompozycji widoków UI w zadaniu `NORM-02`, w warstwie serwisów i store pozostały pliki przekraczające wytyczną `< 250-300` linii z `AGENTS.md`:
-    - [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts) liczy **1,012 linii**, łącząc w jednym pliku zarządzanie listami, operacje na pozycjach i OCC, transfer z koszyka roboczego, transakcyjną archiwizację z fallbackiem oraz obsługę historii.
-    - [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts) liczy **468 linii**, a [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts) **413 linii**.
-* **Planowane Rozwiązanie:**
-  1. Podzielić `shoppingListService.ts` na mniejsze, wyspecjalizowane moduły (np. `shoppingListTransfer.ts`, `shoppingListArchive.ts`, `shoppingListHistory.ts`), zachowując fasadę `shoppingListService` dla pełnej kompatybilności wstecznej.
-  2. Wydzielić pomocnicze transformacje koszyka roboczego z `useShoppingStore.ts` do `src/lib/calculations/`.
+    - [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts) liczył ponad **1,000 linii**, łącząc w jednym pliku zarządzanie listami, operacje na pozycjach i OCC, transfer z koszyka roboczego, transakcyjną archiwizację z fallbackiem oraz obsługę historii.
+    - [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts) liczył **477 linii** z zduplikowaną logiką scalania pozycji w `addItemToDraft` i `addMultipleToDraft`.
+* **Wdrożone Rozwiązanie:**
+  1. Podzielono `shoppingListService.ts` na wyspecjalizowane moduły w `src/services/shoppingList/` (`shoppingListTypes.ts`, `shoppingListArchive.ts`, `shoppingListTransfer.ts`, `shoppingListItems.ts`), redukując plik główny do **298 linii** przy 100% kompatybilności wstecznej fasady `shoppingListService`.
+  2. Wydzielono czyste funkcje transformacji koszyka roboczego (`appendMealToDraftItems`, `appendSingleItemToDraftItems`, `appendMultipleItemsToDraftItems`) z `useShoppingStore.ts` do [draftCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/draftCalculations.ts), redukując `useShoppingStore.ts` do **284 linii**.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Wszystkie wydzielone moduły mieszczą się poniżej progu `300` linii, zlikwidowano duplikację logiki tworzenia produktów ad-hoc oraz scalania koszyka.
 
 ---
 
 ### NORM-12: Zastąpienie Domyślnego Szablonu Vite w `README.md` Dokumentacją Projektu oraz Drobna Synchronizacja `PRD.md` i `.agents/rules/`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Dokumentacja Projektowa (Zasada 2.6 z `AGENTS.md`)
-* **Pliki do modyfikacji:** [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md), [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43), [06-documentation-and-adrs.md](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/06-documentation-and-adrs.md)
+* **Pliki implementacji:** [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md), [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43), [06-documentation-and-adrs.md](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/06-documentation-and-adrs.md)
 * **Problem / Uzasadnienie:**
-  * Plik [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md) w głównym katalogu repozytorium nadal zawiera generyczny boilerplate Vite (`# React + TypeScript + Vite`) zamiast opisu architektury SmartShopping, wymaganych zmiennych środowiskowych (`.env`: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`), komend deweloperskich oraz spisu dokumentacji (`AGENTS.md`, `docs/PRD.md`, `docs/plan.md`, `docs/Roadmap.md`, `docs/adr/`).
-  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43) w sekcji DDL widnieje `theme VARCHAR(32) DEFAULT 'oled-emerald' NOT NULL`, podczas gdy migracja [20260825000000_add_theme_to_users.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260825000000_add_theme_to_users.sql) oraz kod (`DEFAULT_THEME`) używają `'oled-black'`.
-* **Planowane Rozwiązanie:**
-  1. Napisać kompletny, profesjonalny `README.md` dla projektu SmartShopping.
-  2. Skorygować domyślny motyw w DDL `docs/PRD.md` na `'oled-black'` i uzupełnić indeks ADR w `.agents/rules/06-documentation-and-adrs.md` o wszystkie dokumenty `ADR-001`..`ADR-010`.
+  * Plik [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md) w głównym katalogu repozytorium zawierał generyczny boilerplate Vite (`# React + TypeScript + Vite`) zamiast opisu architektury SmartShopping, zmiennych `.env`, komend deweloperskich oraz spisu dokumentacji.
+  * W [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43) w sekcji DDL widniało `theme VARCHAR(32) DEFAULT 'oled-emerald' NOT NULL`, podczas gdy migracja [20260825000000_add_theme_to_users.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260825000000_add_theme_to_users.sql) oraz kod (`DEFAULT_THEME`) używają `'oled-black'`.
+* **Wdrożone Rozwiązanie:**
+  1. Zastąpiono szablon Vite w [README.md](file:///d:/08_Git/SmartShopping/SmartShopping/README.md) kompletną dokumentacją projektu SmartShopping (architektura Dual Layout, stos technologiczny, konfiguracja `.env`, bramki jakości, struktura katalogów i indeks ADR-001..ADR-010).
+  2. Skorygowano domyślny motyw w DDL [PRD.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/PRD.md#L43) na `'oled-black'`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Pełna spójność dokumentacji wejściowej repozytorium (`README.md`), specyfikacji `PRD.md` i indeksu ADR.
 
 ---
 
 ### NORM-13: Powiększenie Mobilnych Stref Dotyku (`>= 44x44px`) dla Przycisków Ilości (`+`/`-`) oraz Responsywność na Tabletach (`768px–1023px`) i Desktopowym `LoginScreen`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** UX / Dostępność Dotykowa (WCAG 2.5.5) / Responsywność (RWD)
-* **Pliki do modyfikacji:** [ActiveListItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/ActiveListItemRow.tsx#L168-L231), [DraftItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/DraftItemRow.tsx#L135-L200), [PantryItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/pantry/PantryItemRow.tsx#L63), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx#L141-L176), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L104-L131), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L130-L144), [MobileLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/MobileLayout.tsx#L24), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx#L31)
+* **Pliki implementacji:** [ActiveListItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/ActiveListItemRow.tsx), [DraftItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/DraftItemRow.tsx), [PantryItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/pantry/PantryItemRow.tsx), [ProductCatalogCard.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/products/ProductCatalogCard.tsx), [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx), [MobileLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/MobileLayout.tsx), [LoginScreen.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/LoginScreen.tsx)
 * **Problem / Uzasadnienie (Potwierdzone pomiarami `getBoundingClientRect()` w Microsoft Edge):**
-  * **Zbyt małe strefy dotyku na Mobile (`20–38px` zamiast `>= 44x44px`):** Pomiary w żywym DOM Microsoft Edge na ekranie `360x800` wykazały, że wiele kluczowych elementów interaktywnych nie osiąga `44x44px`: przyciski `-` i `+` (`28x28px`) oraz przycisk edycji ilości (`56x20px`) w `ActiveListItemRow.tsx`, `DraftItemRow.tsx` i `PantryItemRow.tsx`, przycisk `Usuń` na karcie przepisu (`26x26px`), przyciski akcji w `ProductCatalogCard.tsx` (`30x30px`), strzałki zmiany daty w `DayCalendarView` i `WeekCalendarView` (`36x36px`), przełącznik widoku kalendarza (`80x28px`) oraz przycisk `Profil` w `AppHeader` (`64x38px`).
-  * **Wąski kontener `max-w-md` (`448px`) na tabletach i ekranie logowania:** `MobileLayout.tsx` (używany dla szerokości `< 1024px`) oraz `LoginScreen.tsx` mają sztywne ograniczenie `max-w-md mx-auto`. Na tablecie `768x1024` kontener ma wymiary `448px × 1024px`, marnując `320px` (41.7% szerokości ekranu) na czarne pasy po bokach, a `LoginScreen` na monitorze `1440px` ma również `448px`.
-* **Planowane Rozwiązanie:**
-  1. Powiększyć mobilne przyciski `+`/`-`, ikony akcji, przycisk `Profil` i nawigację dat do bezpiecznego obszaru dotykowego (min. `40–44px` z odpowiednim paddingiem hit-area).
-  2. Rozszerzyć `MobileLayout.tsx` na breakpointach tabletowych (`md:max-w-2xl` / `sm:max-w-xl`) oraz nadać `LoginScreen.tsx` wycentrowaną kartę na pełnym tle ekranu dla Desktopu.
+  * **Zbyt małe strefy dotyku na Mobile (`20–38px` zamiast `>= 44x44px`):** Przyciski `-` i `+`, przycisk edycji ilości oraz ikona spiżarni w `ActiveListItemRow.tsx`, `DraftItemRow.tsx` i `PantryItemRow.tsx`, ikony akcji w `ProductCatalogCard.tsx`, strzałki zmiany daty w `DayCalendarView` i `WeekCalendarView` oraz przycisk `Profil` w `AppHeader` miały zbyt małe wymiary dotykowe na smartfonach.
+  * **Wąski kontener `max-w-md` (`448px`) na tabletach i ekranie logowania:** `MobileLayout.tsx` oraz `LoginScreen.tsx` miały sztywne ograniczenie `max-w-md mx-auto`.
+* **Wdrożone Rozwiązanie:**
+  1. Powiększono mobilne przyciski `+`/`-`, edycji ilości i ikony spiżarni w `ActiveListItemRow.tsx`, `DraftItemRow.tsx` i `PantryItemRow.tsx`, ikony akcji w `ProductCatalogCard.tsx`, przycisk `Profil` w `AppHeader.tsx` (`min-h-[44px] min-w-[44px]`) oraz strzałki dat w `DayCalendarView.tsx` i `WeekCalendarView.tsx` (`min-w-[44px] min-h-[44px] w-11 h-11`).
+  2. Rozszerzono kontener `MobileLayout.tsx` na breakpointach tabletowych (`w-full max-w-md sm:max-w-xl md:max-w-3xl mx-auto`) oraz wycentrowano kartę logowania w `LoginScreen.tsx` na pełnym tle ekranu dla tabletów i Desktopu.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Ergonomiczne strefy dotyku na Mobile PWA oraz pełne wykorzystanie przestrzeni na tabletach (`768px–1023px`) i ekranie logowania Desktop.
 
 ---
 
@@ -831,10 +839,10 @@ gantt
     NORM-02 Component Size Check         :done, 2026-11, 10d
     NORM-03 Accessibility a11y           :done, 2026-11, 14d
     NORM-04 Pantry Expiry Dates          :done, 2026-11, 10d
-    NORM-10 Complete i18n & Delete Modal :2026-12, 2d
-    NORM-11 Split shoppingListService    :2026-12, 2d
-    NORM-12 Update README & Docs Sync    :2026-12, 1d
-    NORM-13 Touch Targets & Tablet RWD   :2026-12, 1d
+    NORM-10 Complete i18n & Delete Modal :done, 2026-11, 2d
+    NORM-11 Split shoppingListService    :done, 2026-11, 2d
+    NORM-12 Update README & Docs Sync    :done, 2026-11, 1d
+    NORM-13 Touch Targets & Tablet RWD   :done, 2026-11, 1d
     section Nowe Funkcje (Low)
     LOW-07 Pantry Recipe Recommender     :2027-01, 18d
     LOW-06 Multi-Store Aisle Profiles    :2027-01, 14d
@@ -887,10 +895,10 @@ gantt
 | **NORM-07** | ✅ Zrealizowane | 🟢 Normal | Architecture / Services | 1 dzień | Separacja zapytań Supabase do `userService.ts`; 0 bezpośrednich zapytań w kontekstach. |
 | **NORM-08** | ✅ Zrealizowane | 🟢 Normal | PWA / Offline Cache | 1 dzień | Reguły Workbox `CacheFirst` (fonty, media) oraz `StaleWhileRevalidate` (JS/CSS) w `vite.config.ts`. |
 | **NORM-09** | ✅ Zrealizowane | 🟢 Normal | Realtime / UX | 0.5 dnia | Synchronizacja kolejności alejek w czasie rzeczywistym bezpośrednio w widoku aktywnej listy. |
-| **NORM-10** | ⏳ Oczekujące | 🟢 Normal | i18n / UX | 1 dzień | Przeniesienie pozostałych twardo zakodowanych polskich tekstów do słowników i18n oraz `ConfirmDeleteDialog` w Przepiśniku. |
-| **NORM-11** | ⏳ Oczekujące | 🟢 Normal | Architecture / Modularity | 1-2 dni | Podział `shoppingListService.ts` (1012L) na mniejsze moduły domenowe. |
-| **NORM-12** | ⏳ Oczekujące | 🟢 Normal | Documentation | 0.5 dnia | Zastąpienie szablonu Vite w `README.md` dokumentacją SmartShopping i korekta domyślnego motywu w DDL `PRD.md`. |
-| **NORM-13** | ⏳ Oczekujące | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` na przyciskach `+`/`-` w wierszach mobilnych oraz responsywność tabletowa (`768px–1023px`). |
+| **NORM-10** | ✅ Zrealizowane | 🟢 Normal | i18n / UX | 1 dzień | Przeniesienie pozostałych twardo zakodowanych polskich tekstów do słowników i18n oraz `ConfirmDeleteDialog` w Przepiśniku. |
+| **NORM-11** | ✅ Zrealizowane | 🟢 Normal | Architecture / Modularity | 1-2 dni | Podział `shoppingListService.ts` (1,106L → 298L) i `useShoppingStore.ts` (477L → 284L) na mniejsze moduły domenowe. |
+| **NORM-12** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Zastąpienie szablonu Vite w `README.md` dokumentacją SmartShopping i korekta domyślnego motywu w DDL `PRD.md`. |
+| **NORM-13** | ✅ Zrealizowane | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` / powiększone przyciski mobilne oraz responsywność tabletowa (`768px–1023px`) i `LoginScreen`. |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
 | **LOW-10** | ⏳ Oczekujące | 🔵 Low | UX Kulinaria / PWA | 2-3 dni | Tryb „Gotuję Teraz" krok-po-kroku z minutnikami i blokadą wygaszania ekranu (`WakeLock API`). |

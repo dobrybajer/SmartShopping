@@ -26,7 +26,7 @@ export const MobileLayout: React.FC<MobileLayoutProps> = ({
   onLayoutModeChange
 }) => {
   return (
-    <div className="max-w-md mx-auto h-[100dvh] h-screen max-h-[100dvh] bg-background text-foreground flex flex-col justify-between relative border-x border-border shadow-2xl overflow-hidden select-none font-sans">
+    <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl mx-auto h-[100dvh] h-screen max-h-[100dvh] bg-background text-foreground flex flex-col justify-between relative border-x border-border shadow-2xl overflow-hidden select-none font-sans">
       <div className="shrink-0 z-30">
         <AppHeader
           title={headerTitle}

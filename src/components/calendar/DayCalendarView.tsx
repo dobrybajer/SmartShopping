@@ -43,7 +43,8 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
   selectedDate,
   onDateChange
 }) => {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  const locale = language === 'pl' ? 'pl-PL' : 'en-US'
   const {
     mealPlans,
     deleteMealPlan,
@@ -90,7 +91,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
 
   // Format date display
   const dateObj = new Date(selectedDate + 'T00:00:00')
-  const formattedDate = dateObj.toLocaleDateString(undefined, {
+  const formattedDate = dateObj.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -104,8 +105,9 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         <button
           type="button"
           onClick={() => shiftDay(-1)}
-          className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-          title="Poprzedni dzień"
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+          title={t('calendar.prevDay')}
+          aria-label={t('calendar.prevDay')}
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
@@ -129,8 +131,9 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         <button
           type="button"
           onClick={() => shiftDay(1)}
-          className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
-          title="Następny dzień"
+          className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/80 text-foreground transition-all cursor-pointer"
+          title={t('calendar.nextDay')}
+          aria-label={t('calendar.nextDay')}
         >
           <ChevronRight className="w-5 h-5" />
         </button>
@@ -200,7 +203,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
               isPastDate
             })
 
-            const mealName = plan.meal?.name || plan.custom_name || 'Posiłek'
+            const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
             const ingredients = plan.meal?.ingredients || []
 
             return (
@@ -243,7 +246,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                 {ingredients.length > 0 && (
                   <div className="flex flex-col gap-1 pt-1 border-t border-border/40">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-                      Składniki ({ingredients.length})
+                      {t('cookbook.ingredients')} ({ingredients.length})
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {ingredients.map((ing) => {
@@ -400,7 +403,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         <CookMealDeductModal
           open={!!cookPlanItem}
           onOpenChange={(open) => !open && setCookPlanItem(null)}
-          mealName={cookPlanItem.meal?.name || cookPlanItem.custom_name || 'Posiłek'}
+          mealName={cookPlanItem.meal?.name || cookPlanItem.custom_name || t('calendar.defaultMealName')}
           ingredients={cookIngredients}
         />
       )}

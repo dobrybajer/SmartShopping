@@ -165,7 +165,10 @@ export const ActiveListItemRow: React.FC<ActiveListItemRowProps> = ({
               onDecrease(item)
             }}
             disabled={isChecked || isInPantry}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            className={cn(
+              'flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer',
+              isDesktop ? 'w-7 h-7' : 'w-9 h-9 min-w-[36px] min-h-[36px]'
+            )}
             title={t('common.decrease')}
             aria-label={t('common.decrease')}
           >
@@ -205,7 +208,7 @@ export const ActiveListItemRow: React.FC<ActiveListItemRowProps> = ({
               }}
               className={cn(
                 'font-mono text-xs font-bold min-w-[3.5rem] text-center select-none transition-colors',
-                isDesktop ? 'px-2.5 py-0.5 rounded-md' : 'px-2 py-0.5 rounded',
+                isDesktop ? 'px-2.5 py-0.5 rounded-md' : 'px-2 py-1 min-h-[36px] flex items-center justify-center rounded',
                 isInPantry
                   ? 'text-amber-500/70 cursor-default'
                   : isChecked
@@ -225,7 +228,10 @@ export const ActiveListItemRow: React.FC<ActiveListItemRowProps> = ({
               onIncrease(item)
             }}
             disabled={isChecked || isInPantry}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+            className={cn(
+              'flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90 transition-all disabled:opacity-30 disabled:pointer-events-none cursor-pointer',
+              isDesktop ? 'w-7 h-7' : 'w-9 h-9 min-w-[36px] min-h-[36px]'
+            )}
             title={t('common.increase')}
             aria-label={t('common.increase')}
           >
@@ -241,7 +247,8 @@ export const ActiveListItemRow: React.FC<ActiveListItemRowProps> = ({
               onSelectPantryItem(item)
             }}
             className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90',
+              'rounded-lg flex items-center justify-center border transition-all cursor-pointer shrink-0 active:scale-90',
+              isDesktop ? 'w-8 h-8' : 'w-10 h-10 min-w-[40px] min-h-[40px]',
               freshness.badgeBgClass,
               freshness.colorClass
             )}
