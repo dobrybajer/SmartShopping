@@ -140,6 +140,7 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
       'shopping_list_items',
       'pantry_items',
       'meal_plans',
+      'weekly_meal_templates',
       'household_category_settings',
       'push_subscriptions',
       'products',
@@ -282,7 +283,8 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
       'idx_meals_household_id',
       'idx_products_household_id',
       'idx_shopping_list_items_product_id',
-      'idx_pantry_items_product_id'
+      'idx_pantry_items_product_id',
+      'idx_weekly_meal_templates_household_id'
     ]
 
     for (const idx of requiredIndexes) {
@@ -336,5 +338,37 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
     expect(memberUpdates).toHaveLength(0)
 
     expect(createdIndexes.has('idx_household_members_household_role')).toBe(true)
+  })
+
+  it('Audit 10 (MED-16/MED-17/MED-18): weekly_meal_templates RLS, archive RPC meal_plan_item_id, and domain CHECK constraints exist', () => {
+    expect(rlsEnabledTables.has('weekly_meal_templates')).toBe(true)
+    expect(createdIndexes.has('idx_weekly_meal_templates_household_created')).toBe(true)
+
+    const medMigrationKey = Object.keys(migrationFiles).find((f) =>
+      f.includes('20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints')
+    )
+    expect(medMigrationKey).toBeDefined()
+    const medSql = migrationFiles[medMigrationKey as string]
+
+    expect(medSql).toContain("'meal_plan_item_id', sli.meal_plan_item_id")
+
+    const expectedConstraints = [
+      'chk_households_name_length',
+      'chk_products_name_length',
+      'chk_products_macros_non_negative',
+      'chk_meals_name_length',
+      'chk_meal_ingredients_base_quantity_positive',
+      'chk_shopping_lists_name_length',
+      'chk_shopping_list_items_total_quantity_positive',
+      'chk_pantry_items_quantity_non_negative',
+      'chk_meal_plans_servings_positive',
+      'chk_meal_plans_target_kcal_non_negative',
+      'chk_product_categories_sort_order_non_negative',
+      'chk_household_category_settings_sort_order_non_negative',
+      'chk_weekly_meal_templates_name_length'
+    ]
+    for (const constraint of expectedConstraints) {
+      expect(medSql, `Missing CHECK constraint ${constraint}`).toContain(constraint)
+    }
   })
 })

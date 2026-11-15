@@ -6,6 +6,154 @@ import { convertQuantity } from '@/lib/calculations/pantryCalculations'
 import { calculateIngredientMacros, sumMacroNutrients, resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
 
 type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['Row']
+type PantryEntry = PantryItem | PantryItemWithDetails
+
+export type PantryProductMap = ReadonlyMap<string, PantryEntry> | Record<string, PantryEntry>
+export type PantryParentMap = ReadonlyMap<string, PantryEntry[]> | Record<string, PantryEntry[]>
+
+export interface CalculateStatusOptions {
+  pantryItems?: PantryEntry[]
+  pantryMapByProductId?: PantryProductMap
+  pantryItemsByParentId?: PantryParentMap
+  availablePantryStock?: Map<string, number>
+  draftItems?: DraftItem[]
+  activeListItems?: ShoppingListItemRow[]
+  archivedListItems?: ShoppingListItemRow[]
+  isPastDate?: boolean
+  linkedDraft?: DraftItem[]
+  linkedActive?: ShoppingListItemRow[]
+  linkedArchived?: ShoppingListItemRow[]
+}
+
+function getPantryByProduct(
+  map: PantryProductMap | undefined,
+  productId: string
+): PantryEntry | undefined {
+  if (!map) return undefined
+  if (map instanceof Map) return map.get(productId)
+  return (map as Record<string, PantryEntry | undefined>)[productId]
+}
+
+function getPantryByParent(
+  map: PantryParentMap | undefined,
+  parentId: string
+): PantryEntry[] {
+  if (!map) return []
+  if (map instanceof Map) return map.get(parentId) || []
+  return (map as Record<string, PantryEntry[] | undefined>)[parentId] || []
+}
+
+function hasMapEntries(
+  map: PantryProductMap | PantryParentMap | undefined
+): boolean {
+  if (!map) return false
+  if (map instanceof Map) return map.size > 0
+  return Object.keys(map).length > 0
+}
+
+function buildPantryIndices(
+  pantryItems: PantryEntry[] = [],
+  existingProductMap?: PantryProductMap,
+  existingParentMap?: PantryParentMap
+): { byProduct: PantryProductMap; byParent: PantryParentMap } {
+  if (
+    existingProductMap &&
+    existingParentMap &&
+    (hasMapEntries(existingProductMap) || pantryItems.length === 0)
+  ) {
+    return { byProduct: existingProductMap, byParent: existingParentMap }
+  }
+
+  const byProduct = new Map<string, PantryEntry>()
+  const byParent = new Map<string, PantryEntry[]>()
+
+  for (const item of pantryItems) {
+    if (item.product_id && !byProduct.has(item.product_id)) {
+      byProduct.set(item.product_id, item)
+    }
+    if ('product' in item && item.product?.parent_id) {
+      const parentId = item.product.parent_id
+      const list = byParent.get(parentId)
+      if (list) list.push(item)
+      else byParent.set(parentId, [item])
+    }
+  }
+
+  return {
+    byProduct: hasMapEntries(existingProductMap) ? existingProductMap! : byProduct,
+    byParent: hasMapEntries(existingParentMap) ? existingParentMap! : byParent
+  }
+}
+
+function getEntryStockKey(entry: PantryEntry): string {
+  return entry.id || entry.product_id || ''
+}
+
+function getRemainingEntryQty(
+  entry: PantryEntry,
+  availablePantryStock?: Map<string, number>
+): number {
+  const baseQty = entry.quantity || 0
+  if (!availablePantryStock) return baseQty
+  const key = getEntryStockKey(entry)
+  if (!key) return baseQty
+  const cached = availablePantryStock.get(key)
+  return cached !== undefined ? cached : baseQty
+}
+
+/**
+ * Resolves total stocked quantity (supporting general/child pantry hierarchy) in `targetUnit`
+ * and optionally reserves `requiredQty` from `availablePantryStock` when fully covered.
+ */
+function resolveAndMaybeConsumePantryStock(
+  productId: string,
+  isGeneral: boolean | undefined,
+  targetUnit: PantryEntry['unit_type'],
+  requiredQty: number,
+  byProduct: PantryProductMap,
+  byParent: PantryParentMap,
+  availablePantryStock?: Map<string, number>,
+  consumeIfCovered = false
+): number {
+  const directPantry = getPantryByProduct(byProduct, productId)
+  const directConverted = directPantry
+    ? (convertQuantity(getRemainingEntryQty(directPantry, availablePantryStock), directPantry.unit_type, targetUnit) ?? 0)
+    : 0
+
+  const childEntries = isGeneral ? getPantryByParent(byParent, productId) : []
+  let childConverted = 0
+  if (childEntries.length > 0) {
+    for (const child of childEntries) {
+      childConverted +=
+        convertQuantity(getRemainingEntryQty(child, availablePantryStock), child.unit_type, targetUnit) ?? 0
+    }
+  }
+
+  const useDirect = directConverted >= childConverted
+  const maxStock = useDirect ? directConverted : childConverted
+
+  if (consumeIfCovered && availablePantryStock && maxStock >= requiredQty && requiredQty > 0) {
+    const entriesToConsume = useDirect ? (directPantry ? [directPantry] : []) : childEntries
+    let remainingToReserve = requiredQty
+
+    for (const entry of entriesToConsume) {
+      if (remainingToReserve <= 0) break
+      const key = getEntryStockKey(entry)
+      if (!key) continue
+      const currentNative = getRemainingEntryQty(entry, availablePantryStock)
+      const currentTarget = convertQuantity(currentNative, entry.unit_type, targetUnit) ?? 0
+      if (currentTarget <= 0) continue
+
+      const takeTarget = Math.min(remainingToReserve, currentTarget)
+      const ratio = currentTarget > 0 ? takeTarget / currentTarget : 0
+      const nextNative = Math.max(0, currentNative - currentNative * ratio)
+      availablePantryStock.set(key, nextNative)
+      remainingToReserve = Math.max(0, remainingToReserve - takeTarget)
+    }
+  }
+
+  return maxStock
+}
 
 /**
  * Computes the effective ingredient multiplier for a planned meal.
@@ -48,20 +196,20 @@ export function getEffectiveMultiplier(planItem: MealPlanItem): number {
  */
 export function calculateMealPlanStatus(
   planItem: MealPlanItem,
-  options: {
-    pantryItems?: (PantryItem | PantryItemWithDetails)[]
-    draftItems?: DraftItem[]
-    activeListItems?: ShoppingListItemRow[]
-    archivedListItems?: ShoppingListItemRow[]
-    isPastDate?: boolean
-  } = {}
+  options: CalculateStatusOptions = {}
 ): MealStatusDetails {
   const {
     pantryItems = [],
+    pantryMapByProductId,
+    pantryItemsByParentId,
+    availablePantryStock,
     draftItems = [],
     activeListItems = [],
     archivedListItems = [],
-    isPastDate = false
+    isPastDate = false,
+    linkedDraft: preLinkedDraft,
+    linkedActive: preLinkedActive,
+    linkedArchived: preLinkedArchived
   } = options
 
   // 1. Ad-Hoc dishes or meals without recipe ingredients
@@ -94,20 +242,19 @@ export function calculateMealPlanStatus(
     }
   }
 
-  // Pre-index items by product_id linked to this specific meal plan item
-  const linkedDraft = draftItems.filter((d) => d.meal_plan_item_id === planItem.id)
-  const linkedActive = activeListItems.filter((item) => item.meal_plan_item_id === planItem.id)
-  const linkedArchived = archivedListItems.filter((item) => item.meal_plan_item_id === planItem.id)
+  // Use pre-grouped pipeline lists when available, otherwise filter locally
+  const linkedDraft = preLinkedDraft ?? draftItems.filter((d) => d.meal_plan_item_id === planItem.id)
+  const linkedActive = preLinkedActive ?? activeListItems.filter((item) => item.meal_plan_item_id === planItem.id)
+  const linkedArchived =
+    preLinkedArchived ?? archivedListItems.filter((item) => item.meal_plan_item_id === planItem.id)
 
   const hasEnteredPipeline = linkedDraft.length > 0 || linkedActive.length > 0 || linkedArchived.length > 0
 
-  // Index pantry items by product_id
-  const pantryMap = new Map<string, PantryItem>()
-  for (const p of pantryItems) {
-    if (p.product_id) {
-      pantryMap.set(p.product_id, p)
-    }
-  }
+  const { byProduct, byParent } = buildPantryIndices(
+    pantryItems,
+    pantryMapByProductId,
+    pantryItemsByParentId
+  )
 
   let boughtCount = 0
   let inListCount = 0
@@ -121,22 +268,6 @@ export function calculateMealPlanStatus(
     const productId = ing.product_id!
     const product = ing.product!
     const requiredQty = ing.base_quantity * multiplier
-
-    // Check if covered by pantry (unit-aware conversion)
-    const directPantry = pantryMap.get(productId)
-    let stockedQty = directPantry
-      ? (convertQuantity(directPantry.quantity || 0, directPantry.unit_type, product.unit_type) ?? 0)
-      : 0
-    if (product.is_general) {
-      const childStock = pantryItems
-        .filter((p) => 'product' in p && p.product?.parent_id === productId)
-        .reduce(
-          (sum, p) => sum + (convertQuantity(p.quantity || 0, p.unit_type, product.unit_type) ?? 0),
-          0
-        )
-      stockedQty = Math.max(stockedQty, childStock)
-    }
-    const isPantryStocked = ing.is_pantry_item === true || stockedQty >= requiredQty
 
     // Check if on archived list (completed / bought or covered by pantry)
     const archivedItem = linkedArchived.find(
@@ -171,7 +302,22 @@ export function calculateMealPlanStatus(
       continue
     }
 
-    // If pantry covers it
+    // Check if covered by pantry (unit-aware conversion + cumulative reservation when enabled)
+    let isPantryStocked = ing.is_pantry_item === true
+    if (!isPantryStocked) {
+      const stockedQty = resolveAndMaybeConsumePantryStock(
+        productId,
+        product.is_general,
+        product.unit_type,
+        requiredQty,
+        byProduct,
+        byParent,
+        availablePantryStock,
+        !isPastDate && Boolean(availablePantryStock)
+      )
+      isPantryStocked = stockedQty >= requiredQty
+    }
+
     if (isPantryStocked) {
       pantryCoveredCount++
       continue
@@ -282,6 +428,72 @@ export function calculateDayMacros(planItems: MealPlanItem[]): DayMacroSummary {
 }
 
 /**
+ * Precomputes statuses for an array of MealPlanItems in a single O(N) pass:
+ * groups pipeline links once and reserves pantry stock cumulatively across non-past dates.
+ */
+export function calculateMealPlanStatusesMap(
+  plans: MealPlanItem[],
+  options: Omit<CalculateStatusOptions, 'plan' | 'isPastDate' | 'linkedDraft' | 'linkedActive' | 'linkedArchived'>,
+  todayISO: string
+): Map<string, MealStatusDetails> {
+  const result = new Map<string, MealStatusDetails>()
+  if (plans.length === 0) return result
+
+  const draftByPlanId = new Map<string, DraftItem[]>()
+  for (const d of options.draftItems || []) {
+    if (!d.meal_plan_item_id) continue
+    const list = draftByPlanId.get(d.meal_plan_item_id)
+    if (list) list.push(d)
+    else draftByPlanId.set(d.meal_plan_item_id, [d])
+  }
+
+  const activeByPlanId = new Map<string, ShoppingListItemRow[]>()
+  for (const a of options.activeListItems || []) {
+    if (!a.meal_plan_item_id) continue
+    const list = activeByPlanId.get(a.meal_plan_item_id)
+    if (list) list.push(a)
+    else activeByPlanId.set(a.meal_plan_item_id, [a])
+  }
+
+  const archivedByPlanId = new Map<string, ShoppingListItemRow[]>()
+  for (const ar of options.archivedListItems || []) {
+    if (!ar.meal_plan_item_id) continue
+    const list = archivedByPlanId.get(ar.meal_plan_item_id)
+    if (list) list.push(ar)
+    else archivedByPlanId.set(ar.meal_plan_item_id, [ar])
+  }
+
+  const { byProduct, byParent } = buildPantryIndices(
+    options.pantryItems,
+    options.pantryMapByProductId,
+    options.pantryItemsByParentId
+  )
+  const availablePantryStock = options.availablePantryStock ?? new Map<string, number>()
+
+  const sortedPlans = [...plans].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
+
+  for (const plan of sortedPlans) {
+    const isPastDate = plan.date < todayISO
+    const statusDetails = calculateMealPlanStatus(plan, {
+      pantryItems: options.pantryItems,
+      pantryMapByProductId: byProduct,
+      pantryItemsByParentId: byParent,
+      availablePantryStock,
+      isPastDate,
+      linkedDraft: draftByPlanId.get(plan.id) || [],
+      linkedActive: activeByPlanId.get(plan.id) || [],
+      linkedArchived: archivedByPlanId.get(plan.id) || []
+    })
+    result.set(plan.id, statusDetails)
+  }
+
+  return result
+}
+
+/**
  * Generates AddToDraftPayload items from a MealPlanItem to send to the shopping cart.
  * Optionally filters out ingredients that are already secured in the domestic pantry.
  */
@@ -289,24 +501,29 @@ export function generateDraftItemsFromMealPlan(
   planItem: MealPlanItem,
   options: {
     excludePantryItems?: boolean
-    pantryItems?: (PantryItem | PantryItemWithDetails)[]
+    pantryItems?: PantryEntry[]
+    pantryMapByProductId?: PantryProductMap
+    pantryItemsByParentId?: PantryParentMap
+    availablePantryStock?: Map<string, number>
     dayLabel?: string
   } = {}
 ): AddToDraftPayload[] {
-  const { excludePantryItems = true, pantryItems = [], dayLabel = '' } = options
+  const {
+    excludePantryItems = true,
+    pantryItems = [],
+    pantryMapByProductId,
+    pantryItemsByParentId,
+    availablePantryStock,
+    dayLabel = ''
+  } = options
 
   if (planItem.is_ad_hoc || !planItem.meal || !planItem.meal.ingredients) {
     return []
   }
 
-  const pantryMap = new Map<string, PantryItem | PantryItemWithDetails>()
-  if (excludePantryItems) {
-    for (const p of pantryItems) {
-      if (p.product_id) {
-        pantryMap.set(p.product_id, p)
-      }
-    }
-  }
+  const { byProduct, byParent } = excludePantryItems
+    ? buildPantryIndices(pantryItems, pantryMapByProductId, pantryItemsByParentId)
+    : { byProduct: new Map<string, PantryEntry>(), byParent: new Map<string, PantryEntry[]>() }
 
   const multiplier = getEffectiveMultiplier(planItem)
   const mealName = planItem.meal.name || planItem.custom_name || 'Posiłek'
@@ -323,19 +540,16 @@ export function generateDraftItemsFromMealPlan(
     // Skip if pantry item flag is set or stocked in domestic pantry
     if (excludePantryItems) {
       if (ing.is_pantry_item === true) continue
-      const directPantry = pantryMap.get(ing.product_id)
-      let stocked = directPantry
-        ? (convertQuantity(directPantry.quantity || 0, directPantry.unit_type, product.unit_type) ?? 0)
-        : 0
-      if (product.is_general) {
-        const childStock = pantryItems
-          .filter((p) => 'product' in p && p.product?.parent_id === ing.product_id)
-          .reduce(
-            (sum, p) => sum + (convertQuantity(p.quantity || 0, p.unit_type, product.unit_type) ?? 0),
-            0
-          )
-        stocked = Math.max(stocked, childStock)
-      }
+      const stocked = resolveAndMaybeConsumePantryStock(
+        ing.product_id,
+        product.is_general,
+        product.unit_type,
+        requiredQty,
+        byProduct,
+        byParent,
+        availablePantryStock,
+        Boolean(availablePantryStock)
+      )
       if (stocked >= requiredQty) continue
     }
 
@@ -353,4 +567,50 @@ export function generateDraftItemsFromMealPlan(
   }
 
   return draftPayloads
+}
+
+/**
+ * Generates batched AddToDraftPayload items across multiple MealPlanItems (e.g., whole day or week),
+ * sharing cumulative pantry stock reservations so two meals needing the same pantry ingredient do not double-count stock.
+ */
+export function generateDraftItemsFromMealPlans(
+  plans: MealPlanItem[],
+  options: {
+    excludePantryItems?: boolean
+    pantryItems?: PantryEntry[]
+    pantryMapByProductId?: PantryProductMap
+    pantryItemsByParentId?: PantryParentMap
+  } = {}
+): AddToDraftPayload[] {
+  if (plans.length === 0) return []
+
+  const excludePantryItems = options.excludePantryItems ?? true
+  const { byProduct, byParent } = excludePantryItems
+    ? buildPantryIndices(
+        options.pantryItems,
+        options.pantryMapByProductId,
+        options.pantryItemsByParentId
+      )
+    : { byProduct: new Map<string, PantryEntry>(), byParent: new Map<string, PantryEntry[]>() }
+
+  const availablePantryStock = new Map<string, number>()
+  const sortedPlans = [...plans].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  })
+
+  const allPayloads: AddToDraftPayload[] = []
+  for (const plan of sortedPlans) {
+    const items = generateDraftItemsFromMealPlan(plan, {
+      excludePantryItems,
+      pantryItems: options.pantryItems,
+      pantryMapByProductId: byProduct,
+      pantryItemsByParentId: byParent,
+      availablePantryStock,
+      dayLabel: plan.date
+    })
+    allPayloads.push(...items)
+  }
+
+  return allPayloads
 }

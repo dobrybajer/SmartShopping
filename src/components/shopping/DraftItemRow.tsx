@@ -147,8 +147,7 @@ export const DraftItemRow: React.FC<DraftItemRowProps> = ({
             >
               <input
                 type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
+                inputMode="decimal"
                 autoFocus
                 value={editValue}
                 onChange={(e) => onEditChange(e.target.value)}

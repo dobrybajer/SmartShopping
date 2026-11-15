@@ -8,6 +8,7 @@ import { useShoppingStore } from '@/store/useShoppingStore'
 import { useShallow } from 'zustand/react/shallow'
 import {
   calculateMealPlanStatus,
+  calculateMealPlanStatusesMap,
   calculateDayMacros,
   getEffectiveMultiplier
 } from '@/lib/calculations/calendarStatus'
@@ -135,6 +136,32 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
     [mealPlans, selectedDate]
   )
   const dayMacros = useMemo(() => calculateDayMacros(dayPlans), [dayPlans])
+
+  const statusByPlanId = useMemo(
+    () =>
+      calculateMealPlanStatusesMap(
+        dayPlans,
+        {
+          pantryItems,
+          pantryMapByProductId: resolvedPantryMap,
+          pantryItemsByParentId: resolvedParentMap,
+          draftItems,
+          activeListItems,
+          archivedListItems
+        },
+        todayStr
+      ),
+    [
+      dayPlans,
+      pantryItems,
+      resolvedPantryMap,
+      resolvedParentMap,
+      draftItems,
+      activeListItems,
+      archivedListItems,
+      todayStr
+    ]
+  )
 
   const groupedDayPlans = useMemo(() => {
     const groups = new Map<string, { slug: string; order: number; plans: MealPlanItem[] }>()
@@ -265,13 +292,18 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
                     <DayMealPlanCard
                       key={plan.id}
                       plan={plan}
-                      statusDetails={calculateMealPlanStatus(plan, {
-                        pantryItems,
-                        draftItems,
-                        activeListItems,
-                        archivedListItems,
-                        isPastDate
-                      })}
+                      statusDetails={
+                        statusByPlanId.get(plan.id) ??
+                        calculateMealPlanStatus(plan, {
+                          pantryItems,
+                          pantryMapByProductId: resolvedPantryMap,
+                          pantryItemsByParentId: resolvedParentMap,
+                          draftItems,
+                          activeListItems,
+                          archivedListItems,
+                          isPastDate
+                        })
+                      }
                       pantryMapByProductId={resolvedPantryMap}
                       pantryItemsByParentId={resolvedParentMap}
                       isPastDate={isPastDate}
@@ -312,13 +344,18 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
           onClose={() => setUncertaintyItem(null)}
           planItem={uncertaintyItem}
           missingIngredients={
-            calculateMealPlanStatus(uncertaintyItem, {
-              pantryItems,
-              draftItems,
-              activeListItems,
-              archivedListItems,
-              isPastDate
-            }).missingIngredients
+            (
+              statusByPlanId.get(uncertaintyItem.id) ??
+              calculateMealPlanStatus(uncertaintyItem, {
+                pantryItems,
+                pantryMapByProductId: resolvedPantryMap,
+                pantryItemsByParentId: resolvedParentMap,
+                draftItems,
+                activeListItems,
+                archivedListItems,
+                isPastDate
+              })
+            ).missingIngredients
           }
         />
       )}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from '@/i18n'
-import { shoppingListService } from '@/services/shoppingListService'
+import { HISTORY_PAGE_SIZE, shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, HistoryShoppingList } from '@/services/shoppingListService'
 import { useHistoryDetailsController } from '@/hooks/useHistoryDetailsController'
 import { HistoryListItemsBreakdown } from '@/components/history/HistoryListItemsBreakdown'
@@ -29,6 +29,8 @@ export const DesktopHistoryView: React.FC = () => {
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [listDetails, setListDetails] = useState<ActiveListWithDetails | null>(null)
   const [loadingLists, setLoadingLists] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   const [isEditingName, setIsEditingName] = useState(false)
@@ -69,16 +71,40 @@ export const DesktopHistoryView: React.FC = () => {
       if (isInitial) {
         setLoadingLists(true)
       }
-      const lists = await shoppingListService.getHistoryLists(householdId)
-      setHistoryLists(lists)
+      const lists = await shoppingListService.getHistoryLists(householdId, {
+        limit: HISTORY_PAGE_SIZE + 1,
+        offset: 0
+      })
+      setHasMore(lists.length > HISTORY_PAGE_SIZE)
+      const visibleLists = lists.slice(0, HISTORY_PAGE_SIZE)
+      setHistoryLists(visibleLists)
       setSelectedListId((prev) => {
-        if (prev && lists.some((l) => l.id === prev)) return prev
-        return lists[0]?.id || null
+        if (prev && visibleLists.some((l) => l.id === prev)) return prev
+        return visibleLists[0]?.id || null
       })
       setLoadingLists(false)
     },
     [householdId]
   )
+
+  const handleLoadMore = async () => {
+    if (!householdId || loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const more = await shoppingListService.getHistoryLists(householdId, {
+        limit: HISTORY_PAGE_SIZE + 1,
+        offset: historyLists.length
+      })
+      setHasMore(more.length > HISTORY_PAGE_SIZE)
+      const nextSlice = more.slice(0, HISTORY_PAGE_SIZE)
+      setHistoryLists((prev) => {
+        const seen = new Set(prev.map((item) => item.id))
+        return [...prev, ...nextSlice.filter((item) => !seen.has(item.id))]
+      })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     loadHistoryLists(true)
@@ -255,6 +281,18 @@ export const DesktopHistoryView: React.FC = () => {
                 </div>
               )
             })
+          )}
+
+          {hasMore && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="w-full min-h-[44px] rounded-2xl font-bold text-xs sm:text-sm mt-1 cursor-pointer"
+            >
+              {loadingMore ? t('history.loadingMore') : t('history.loadMore')}
+            </Button>
           )}
         </div>
       </div>

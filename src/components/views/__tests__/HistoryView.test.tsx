@@ -178,4 +178,56 @@ describe('HistoryView - History List, Creation Time and Dynamic Status Flows', (
     // List 3 was not renamed (name === original_name === 'Niekupione Zakupy') -> only 1 instance exists
     expect(screen.getAllByText('Niekupione Zakupy').length).toBe(1)
   })
+
+  it('Flow 06 (MED-14): paginates archived lists and loads older entries on clicking "Pokaż starsze listy"', async () => {
+    const firstPagePlusOne = Array.from({ length: 31 }, (_, idx) => ({
+      id: `arch-page1-${idx + 1}`,
+      household_id: 'hh-1',
+      name: `Archiwalna Lista ${idx + 1}`,
+      original_name: `Archiwalna Lista ${idx + 1}`,
+      status: 'archived' as const,
+      is_default: false,
+      target_date: null,
+      created_at: '2026-10-01T10:00:00Z',
+      updated_at: '2026-10-01T12:00:00Z',
+      completed_at: '2026-10-01T12:00:00Z',
+      items: [{ id: `i-${idx + 1}`, is_checked: true }]
+    }))
+
+    const secondPage = [
+      {
+        id: 'arch-page2-31',
+        household_id: 'hh-1',
+        name: 'Najstarsza Lista 31',
+        original_name: 'Najstarsza Lista 31',
+        status: 'archived' as const,
+        is_default: false,
+        target_date: null,
+        created_at: '2026-09-15T10:00:00Z',
+        updated_at: '2026-09-15T12:00:00Z',
+        completed_at: '2026-09-15T12:00:00Z',
+        items: [{ id: 'i-31', is_checked: true }]
+      }
+    ]
+
+    const getHistorySpy = vi
+      .spyOn(shoppingListService, 'getHistoryLists')
+      .mockResolvedValueOnce(firstPagePlusOne as never)
+      .mockResolvedValueOnce(secondPage as never)
+
+    render(<HistoryView />)
+
+    const loadMoreBtn = await screen.findByRole('button', { name: /Pokaż starsze listy/i })
+    expect(screen.getByText('Archiwalna Lista 30')).toBeInTheDocument()
+    expect(screen.queryByText('Archiwalna Lista 31')).not.toBeInTheDocument()
+
+    fireEvent.click(loadMoreBtn)
+
+    await waitFor(() => {
+      expect(screen.getByText('Najstarsza Lista 31')).toBeInTheDocument()
+    })
+    expect(getHistorySpy).toHaveBeenNthCalledWith(1, 'household-123', { limit: 31, offset: 0 })
+    expect(getHistorySpy).toHaveBeenNthCalledWith(2, 'household-123', { limit: 31, offset: 30 })
+    expect(screen.queryByRole('button', { name: /Pokaż starsze listy/i })).not.toBeInTheDocument()
+  })
 })

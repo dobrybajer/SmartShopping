@@ -318,4 +318,47 @@ describe('shoppingListService - archiveActiveList (MED-06)', () => {
     expect(details?.items).toHaveLength(1)
     expect(details?.items[0].product?.name).toBe('Chleb')
   })
+
+  it('Flow 06 (MED-14 & MED-16): getHistoryLists uses offset/limit range pagination and archive preserves meal_plan_item_id', async () => {
+    const rangeMock = vi.fn().mockResolvedValue({ data: [], error: null })
+    const orderMock = vi.fn().mockReturnValue({ range: rangeMock })
+
+    vi.spyOn(supabase, 'from').mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: orderMock
+          })
+        })
+      })
+    } as never)
+
+    await shoppingListService.getHistoryLists('hh-123', { limit: 30, offset: 30 })
+    expect(rangeMock).toHaveBeenCalledWith(30, 59)
+
+    vi.spyOn(supabase, 'rpc').mockResolvedValueOnce({
+      data: {
+        list_name: 'Lista',
+        unchecked_items: [
+          {
+            id: 'archived_rem_1',
+            product_id: 'prod-1',
+            name: 'Jajka',
+            unit_type: 'pcs',
+            category_id: 1,
+            category_name: 'dairy',
+            sort_order: 1,
+            quantity: 4,
+            is_ad_hoc: false,
+            meal_plan_item_id: 'plan-xyz'
+          }
+        ]
+      },
+      error: null
+    } as never)
+
+    const unchecked = await shoppingListService.archiveActiveList('list-1', 'hh-123')
+    expect(unchecked).toHaveLength(1)
+    expect(unchecked[0].meal_plan_item_id).toBe('plan-xyz')
+  })
 })

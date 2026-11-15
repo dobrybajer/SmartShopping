@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useAuth } from '@/hooks/useAuth'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
+import { getCalendarFetchWindow } from '@/lib/calculations/weeklyTemplateCalculations'
 import { useShallow } from 'zustand/react/shallow'
 
 const DayCalendarView = lazy(() =>
@@ -36,6 +37,7 @@ export const CalendarView: React.FC = () => {
     setViewMode,
     selectedDate,
     setSelectedDate,
+    loadedWindow,
     loadMealPlans,
     setupRealtimeSubscription
   } = useMealPlanStore(
@@ -44,6 +46,7 @@ export const CalendarView: React.FC = () => {
       setViewMode: state.setViewMode,
       selectedDate: state.selectedDate,
       setSelectedDate: state.setSelectedDate,
+      loadedWindow: state.loadedWindow,
       loadMealPlans: state.loadMealPlans,
       setupRealtimeSubscription: state.setupRealtimeSubscription
     }))
@@ -52,16 +55,30 @@ export const CalendarView: React.FC = () => {
   const [isAddMealOpen, setIsAddMealOpen] = useState(false)
   const [addMealDate, setAddMealDate] = useState(selectedDate)
 
-  // Load plans & subscribe to Realtime
+  // Subscribe to Realtime changes once per household
   useEffect(() => {
     if (household?.id) {
-      loadMealPlans(household.id)
       const unsubscribe = setupRealtimeSubscription(household.id)
       return () => {
         unsubscribe()
       }
     }
-  }, [household?.id, loadMealPlans, setupRealtimeSubscription])
+  }, [household?.id, setupRealtimeSubscription])
+
+  // Load bounded ±7d month window whenever household changes or selectedDate leaves cached window
+  useEffect(() => {
+    if (!household?.id) return
+    const isOutOfWindow =
+      !loadedWindow ||
+      loadedWindow.householdId !== household.id ||
+      selectedDate < loadedWindow.startDate ||
+      selectedDate > loadedWindow.endDate
+
+    if (isOutOfWindow) {
+      const { startDate, endDate } = getCalendarFetchWindow(selectedDate)
+      loadMealPlans(household.id, startDate, endDate)
+    }
+  }, [household?.id, selectedDate, loadedWindow, loadMealPlans])
 
   const handleOpenDayView = (date: string) => {
     setSelectedDate(date)

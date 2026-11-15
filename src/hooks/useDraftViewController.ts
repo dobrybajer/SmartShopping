@@ -4,7 +4,11 @@ import { useShoppingStore, type DraftItem } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShallow } from 'zustand/react/shallow'
 import { useTranslation } from '@/i18n'
-import { getNextQuantity } from '@/lib/utils'
+import {
+  getNextQuantity,
+  parsePositiveDecimalQuantity,
+  sanitizePositiveDecimalInput
+} from '@/lib/utils'
 import { calculatePantryFreshness } from '@/lib/calculations/pantryCalculations'
 
 export function useDraftViewController(onActiveListCreated?: () => void) {
@@ -98,18 +102,16 @@ export function useDraftViewController(onActiveListCreated?: () => void) {
   }, [])
 
   const handleInputChange = useCallback((val: string) => {
-    const cleaned = val.replace(/[^0-9]/g, '')
-    const normalized = cleaned.replace(/^0+/, '')
-    setEditValue(normalized)
+    setEditValue(sanitizePositiveDecimalInput(val))
   }, [])
 
   const handleCommitEdit = useCallback(
     (itemId: string) => {
-      const parsed = parseInt(editValue, 10)
+      const parsed = parsePositiveDecimalQuantity(editValue)
       setEditingId(null)
       setEditValue('')
 
-      if (!isNaN(parsed) && parsed > 0) {
+      if (parsed !== null) {
         updateDraftQuantity(itemId, parsed)
       }
     },

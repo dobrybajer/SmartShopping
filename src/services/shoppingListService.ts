@@ -5,9 +5,11 @@ import { formatDate, getLocalDateISOString } from '@/lib/utils'
 import { translate } from '@/i18n'
 import { trackLocalListMutation } from '@/lib/realtime/localMutationTracker'
 import {
+  HISTORY_PAGE_SIZE,
   archiveActiveList,
   getHistoryLists,
-  loadArchivedFallbackItems
+  loadArchivedFallbackItems,
+  type HistoryQueryOptions
 } from './shoppingList/shoppingListArchive'
 import { getCalendarPipelineItems } from './shoppingList/shoppingListPipeline'
 import {
@@ -365,6 +367,10 @@ export const shoppingListService = {
   deleteListItem,
   archiveActiveList,
   getHistoryLists,
+  HISTORY_PAGE_SIZE,
   getCalendarPipelineItems,
   _insertDraftItemsToList: insertDraftItemsToList
 }
+
+export { HISTORY_PAGE_SIZE }
+export type { HistoryQueryOptions }

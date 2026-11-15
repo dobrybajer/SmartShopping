@@ -213,8 +213,21 @@ export async function archiveActiveList(listId: string, householdId: string): Pr
   return archiveActiveListLegacyFallback(listId, householdId)
 }
 
-export async function getHistoryLists(householdId: string): Promise<HistoryShoppingList[]> {
-  const { data, error } = await supabase
+export const HISTORY_PAGE_SIZE = 30
+
+export interface HistoryQueryOptions {
+  limit?: number
+  offset?: number
+}
+
+export async function getHistoryLists(
+  householdId: string,
+  options?: HistoryQueryOptions
+): Promise<HistoryShoppingList[]> {
+  const limit = Math.max(1, options?.limit ?? HISTORY_PAGE_SIZE)
+  const offset = Math.max(0, options?.offset ?? 0)
+
+  const orderedQuery = supabase
     .from('shopping_lists')
     .select(`
       *,
@@ -225,7 +238,14 @@ export async function getHistoryLists(householdId: string): Promise<HistoryShopp
     `)
     .eq('household_id', householdId)
     .eq('status', 'archived')
-    .order('updated_at', { ascending: false })
+    .order('updated_at', { ascending: false }) as unknown as {
+    range?: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>
+  }
+
+  const { data, error } =
+    typeof orderedQuery?.range === 'function'
+      ? await orderedQuery.range(offset, offset + limit - 1)
+      : await (orderedQuery as unknown as Promise<{ data: unknown; error: unknown }>)
 
   if (error) {
     console.error('Error fetching shopping list history:', error)

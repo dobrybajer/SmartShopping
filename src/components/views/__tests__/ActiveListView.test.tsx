@@ -225,4 +225,63 @@ describe('ActiveListView - Multi-Active List Navigation & Management Flow', () =
     unmount()
     expect(unsubscribeSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('Flow 06 (MED-16): sends LIST_COMPLETED notification when checking last unbought item alongside in_pantry items', async () => {
+    vi.spyOn(shoppingListService, 'toggleItemChecked').mockResolvedValue(true)
+    vi.spyOn(shoppingListService, 'getListWithDetails').mockResolvedValueOnce({
+      ...sampleListDetails1,
+      items: [
+        sampleListDetails1.items[0],
+        {
+          ...sampleListDetails1.items[1],
+          is_checked: false,
+          in_pantry: true
+        }
+      ]
+    } as never)
+
+    render(<ActiveListView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Mleko 3.2%')).toBeInTheDocument()
+    })
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[0])
+
+    await waitFor(() => {
+      expect(notificationService.notify).toHaveBeenCalledWith(
+        'LIST_COMPLETED',
+        expect.objectContaining({
+          listId: 'list-1',
+          listName: 'Bieżące Spożywcze'
+        }),
+        'household-123'
+      )
+    })
+  })
+
+  it('Flow 07 (MED-16): allows fractional decimal inline quantity editing (e.g. 1.5)', async () => {
+    const updateQtySpy = vi.spyOn(shoppingListService, 'updateItemQuantity').mockResolvedValue(true)
+    render(<ActiveListView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Mleko 3.2%')).toBeInTheDocument()
+    })
+
+    const qtyButtons = screen.getAllByRole('button', { name: /1\s*(szt|pcs)/i })
+    fireEvent.click(qtyButtons[0])
+
+    const input = screen.getByDisplayValue('1')
+    expect(input).toHaveAttribute('inputMode', 'decimal')
+
+    fireEvent.change(input, { target: { value: '1,5' } })
+    expect(input).toHaveValue('1.5')
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    await waitFor(() => {
+      expect(updateQtySpy).toHaveBeenCalledWith('item-1', 1.5)
+    })
+  })
 })

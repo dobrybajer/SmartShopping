@@ -8,7 +8,11 @@ import type {
   ActiveListWithDetails,
   ActiveListItemWithProduct
 } from '@/services/shoppingListService'
-import { getNextQuantity } from '@/lib/utils'
+import {
+  getNextQuantity,
+  parsePositiveDecimalQuantity,
+  sanitizePositiveDecimalInput
+} from '@/lib/utils'
 import { useActiveListRealtime } from '@/hooks/useActiveListRealtime'
 import { useCategoryStore } from '@/store/useCategoryStore'
 import { usePantryStore } from '@/store/usePantryStore'
@@ -174,7 +178,8 @@ export function useActiveListController() {
           enqueueMutation('TOGGLE_ITEM_CHECK', itemId, { isChecked: newChecked })
         } else if (household) {
           shoppingListService.getActiveListsSummary(household.id).then(setActiveListsSummary)
-          const allDone = updatedItems.length > 0 && updatedItems.every((i) => i.is_checked)
+          const allDone =
+            updatedItems.length > 0 && updatedItems.every((i) => Boolean(i.is_checked || i.in_pantry))
           if (allDone && newChecked) {
             const completedByName =
               userProfile?.name || user?.email?.split('@')[0] || t('common.householdMember')
@@ -251,17 +256,16 @@ export function useActiveListController() {
   }, [])
 
   const handleInputChange = useCallback((val: string) => {
-    const cleaned = val.replace(/[^0-9]/g, '').replace(/^0+/, '')
-    setEditValue(cleaned)
+    setEditValue(sanitizePositiveDecimalInput(val))
   }, [])
 
   const handleCommitEdit = useCallback(
     async (item: ActiveListItemWithProduct) => {
-      const parsed = parseInt(editValue, 10)
+      const parsed = parsePositiveDecimalQuantity(editValue)
       setEditingId(null)
       setEditValue('')
 
-      if (!isNaN(parsed) && parsed > 0 && parsed !== item.total_quantity && activeList) {
+      if (parsed !== null && parsed !== item.total_quantity && activeList) {
         await applyQuantityChange(item, parsed)
       }
     },

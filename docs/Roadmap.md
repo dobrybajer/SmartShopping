@@ -537,73 +537,62 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### MED-14: Okno Dat (`startDate` / `endDate`) dla `meal_plans`, Paginacja Historii List oraz Eliminacja Pętli N+1 Zapytań (`applyWeeklyTemplate`, `shoppingListTransfer`, `pantryService`, `useJsonRecipeImport`)
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Wydajność / Zapytania Supabase / Skalowalność
-* **Pliki do modyfikacji:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L55-L64), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L55-L64), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L316-L322), [shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts#L214-L230), [shoppingListTransfer.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTransfer.ts#L98-L165), [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L285-L301), [useJsonRecipeImport.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useJsonRecipeImport.ts#L88-L143)
-* **Problem / Uzasadnienie:**
-  * **Nieograniczone zapytania bez paginacji i okna czasowego:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx#L58), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx#L58) oraz `useMealPlanStore.syncFromRealtime` ([useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L352)) wywołują `loadMealPlans(household.id)` bez zakresu `startDate`/`endDate`, pobierając całą przeszłą i przyszłą tabelę `meal_plans` z zagnieżdżonymi joinami składników przy każdym otwarciu Kalendarza i każdym zdarzeniu Realtime. Analogicznie `getHistoryLists` ([shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts#L214-L227)) pobiera wszystkie archiwalne listy bez `.limit()`.
-  * **Sekwencyjne pętle N+1 (`for ... await`):** `applyWeeklyTemplate` ([useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L317-L322)) wykonuje sekwencyjne żądania `createMealPlan` (nawet 20–35 żądań HTTP jedno po drugim), `shoppingListTransfer.ts` ([`insertDraftItemsToList`](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTransfer.ts#L98-L103) i [`addItemsToActiveList`](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTransfer.ts#L143-L165)) aktualizuje istniejące wiersze i produkty ad-hoc pojedynczo w pętli, `pantryService.batchIngestPurchasedItems` ([pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts#L285-L301)) wstawia zapasy sekwencyjnie, a [useJsonRecipeImport.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useJsonRecipeImport.ts#L88-L143) tworzy brakujące produkty i przepisy pojedynczo w zagnieżdżonych pętlach.
-* **Rekomendowane Rozwiązanie:**
-  1. Dodać okno dat w `CalendarView` / `DesktopCalendarView` / `useMealPlanStore` (np. aktywny miesiąc ± bufor 7 dni) oraz paginację / `.limit()` i dociąganie („Pokaż starsze”) w `getHistoryLists`.
-  2. Zastąpić pętle `for (... await ...)` operacjami wsadowymi (`insert(rows)`, `upsert`, lub zrównolegleniem `Promise.all` z kontrolowaną współbieżnością).
+* **Pliki zmodyfikowane:** [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx), [DesktopCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopCalendarView.tsx), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [mealPlanService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/mealPlanService.ts), [shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts), [HistoryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/HistoryView.tsx), [DesktopHistoryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopHistoryView.tsx), [shoppingListTransfer.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListTransfer.ts), [pantryService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/pantryService.ts), [useJsonRecipeImport.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useJsonRecipeImport.ts)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Dodano funkcję `getCalendarFetchWindow` (okno bieżącego miesiąca ± 7 dni) oraz stan `loadedWindow` w `useMealPlanStore`, `CalendarView`, `DesktopCalendarView`, `MonthCalendarGrid` i `syncFromRealtime` — ładowanie nowych danych odbywa się wyłącznie przy przekroczeniu aktywnego okna czasowego.
+  2. Dodano paginację opartą o `.range(offset, offset + limit - 1)` w `getHistoryLists` (`HISTORY_PAGE_SIZE = 30`) oraz przycisk **„Pokaż starsze listy”** (`history.loadMore`) w `HistoryView` i `DesktopHistoryView`.
+  3. Wyeliminowano sekwencyjne pętle N+1 `for ... await`: wdrożono wsadowe `createMealPlansBatch` (`applyWeeklyTemplate`), `createProductsBatch` / `createMealsBatch` (`useJsonRecipeImport`), `batchResolveAdHocProductIds` + równoległe `Promise.all` (`shoppingListTransfer`) oraz pojedyncze pobranie + batch `.insert` / równoległe aktualizacje w `pantryService.batchIngestPurchasedItems`.
 * **Definition of Done (DoD):**
   - ✅ Kalendarz i Realtime pobierają wyłącznie bieżące okno czasowe, Historia wspiera paginację, a aplikowanie szablonu tygodniowego / import / zasilanie spiżarni wykonuje minimalną liczbę zapytań wsadowych.
 
 ---
 
 ### MED-15: Optymalizacja Złożoności Renderowania Widoków Kalendarza (`DayCalendarView` & `MonthCalendarGrid`) przez Mapy O(1) ze Store'u Spiżarni i Memoizację
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Wydajność React / Kalendarz Posiłków
-* **Pliki do modyfikacji:** [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L254-L270), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L212-L222)
-* **Problem / Uzasadnienie:**
-  * [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L256-L268) wewnątrz zagnieżdżonego renderowania `dayPlans.map -> ingredients.map` wielokrotnie wykonuje liniowe przeszukiwanie tablicy `pantryItems.find(...)` oraz `pantryItems.filter(...)`, zamiast korzystać ze zbudowanych map O(1) ze store'u `usePantryStore` (`pantryMapByProductId`, `pantryItemsByParentId`) lub wspólnej funkcji domenowej.
-  * [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx#L212-L222) przy każdym renderze wykonuje `mealPlans.filter((p) => p.date === iso)` 35–42 razy (raz dla każdej komórki miesiąca), zamiast wstępnie zgrupować plany w `useMemo(() => Map<string, MealPlanItem[]>)`.
-* **Rekomendowane Rozwiązanie:**
-  1. Zastosować mapy O(1) w `DayCalendarView.tsx` oraz zgrupowaną mapę dat w `useMemo` w `MonthCalendarGrid.tsx`.
+* **Pliki zmodyfikowane:** [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [MonthCalendarGrid.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/MonthCalendarGrid.tsx), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Rozszerzono silnik `calendarStatus.ts` o O(1) lookup (`pantryMapByProductId`, `pantryItemsByParentId`) oraz pojedynczy przebieg `calculateMealPlanStatusesMap(plans, options, todayISO)` z grupowaniem powiązań pipeline'u `meal_plan_item_id` w `Map`.
+  2. W `MonthCalendarGrid.tsx` i `WeekCalendarView.tsx` wprowadzono `plansByDate` i `statusByPlanId` w `useMemo`, eliminując wielokrotne liniowe filtrowanie per komórka/kolumna, a `DayCalendarView.tsx` przekazuje mapy O(1) z `usePantryStore` bezpośrednio do statusów i kart dnia.
 * **Definition of Done (DoD):**
-  - ✅ Oba widoki Kalendarza używają struktur O(1) z memoizacją `useMemo` bez wielokrotnych liniowych skanów w pętli renderowania.
+  - ✅ Widoki Kalendarza używają struktur O(1) z memoizacją `useMemo` bez wielokrotnych liniowych skanów w pętli renderowania.
 
 ---
 
 ### MED-16: Naprawa Błędów Logiki Biznesowej: Powiadomienie `LIST_COMPLETED` z Pozycjami `in_pantry`, Scalanie Niekupionych Pozycji po Archiwizacji, Zbiorczy Transfer Tygodnia i Edycja Ułamkowa Ilości
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Logika Biznesowa / Lista Zakupów, Koszyk i Kalendarz
-* **Pliki do modyfikacji:** [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L174-L301), [shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts#L159-L200), [20261110131000_archive_shopping_list_rpc.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110131000_archive_shopping_list_rpc.sql#L108-L133), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L118-L125), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts#L120-L185)
-* **Problem / Uzasadnienie:**
-  * **Brak powiadomienia `LIST_COMPLETED` przy pozycjach `in_pantry`:** W [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L174) warunek `updatedItems.every((i) => i.is_checked)` nie uwzględnia pozycji oznaczonych jako „Mam w spiżarni” (`in_pantry: true`), mimo że pozostałe miejsca aplikacji (licznik postępu, archiwizacja) traktują je jako załatwione — w efekcie odhaczenie ostatniego brakującego artykułu nie wysyła pusha o ukończeniu listy.
-  * **Duplikaty w Koszyku i utrata `meal_plan_item_id` po archiwizacji:** W [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L298) niekupione pozycje po archiwizacji są doklejane przez `setDraftItems([...draftItems, ...uncheckedItemsToDraft])` z pominięciem `addMultipleToDraft()` (tworząc zduplikowane wiersze produktów), a funkcja SQL [archive_shopping_list](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261110131000_archive_shopping_list_rpc.sql#L108-L120) i fallback w [shoppingListArchive.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingList/shoppingListArchive.ts#L159-L200) nie zwracają `meal_plan_item_id`, zrywając powiązanie statusu posiłku z kalendarzem.
-  * **Spam do 7 Toastów przy „Tydzień do koszyka” i brak kumulatywnej rezerwacji spiżarni:** [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx#L119-L125) wywołuje `transferDayToDraft(day.iso)` osobno dla każdego dnia tygodnia (do 7 osobnych Toastów bez wspólnego zbilansowania stanu spiżarni między dniami). Analogicznie [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts#L120-L173) porównuje każdy posiłek niezależnie z pełnym stanem spiżarni bez odejmowania już „zarezerwowanego” zapasu przez wcześniejsze posiłki dnia/tygodnia (np. 200 g kurczaka w spiżarni oznacza jako w pełni pokryte 3 różne obiady wymagające po 200 g).
-  * **Obcinanie ułamków przy edycji inline ilości:** [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts#L251-L257) filtruje znaki przez `val.replace(/[^0-9]/g, '')` i parsuje przez `parseInt(editValue, 10)`, uniemożliwiając wpisanie ilości ułamkowych (np. `1.5`), które powstają przy skalowaniu przepisów.
-* **Rekomendowane Rozwiązanie:**
-  1. Zmienić warunek w `useActiveListController.ts#L174` na `updatedItems.every((i) => i.is_checked || i.in_pantry)`, użyć `addMultipleToDraft` przy zwrocie niekupionych pozycji oraz dopisać obsługę ułamków dziesiętnych (`parseFloat`) w edycji inline.
-  2. Dodać `meal_plan_item_id` do wyniku `archive_shopping_list` (migracja + `shoppingListArchive.ts`).
-  3. Zaimplementować zbiorcze `transferWeekToDraft` z jednym komunikatem Toast oraz wprowadzić algorytm kumulatywnego przydziału zapasów spiżarni w widoku dnia/tygodnia.
+* **Pliki zmodyfikowane:** [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts), [useDraftViewController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useDraftViewController.ts), [ActiveListItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/ActiveListItemRow.tsx), [DraftItemRow.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/shopping/DraftItemRow.tsx), [utils.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/utils.ts), [20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts)
+* **Rozwiązanie Wdrożeniowe:**
+  1. W `useActiveListController.ts` warunek `allDone` dla powiadomienia `LIST_COMPLETED` uwzględnia pozycje `Boolean(i.is_checked || i.in_pantry)` (z zachowaniem `addMultipleToDraft` przy archiwizacji).
+  2. Zaktualizowano funkcję SQL `archive_shopping_list` w migracji `20261116150000`, aby zwracała `'meal_plan_item_id', sli.meal_plan_item_id` dla niekupionych pozycji (zachowując powiązanie w Kalendarzu).
+  3. Zaimplementowano zbiorcze `transferWeekToDraft(dates)` + `generateDraftItemsFromMealPlans` emitujące 1 komunikat Toast oraz współdzieloną kumulatywną rezerwację zapasu spiżarni (`availablePantryStock`) w `calculateMealPlanStatusesMap` i transferach.
+  4. Dodano wsparcie liczb dziesiętnych (`sanitizePositiveDecimalInput` / `parsePositiveDecimalQuantity` z `parseFloat` oraz `inputMode="decimal"`) w `ActiveListItemRow`, `DraftItemRow`, `useActiveListController` i `useDraftViewController`.
 * **Definition of Done (DoD):**
-  - ✅ Wszystkie 4 luki logiki biznesowej pokryte nowymi testami jednostkowymi i integracyjnymi w Vitest.
+  - ✅ Wszystkie 4 luki logiki biznesowej pokryte nowymi testami jednostkowymi i integracyjnymi w Vitest (`ActiveListView.test.tsx`, `calendarStatus.test.ts`, `useMealPlanStore.test.ts`, `shoppingListService.test.ts`, `rlsSecurityAudit.test.ts`).
 
 ---
 
 ### MED-17: Synchronizacja Szablonów Tygodniowych Posiłków (`LOW-08`) w Bazie Supabase w Ramach Gospodarstwa Domowego (Zamiast Wyłącznie `localStorage`)
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Backend / Multi-Device Sync / Kalendarz Posiłków (`LOW-08`)
-* **Pliki do modyfikacji:** [weeklyTemplateCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/weeklyTemplateCalculations.ts#L56-L84), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts#L274-L347), `supabase/migrations/`
-* **Problem / Uzasadnienie:**
-  * Szablony tygodniowe wdrożone w `LOW-08` zapisywane są obecnie wyłącznie w lokalnym `localStorage` (`smartshopping_weekly_meal_templates`). Domownicy w tym samym gospodarstwie (ani ten sam użytkownik na telefonie i komputerze) nie współdzielą zapisanych szablonów tygodniowych, a wyczyszczenie danych przeglądarki powoduje ich bezpowrotną utratę.
-* **Rekomendowane Rozwiązanie:**
-  1. Utworzyć tabelę `weekly_meal_templates` w Supabase z pełnym RLS opartym o `public.get_user_household_ids(auth.uid())` i subskrypcją Realtime, zachowując `localStorage` jako bufor offline.
+* **Pliki zmodyfikowane:** [weeklyTemplateCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/weeklyTemplateCalculations.ts), [weeklyTemplateService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/weeklyTemplateService.ts), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [supabase.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/supabase.ts), [20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Utworzono tabelę `public.weekly_meal_templates` (UUID PK, `household_id` FK CASCADE, `entries JSONB`, indeksy, trigger `updated_at`, pełne polityki RLS oparte o `public.get_user_household_ids(auth.uid())` oraz publikację `supabase_realtime`).
+  2. Dodano serwis `weeklyTemplateService.ts` synchronizujący szablony z `localStorage` jako buforem offline oraz jednorazową migracją starszych lokalnych szablonów niebędących UUID, a `useMealPlanStore` subskrybuje zdarzenia Realtime tabeli `weekly_meal_templates`.
 * **Definition of Done (DoD):**
-  - ✅ Szablony zapisane na telefonie pojawiają się automatycznie na komputerze oraz u pozostałych domowników w gospodarstwie.
+  - ✅ Szablony zapisane na jednym urządzeniu są współdzielone w bazie Supabase i synchronizowane pomiędzy domownikami z zachowaniem cache offline.
 
 ---
 
 ### MED-18: Ograniczenia Integralności Danych `CHECK` w Bazie PostgreSQL (Nieujemne Ilości/Makro oraz Limity Długości Tekstów)
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Baza Danych / Integralność i Bezpieczeństwo PostgreSQL
-* **Pliki do modyfikacji:** `supabase/migrations/`
-* **Problem / Uzasadnienie:**
-  * Poza wybranymi kolumnami (np. `meal_plans.servings > 0` czy `chk_products_parent_general`) w schematach tabel `products`, `meal_ingredients`, `shopping_list_items`, `pantry_items` oraz polach tekstowych (`name`, `notes`, `preparation_steps`, `ad_hoc_name`) brakuje więzów `CHECK` na poziomie PostgreSQL chroniących przed ujemnymi wartościami ilości/makroskładników i nieograniczonymi ciągami tekstowymi (np. przy bezpośrednim wywołaniu PostgREST).
-* **Rekomendowane Rozwiązanie:**
-  1. Dodać addytywną migrację SQL wprowadzającą ograniczenia `CHECK` dla nieujemnych wartości liczbowych (`>= 0` / `> 0`) i rozsądnych limitów `char_length(...)` kolumn tekstowych.
+* **Pliki zmodyfikowane:** [20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql), [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Wdrożono idempotentną migrację dodającą nazwane ograniczenia `CHECK` (`> 0` dla `base_quantity`, `total_quantity`, `servings`; `>= 0` dla makro, `pantry_items.quantity`, `target_kcal`, `sort_order`; oraz limity `char_length(...)` dla pól tekstowych w `households`, `products`, `meals`, `shopping_lists`, `pantry_items`, `meal_plans`, `product_categories`, `household_category_settings` i `weekly_meal_templates`), zweryfikowane w `Audit 10` (`rlsSecurityAudit.test.ts`).
 * **Definition of Done (DoD):**
   - ✅ Migracja wdrożona w `supabase/migrations/`, a próba zapisu ujemnej ilości/kalorii lub nadmiarowego tekstu zostaje odrzucona przez PostgreSQL.
 
@@ -1052,11 +1041,11 @@ gantt
     MED-11 Offline Badge & Grid Selected :done, 2026-11, 1d
     MED-12 Light Theme Contrast & Layout :done, 2026-11, 1d
     MED-13 Pantry Search & Sidebar Trunc :done, 2026-11, 1d
-    MED-14 Date Window, Paging & N+1 Fix :2026-12, 3d
-    MED-15 Calendar O(1) Maps & Memo     :2026-12, 1d
-    MED-16 Business Logic Bugfixes (4x)  :2026-12, 3d
-    MED-17 Sync Weekly Templates DB      :2026-12, 2d
-    MED-18 PostgreSQL CHECK Constraints  :2026-12, 1d
+    MED-14 Date Window, Paging & N+1 Fix :done, 2026-11, 3d
+    MED-15 Calendar O(1) Maps & Memo     :done, 2026-11, 1d
+    MED-16 Business Logic Bugfixes (4x)  :done, 2026-11, 3d
+    MED-17 Sync Weekly Templates DB      :done, 2026-11, 2d
+    MED-18 PostgreSQL CHECK Constraints  :done, 2026-11, 1d
     section Normalne (Higiena & PWA)
     NORM-05 Eliminate `any` in Services  :done, 2026-11, 7d
     NORM-06 Sync PRD.md Specs            :done, 2026-11, 3d
@@ -1125,11 +1114,11 @@ gantt
 | **MED-11** | ✅ Zrealizowane | 🟡 Medium | UI/UX / Offline & Kalendarz | 0.5 dnia | Wizualny wskaźnik pracy Offline (`pendingCount`) zamiast stałego „Realtime" oraz wyróżnienie `isSelected` w siatce miesiąca. |
 | **MED-12** | ✅ Zrealizowane | 🟡 Medium | Design / Motyw `clean-light` | 1 dzień | Poprawa kontrastu odznak semantycznych (`-400`/`zinc-*`) na jasnym tle (`1.92:1` → `>=4.5:1`) i usunięcie podwójnych paddingów w Kalendarzu. |
 | **MED-13** | ✅ Zrealizowane | 🟡 Medium | UI/UX / Spiżarnia & Sidebar | 0.5 dnia | Naprawa ściśniętego pola wyszukiwania w Spiżarni (`88.5px` na Desktopie / `101.1px` na Mobile) oraz nadmiernego `truncate` w `DesktopSidebar` i kartach. |
-| **MED-14** | ⏳ Oczekujące | 🟡 Medium | Performance / DB & Zapytania | 2-3 dni | Okno dat dla `meal_plans`, paginacja `getHistoryLists` i eliminacja pętli N+1 `await` przy imporcie/szablonach/transferze. |
-| **MED-15** | ⏳ Oczekujące | 🟡 Medium | Performance / Kalendarz UI | 0.5-1 dzień | Zastąpienie liniowych skanów `.find`/`.filter` w `DayCalendarView` i `MonthCalendarGrid` mapami O(1) z memoizacją. |
-| **MED-16** | ⏳ Oczekujące | 🟡 Medium | Logika Biznesowa | 2-3 dni | Poprawka powiadomienia `LIST_COMPLETED` (`in_pantry`), scalania po archiwizacji, zbiorczego transferu tygodnia i edycji ułamkowej. |
-| **MED-17** | ⏳ Oczekujące | 🟡 Medium | Backend / Kalendarz (`LOW-08`) | 1-2 dni | Współdzielenie szablonów tygodniowych w bazie Supabase (RLS gospodarstwa) zamiast wyłącznie `localStorage`. |
-| **MED-18** | ⏳ Oczekujące | 🟡 Medium | Database / Integralność | 0.5-1 dzień | Dodanie ograniczeń `CHECK` w PostgreSQL dla nieujemnych ilości/makro i limitów długości pól tekstowych. |
+| **MED-14** | ✅ Zrealizowane | 🟡 Medium | Performance / DB & Zapytania | 2-3 dni | Okno dat dla `meal_plans`, paginacja `getHistoryLists` i eliminacja pętli N+1 `await` przy imporcie/szablonach/transferze. |
+| **MED-15** | ✅ Zrealizowane | 🟡 Medium | Performance / Kalendarz UI | 0.5-1 dzień | Zastąpienie liniowych skanów `.find`/`.filter` w `DayCalendarView` i `MonthCalendarGrid` mapami O(1) z memoizacją. |
+| **MED-16** | ✅ Zrealizowane | 🟡 Medium | Logika Biznesowa | 2-3 dni | Poprawka powiadomienia `LIST_COMPLETED` (`in_pantry`), scalania po archiwizacji, zbiorczego transferu tygodnia i edycji ułamkowej. |
+| **MED-17** | ✅ Zrealizowane | 🟡 Medium | Backend / Kalendarz (`LOW-08`) | 1-2 dni | Współdzielenie szablonów tygodniowych w bazie Supabase (RLS gospodarstwa) zamiast wyłącznie `localStorage`. |
+| **MED-18** | ✅ Zrealizowane | 🟡 Medium | Database / Integralność | 0.5-1 dzień | Dodanie ograniczeń `CHECK` w PostgreSQL dla nieujemnych ilości/makro i limitów długości pól tekstowych. |
 | **NORM-01** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Oznaczenie Fazy 15 jako zakończonej w [plan.md](file:///d:/08_Git/SmartShopping/SmartShopping/docs/plan.md). |
 | **NORM-02** | ✅ Zrealizowane | 🟢 Normal | Frontend / Architecture | 2 dni | Dekompozycja monolitów (> 430 linii) do 14 hooków kontrolerów i 12 subkomponentów UI. |
 | **NORM-03** | ✅ Zrealizowane | 🟢 Normal | Frontend / a11y | 2 dni | Pełne role WAI-ARIA, nawigacja klawiaturą, strefy dotyku 44px i kontrast WCAG AA we wszystkich 6 motywach. |
@@ -1160,5 +1149,5 @@ gantt
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
 > 1. **Domknięcie rozjazdów i bezpieczeństwa (`HIGH-11`..`HIGH-13`):** ✅ *Zrealizowane (Listopad 2026)* — podłączenie `activeListItems` / `archivedListItems` i sekcji kategorii w Kalendarzu, pełna edycja przepisów (`updateMeal`), wybór `meal_categories`, usunięcie martwego przełącznika `Global`, walidacja UUID w `.or()`, role właściciela gospodarstwa (`household_members.role`), walidacja Edge Function Push oraz reguła `no-explicit-any` w `oxlint`.  
-> 2. **Wydajność, spójność logiki biznesowej i higiena (`MED-14`..`MED-18`, `NORM-14`, `NORM-15`, `NORM-17`):** Okno dat w Kalendarzu, paginacja Historii, eliminacja zapytań N+1, naprawa 4 luk logiki domenowej (`LIST_COMPLETED`, scalanie po archiwizacji, zbiorczy transfer tygodnia, edycja ułamkowa), migracja szablonów `LOW-08` do Supabase, ograniczenia `CHECK` w PostgreSQL oraz dokończenie i18n, a11y 44px i dekompozycji plików `>300L` (`NORM-16` i aktualizacja reguł agentów zostały wdrożone).  
+> 2. **Wydajność, spójność logiki biznesowej i integralność (`MED-14`..`MED-18`):** ✅ *Zrealizowane (Listopad 2026)* — okno dat ±7d w Kalendarzu, paginacja Historii (`HISTORY_PAGE_SIZE = 30`), eliminacja zapytań N+1 (`createMealPlansBatch`, `createProductsBatch`, `createMealsBatch`, `batchIngestPurchasedItems`, `shoppingListTransfer`), mapy O(1) w Kalendarzu (`calculateMealPlanStatusesMap`), naprawa 4 luk logiki domenowej (`LIST_COMPLETED`, `meal_plan_item_id` przy archiwizacji, zbiorczy transfer tygodnia `transferWeekToDraft` z rezerwacją spiżarni, edycja ułamkowa), synchronizacja szablonów tygodniowych w tabeli `weekly_meal_templates` (RLS + Realtime) oraz ograniczenia `CHECK` w PostgreSQL. Następnie do realizacji pozostają zadania z kategorii Normal (`NORM-14`, `NORM-15`, `NORM-17`) — dokończenie i18n, a11y 44px oraz dekompozycji plików `>300L`.  
 > 3. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-16`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`), trybu „Gotuję Teraz" (`LOW-10`) oraz planowania Batch Cooking (`LOW-13`) i importu URL (`LOW-14`).

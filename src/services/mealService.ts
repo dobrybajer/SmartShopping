@@ -166,6 +166,82 @@ export const mealService = {
     return meals.find((m) => m.id === newMeal.id) || null
   },
 
+  async createMealsBatch(inputs: CreateMealInput[]): Promise<MealWithIngredients[]> {
+    if (inputs.length === 0) return []
+
+    const mealPayloads = inputs.map((input) => {
+      const mealType = input.type || (input.household_id ? 'Household' : 'Global')
+      const targetHouseholdId = mealType === 'Global' ? null : input.household_id
+      return {
+        household_id: targetHouseholdId,
+        type: mealType,
+        name: input.name,
+        description: input.description || null,
+        preparation_steps: input.preparation_steps || null,
+        comments: input.comments || null,
+        category_id: input.category_id ?? null,
+        tags: input.tags || []
+      }
+    })
+
+    const { data: createdMeals, error: mealsErr } = await supabase
+      .from('meals')
+      .insert(mealPayloads)
+      .select('*')
+
+    if (mealsErr || !createdMeals || createdMeals.length === 0) {
+      console.error('Error batch creating meals:', mealsErr)
+      return []
+    }
+
+    const allIngredientsToInsert: Array<{
+      meal_id: string
+      product_id: string
+      reference_product_id: string | null
+      base_quantity: number
+      is_pantry_item: boolean
+    }> = []
+
+    createdMeals.forEach((createdMeal, index) => {
+      const input = inputs[index]
+      if (!input?.ingredients?.length) return
+      for (const ing of input.ingredients) {
+        allIngredientsToInsert.push({
+          meal_id: createdMeal.id,
+          product_id: ing.product_id,
+          reference_product_id: ing.reference_product_id || null,
+          base_quantity: ing.base_quantity,
+          is_pantry_item: ing.is_pantry_item || false
+        })
+      }
+    })
+
+    if (allIngredientsToInsert.length > 0) {
+      const { error: ingErr } = await supabase
+        .from('meal_ingredients')
+        .insert(allIngredientsToInsert)
+
+      if (ingErr) {
+        console.error('Error batch adding meal ingredients:', ingErr)
+        return []
+      }
+    }
+
+    const createdIds = createdMeals.map((m) => m.id)
+    const { data: hydratedRows, error: fetchErr } = await supabase
+      .from('meals')
+      .select(MEAL_SELECT_QUERY)
+      .in('id', createdIds)
+
+    if (fetchErr || !hydratedRows) {
+      console.error('Error fetching batch created meals:', fetchErr)
+      return []
+    }
+
+    const rows = (hydratedRows ?? []) as unknown as RawMealQueryRow[]
+    return rows.map(mapRawMealRow)
+  },
+
   async updateMeal(mealId: string, input: CreateMealInput): Promise<MealWithIngredients | null> {
     const { error: mealErr } = await supabase
       .from('meals')

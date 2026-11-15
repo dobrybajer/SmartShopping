@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useMealPlanStore } from '../useMealPlanStore'
 import { mealPlanService } from '@/services/mealPlanService'
+import { weeklyTemplateService } from '@/services/weeklyTemplateService'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
-import type { MealPlanItem } from '@/types/calendar'
+import { toast } from '@/store/useToastStore'
+import type { MealPlanItem, WeeklyMealTemplate } from '@/types/calendar'
 
 vi.mock('@/services/mealPlanService', () => ({
   mealPlanService: {
     getMealPlans: vi.fn(),
     createMealPlan: vi.fn(),
+    createMealPlansBatch: vi.fn(),
     updateMealPlan: vi.fn(),
     deleteMealPlan: vi.fn(),
     duplicateMealPlanToDate: vi.fn(),
@@ -24,12 +27,12 @@ vi.mock('@/services/mealPlanService', () => ({
   }
 }))
 
-vi.mock('@/services/shoppingListService', () => ({
-  shoppingListService: {
-    getCalendarPipelineItems: vi.fn().mockResolvedValue({
-      activeListItems: [],
-      archivedListItems: []
-    })
+vi.mock('@/services/weeklyTemplateService', () => ({
+  weeklyTemplateService: {
+    getWeeklyTemplates: vi.fn().mockResolvedValue([]),
+    saveWeeklyTemplate: vi.fn(async (tpl) => tpl),
+    deleteWeeklyTemplate: vi.fn().mockResolvedValue(true),
+    syncRemoteTemplates: vi.fn(async (_hhId, cached) => cached)
   }
 }))
 
@@ -123,12 +126,17 @@ describe('useMealPlanStore', () => {
     })
   })
 
-  it('loadMealPlans fetches items and updates store', async () => {
+  it('loadMealPlans fetches bounded month +/- 7d window and updates store (MED-14)', async () => {
     vi.mocked(mealPlanService.getMealPlans).mockResolvedValueOnce([mockPlan])
 
     await useMealPlanStore.getState().loadMealPlans('house-1')
 
-    expect(mealPlanService.getMealPlans).toHaveBeenCalledWith('house-1', undefined, undefined)
+    expect(mealPlanService.getMealPlans).toHaveBeenCalledWith('house-1', '2026-09-24', '2026-11-07')
+    expect(useMealPlanStore.getState().loadedWindow).toEqual({
+      householdId: 'house-1',
+      startDate: '2026-09-24',
+      endDate: '2026-11-07'
+    })
     expect(useMealPlanStore.getState().mealPlans).toEqual([mockPlan])
     expect(useMealPlanStore.getState().isLoading).toBe(false)
   })
@@ -255,5 +263,65 @@ describe('useMealPlanStore', () => {
     expect(shoppingListService.getCalendarPipelineItems).toHaveBeenCalledWith('house-1')
     expect(useShoppingStore.getState().activeListItems).toEqual([activeItem])
     expect(useShoppingStore.getState().archivedListItems).toEqual([archivedItem])
+  })
+
+  it('transferWeekToDraft batches multi-day meals into 1 draft push, 1 toast, and shared pantry stock (MED-16)', () => {
+    const day2Plan: MealPlanItem = {
+      ...mockPlan,
+      id: 'plan-2',
+      date: '2026-10-16'
+    }
+    useMealPlanStore.setState({ mealPlans: [mockPlan, day2Plan] })
+    // Pantry holds only 50g oats -> enough for plan-1 (50g), leaving 0g so plan-2 (50g) goes to draft
+    usePantryStore.setState({
+      pantryItems: [
+        {
+          id: 'p-oats',
+          household_id: 'house-1',
+          product_id: 'prod-oats',
+          ad_hoc_name: null,
+          category_id: 1,
+          quantity: 50,
+          unit_type: 'g',
+          last_purchased_at: null,
+          last_verified_at: null,
+          expiration_date: null,
+          created_at: '',
+          updated_at: '',
+          category: null,
+          product: mockPlan.meal!.ingredients![0].product!
+        }
+      ]
+    })
+
+    const addedCount = useMealPlanStore.getState().transferWeekToDraft(['2026-10-15', '2026-10-16'])
+
+    expect(addedCount).toBe(1)
+    expect(useShoppingStore.getState().draftItems).toHaveLength(1)
+    expect(useShoppingStore.getState().draftItems[0].meal_plan_item_id).toBe('plan-2')
+    expect(toast.success).toHaveBeenCalledTimes(1)
+  })
+
+  it('syncs weekly templates with weeklyTemplateService during load, save, and delete (MED-17)', async () => {
+    const remoteTpl: WeeklyMealTemplate = {
+      id: '11111111-1111-4111-8111-111111111111',
+      household_id: 'house-1',
+      name: 'Zdalny Plan',
+      created_at: '2026-10-01T10:00:00Z',
+      entries: []
+    }
+    vi.mocked(mealPlanService.getMealPlans).mockResolvedValueOnce([mockPlan])
+    vi.mocked(weeklyTemplateService.syncRemoteTemplates).mockResolvedValueOnce([remoteTpl])
+
+    await useMealPlanStore.getState().loadMealPlans('house-1')
+    expect(useMealPlanStore.getState().weeklyTemplates).toEqual([remoteTpl])
+
+    useMealPlanStore.setState({ mealPlans: [{ ...mockPlan, date: '2026-10-12' }] })
+    const saved = useMealPlanStore.getState().saveWeekAsTemplate('Roboczy Tydzień', '2026-10-12', 7)
+    expect(saved).not.toBeNull()
+    expect(weeklyTemplateService.saveWeeklyTemplate).toHaveBeenCalledWith(saved)
+
+    useMealPlanStore.getState().deleteWeeklyTemplate(saved!.id)
+    expect(weeklyTemplateService.deleteWeeklyTemplate).toHaveBeenCalledWith(saved!.id, 'house-1')
   })
 })

@@ -278,27 +278,129 @@ export const pantryService = {
   ): Promise<boolean> {
     if (!householdId || items.length === 0) return true
 
+    const validItems = items.filter((item) => item.quantity > 0 && (item.product_id || item.ad_hoc_name))
+    if (validItems.length === 0) return true
+
     const now = new Date().toISOString()
 
     try {
-      // Ingest sequentially or concurrently
-      for (const item of items) {
-        if (item.quantity <= 0) continue
+      // 1. Aggregate incoming items by product_id / lower ad_hoc_name
+      const aggregatedMap = new Map<
+        string,
+        {
+          product_id: string | null
+          ad_hoc_name: string | null
+          quantity: number
+          unit_type: UnitEnum
+          category_id: number | null
+        }
+      >()
 
-        await this.addOrIncrementItem(
-          {
-            household_id: householdId,
+      for (const item of validItems) {
+        const key = item.product_id
+          ? `prod:${item.product_id}`
+          : `adhoc:${(item.ad_hoc_name || '').trim().toLowerCase()}`
+        const existingAgg = aggregatedMap.get(key)
+        if (existingAgg) {
+          existingAgg.quantity = Math.round((existingAgg.quantity + Number(item.quantity)) * 10) / 10
+          if (!existingAgg.category_id && item.category_id) {
+            existingAgg.category_id = item.category_id
+          }
+        } else {
+          aggregatedMap.set(key, {
             product_id: item.product_id,
-            ad_hoc_name: item.ad_hoc_name,
-            category_id: item.category_id,
-            quantity: item.quantity,
+            ad_hoc_name: item.product_id ? null : item.ad_hoc_name?.trim() || null,
+            quantity: Math.round(Number(item.quantity) * 10) / 10,
             unit_type: item.unit_type || 'pcs',
-            last_purchased_at: now,
-            last_verified_at: now
-          },
-          'increment'
-        )
+            category_id: item.category_id ?? null
+          })
+        }
       }
+
+      // 2. Fetch existing pantry rows once
+      const { data: existingRows, error: fetchErr } = await supabase
+        .from('pantry_items')
+        .select('id, product_id, ad_hoc_name, quantity, category_id, unit_type')
+        .eq('household_id', householdId)
+
+      if (fetchErr) {
+        console.error('[pantryService.batchIngestPurchasedItems] Error fetching existing pantry items:', fetchErr)
+        return false
+      }
+
+      const existingByProductId = new Map<string, (typeof existingRows)[number]>()
+      const existingByAdHocName = new Map<string, (typeof existingRows)[number]>()
+      for (const row of existingRows || []) {
+        if (row.product_id) {
+          existingByProductId.set(row.product_id, row)
+        } else if (row.ad_hoc_name) {
+          existingByAdHocName.set(row.ad_hoc_name.trim().toLowerCase(), row)
+        }
+      }
+
+      const rowsToInsert: Array<{
+        household_id: string
+        product_id: string | null
+        ad_hoc_name: string | null
+        category_id: number | null
+        quantity: number
+        unit_type: UnitEnum
+        last_purchased_at: string
+        last_verified_at: string
+        updated_at: string
+      }> = []
+
+      const updatePromises: Array<PromiseLike<unknown>> = []
+
+      for (const agg of aggregatedMap.values()) {
+        const existing = agg.product_id
+          ? existingByProductId.get(agg.product_id)
+          : agg.ad_hoc_name
+            ? existingByAdHocName.get(agg.ad_hoc_name.toLowerCase())
+            : undefined
+
+        if (existing) {
+          const newQty = Math.round((Number(existing.quantity) + agg.quantity) * 10) / 10
+          updatePromises.push(
+            supabase
+              .from('pantry_items')
+              .update({
+                quantity: newQty,
+                category_id: agg.category_id ?? existing.category_id,
+                unit_type: agg.unit_type || existing.unit_type,
+                last_purchased_at: now,
+                last_verified_at: now,
+                updated_at: now
+              })
+              .eq('id', existing.id)
+          )
+        } else {
+          rowsToInsert.push({
+            household_id: householdId,
+            product_id: agg.product_id,
+            ad_hoc_name: agg.ad_hoc_name,
+            category_id: agg.category_id,
+            quantity: Math.max(0, agg.quantity),
+            unit_type: agg.unit_type,
+            last_purchased_at: now,
+            last_verified_at: now,
+            updated_at: now
+          })
+        }
+      }
+
+      if (rowsToInsert.length > 0) {
+        const { error: insertErr } = await supabase.from('pantry_items').insert(rowsToInsert)
+        if (insertErr) {
+          console.error('[pantryService.batchIngestPurchasedItems] Batch insert error:', insertErr)
+          return false
+        }
+      }
+
+      if (updatePromises.length > 0) {
+        await Promise.all(updatePromises)
+      }
+
       return true
     } catch (err) {
       console.error('[pantryService.batchIngestPurchasedItems] Error ingesting items:', err)

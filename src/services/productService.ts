@@ -85,6 +85,26 @@ export const productService = {
     return data
   },
 
+  async createProductsBatch(products: ProductInsert[]): Promise<Product[]> {
+    if (products.length === 0) return []
+
+    const payloads: ProductInsert[] = products.map((product) => ({
+      ...product,
+      type: product.type || (product.household_id ? 'Household' : 'Global')
+    }))
+
+    const { data, error } = await supabase
+      .from('products')
+      .insert(payloads)
+      .select('*')
+
+    if (error) {
+      console.error('Error batch creating products:', error)
+      return []
+    }
+    return data || []
+  },
+
   async updateProduct(id: string, updates: Partial<ProductInsert>): Promise<Product | null> {
     const { data, error } = await supabase
       .from('products')

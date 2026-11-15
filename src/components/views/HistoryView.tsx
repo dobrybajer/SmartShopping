@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
-import { shoppingListService } from '@/services/shoppingListService'
+import { HISTORY_PAGE_SIZE, shoppingListService } from '@/services/shoppingListService'
 import type { HistoryShoppingList, ShoppingList } from '@/services/shoppingListService'
+import { Button } from '@/components/ui/button'
 import { HistoryListDetailsSheet } from '@/components/dialogs/HistoryListDetailsSheet'
 import { HistoryStatusBadge } from '@/components/ui/HistoryStatusBadge'
 import { Calendar, History, ChevronRight, Clock } from 'lucide-react'
@@ -12,6 +13,8 @@ export const HistoryView: React.FC = () => {
   const { t, formatDate, formatTime } = useTranslation()
   const [historyLists, setHistoryLists] = useState<HistoryShoppingList[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
 
   const [selectedList, setSelectedList] = useState<ShoppingList | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
@@ -23,10 +26,33 @@ export const HistoryView: React.FC = () => {
     if (isInitial) {
       setLoading(true)
     }
-    const lists = await shoppingListService.getHistoryLists(householdId)
-    setHistoryLists(lists)
+    const lists = await shoppingListService.getHistoryLists(householdId, {
+      limit: HISTORY_PAGE_SIZE + 1,
+      offset: 0
+    })
+    setHasMore(lists.length > HISTORY_PAGE_SIZE)
+    setHistoryLists(lists.slice(0, HISTORY_PAGE_SIZE))
     setLoading(false)
   }, [householdId])
+
+  const handleLoadMore = async () => {
+    if (!householdId || loadingMore || !hasMore) return
+    setLoadingMore(true)
+    try {
+      const more = await shoppingListService.getHistoryLists(householdId, {
+        limit: HISTORY_PAGE_SIZE + 1,
+        offset: historyLists.length
+      })
+      setHasMore(more.length > HISTORY_PAGE_SIZE)
+      const nextSlice = more.slice(0, HISTORY_PAGE_SIZE)
+      setHistoryLists((prev) => {
+        const seen = new Set(prev.map((item) => item.id))
+        return [...prev, ...nextSlice.filter((item) => !seen.has(item.id))]
+      })
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   useEffect(() => {
     loadHistory(true)
@@ -114,6 +140,18 @@ export const HistoryView: React.FC = () => {
               </div>
             )
           })}
+
+          {hasMore && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="w-full min-h-[44px] rounded-xl font-bold text-xs sm:text-sm cursor-pointer"
+            >
+              {loadingMore ? t('history.loadingMore') : t('history.loadMore')}
+            </Button>
+          )}
         </div>
       )}
 

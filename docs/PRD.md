@@ -30,7 +30,7 @@ CREATE TYPE list_status_enum AS ENUM ('draft', 'active', 'archived');
 
 CREATE TABLE households (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(TRIM(name)) >= 1 AND char_length(name) <= 120),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -64,8 +64,8 @@ CREATE TABLE household_invites (
 CREATE TABLE product_categories (
   id SERIAL PRIMARY KEY,
   household_id UUID REFERENCES households(id) ON DELETE CASCADE, -- NULL dla kategorii globalnych
-  name TEXT NOT NULL,
-  sort_order INT NOT NULL, -- domyślne ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
+  name TEXT NOT NULL CHECK (char_length(TRIM(name)) >= 1 AND char_length(name) <= 100),
+  sort_order INT NOT NULL CHECK (sort_order >= 0), -- domyślne ułożenie alejek w sklepie (np. 1-Warzywa, 2-Nabiał)
   is_non_food BOOLEAN NOT NULL DEFAULT FALSE
 );
 
@@ -73,9 +73,9 @@ CREATE TABLE household_category_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   category_id INT NOT NULL REFERENCES product_categories(id) ON DELETE CASCADE,
-  custom_sort_order INT NOT NULL,
+  custom_sort_order INT NOT NULL CHECK (custom_sort_order >= 0),
   is_hidden BOOLEAN NOT NULL DEFAULT FALSE,
-  custom_name TEXT,
+  custom_name TEXT CHECK (custom_name IS NULL OR char_length(custom_name) <= 100),
   store_profile_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
@@ -86,13 +86,13 @@ CREATE TABLE products (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID REFERENCES households(id),
   type TEXT NOT NULL DEFAULT 'Household' CHECK (type IN ('Global', 'Household')),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (char_length(TRIM(name)) >= 1 AND char_length(name) <= 200),
   unit_type unit_enum NOT NULL,
   category_id INT REFERENCES product_categories(id),
-  kcal_per_100 NUMERIC DEFAULT 0,
-  protein_per_100 NUMERIC DEFAULT 0,
-  carbs_per_100 NUMERIC DEFAULT 0,
-  fat_per_100 NUMERIC DEFAULT 0,
+  kcal_per_100 NUMERIC DEFAULT 0 CHECK (kcal_per_100 IS NULL OR kcal_per_100 >= 0),
+  protein_per_100 NUMERIC DEFAULT 0 CHECK (protein_per_100 IS NULL OR protein_per_100 >= 0),
+  carbs_per_100 NUMERIC DEFAULT 0 CHECK (carbs_per_100 IS NULL OR carbs_per_100 >= 0),
+  fat_per_100 NUMERIC DEFAULT 0 CHECK (fat_per_100 IS NULL OR fat_per_100 >= 0),
   is_ad_hoc BOOLEAN DEFAULT FALSE, -- np. chemia, papier toaletowy
   is_general BOOLEAN DEFAULT FALSE, -- produkt ogólny (rodzic, brak bezpośrednich makro)
   parent_id UUID REFERENCES products(id) ON DELETE RESTRICT -- produkt nadrzędny
@@ -107,10 +107,10 @@ CREATE TABLE meals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID REFERENCES households(id),
   type TEXT NOT NULL DEFAULT 'Household' CHECK (type IN ('Global', 'Household')),
-  name TEXT NOT NULL,
-  description TEXT,
-  preparation_steps TEXT,
-  comments TEXT, -- dodatkowe notatki i uwagi do przepisu
+  name TEXT NOT NULL CHECK (char_length(TRIM(name)) >= 1 AND char_length(name) <= 200),
+  description TEXT CHECK (description IS NULL OR char_length(description) <= 4000),
+  preparation_steps TEXT CHECK (preparation_steps IS NULL OR char_length(preparation_steps) <= 10000),
+  comments TEXT CHECK (comments IS NULL OR char_length(comments) <= 4000), -- dodatkowe notatki i uwagi do przepisu
   category_id INT REFERENCES meal_categories(id),
   tags TEXT[] -- np. ['WOD', 'Rest Day', 'Redukcja']
 );
@@ -120,15 +120,15 @@ CREATE TABLE meal_ingredients (
   meal_id UUID REFERENCES meals(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id),
   reference_product_id UUID REFERENCES products(id) ON DELETE SET NULL, -- wariant referencyjny makro dla produktu ogólnego
-  base_quantity NUMERIC NOT NULL,
+  base_quantity NUMERIC NOT NULL CHECK (base_quantity > 0),
   is_pantry_item BOOLEAN DEFAULT FALSE -- np. sól, pieprz
 );
 
 CREATE TABLE shopping_lists (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   household_id UUID REFERENCES households(id),
-  name TEXT,
-  original_name TEXT, -- nazwa z momentu zamknięcia/archiwizacji listy
+  name TEXT CHECK (name IS NULL OR char_length(name) <= 150),
+  original_name TEXT CHECK (original_name IS NULL OR char_length(original_name) <= 150), -- nazwa z momentu zamknięcia/archiwizacji listy
   status list_status_enum DEFAULT 'draft',
   is_default BOOLEAN DEFAULT FALSE,
   target_date DATE,
@@ -144,7 +144,7 @@ CREATE TABLE shopping_list_items (
   shopping_list_id UUID REFERENCES shopping_lists(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id),
   category_id INT REFERENCES product_categories(id), -- nadpisana kategoria pozycji
-  total_quantity NUMERIC NOT NULL,
+  total_quantity NUMERIC NOT NULL CHECK (total_quantity > 0),
   is_checked BOOLEAN DEFAULT FALSE,
   in_pantry BOOLEAN DEFAULT FALSE, -- oznaczenie 'Mam w spiżarni'
   added_ad_hoc BOOLEAN DEFAULT FALSE,
@@ -170,9 +170,9 @@ CREATE TABLE pantry_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-  ad_hoc_name TEXT,
+  ad_hoc_name TEXT CHECK (ad_hoc_name IS NULL OR char_length(ad_hoc_name) <= 200),
   category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
-  quantity NUMERIC NOT NULL DEFAULT 1,
+  quantity NUMERIC NOT NULL DEFAULT 1 CHECK (quantity >= 0),
   unit_type unit_enum NOT NULL DEFAULT 'pcs',
   last_purchased_at TIMESTAMPTZ,
   last_verified_at TIMESTAMPTZ,
@@ -200,13 +200,22 @@ CREATE TABLE meal_plans (
   date DATE NOT NULL,
   meal_id UUID REFERENCES meals(id) ON DELETE CASCADE,
   meal_category_id INT REFERENCES meal_categories(id) ON DELETE SET NULL,
-  custom_name TEXT,
+  custom_name TEXT CHECK (custom_name IS NULL OR char_length(custom_name) <= 200),
   is_ad_hoc BOOLEAN NOT NULL DEFAULT FALSE,
   servings NUMERIC NOT NULL DEFAULT 1 CHECK (servings > 0),
-  target_kcal NUMERIC,
-  notes TEXT,
-  sort_order INT NOT NULL DEFAULT 0,
+  target_kcal NUMERIC CHECK (target_kcal IS NULL OR target_kcal >= 0),
+  notes TEXT CHECK (notes IS NULL OR char_length(notes) <= 2000),
+  sort_order INT NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
   is_uncertainty_dismissed BOOLEAN NOT NULL DEFAULT FALSE, -- wyciszenie ostrzeżenia ⚠️ brakujących składników (MED-03)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE weekly_meal_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (char_length(TRIM(name)) >= 1 AND char_length(name) <= 120),
+  entries JSONB NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(entries) = 'array'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -216,20 +225,20 @@ CREATE TABLE meal_plans (
 *   **Baza Potraw (CRUD) i Przelicznik Miar Kuchennych (`LOW-11`):** Aplikacja posiada widok biblioteki posiłków. Umożliwia przeglądanie potraw, wchodzenie w szczegóły (opis, kroki przygotowania, makro, komentarze) oraz zawiera formularz do dodawania i edytowania istniejących potraw gospodarstwa (`mealService.updateMeal`, wybór kategorii `meal_categories`, bez nieaktywnego tworzenia `Global` z klienta) wraz z przelicznikiem miar kuchennych (`tbsp`, `tsp`, `cup`, `pinch`, `dag`, `kg`, `l` na jednostki bazowe `g`/`ml`/`pcs` w `kitchenUnits.ts`).
 *   **Zarządzanie Makro i Skalowanie:** Produkty definiują makro na 100g/100ml lub 1 sztukę. Przy dodawaniu posiłku użytkownik określa docelową kaloryczność, co automatycznie wylicza mnożnik dla proporcjonalnej ilości składników.
 *   **Moduł Kalendarza i Planowania Posiłków (ADR-009):**
-    *   **3 Perspektywy Czasowe:** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (`DayCalendarView` z grupowaniem w sekcje kategorii posiłków `meal_categories` i odznakami kategorii, pełne makro B/W/T, lista składników).
-    *   **Synchronizacja z Procesem Zakupowym:** Pełne śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`) zasilane na bieżąco z `pantryItems`, `draftItems`, `activeListItems` oraz `archivedListItems` (`useShoppingStore` / `getCalendarPipelineItems`).
+    *   **3 Perspektywy Czasowe i Wydajność (`MED-14`, `MED-15`):** Widok Miesiąca (kropki statusów, suma kcal, kliknięcie do dnia), Widok Tygodnia (przełącznik tydzień roboczy Pn-Pt vs pełny Pn-Nd, kolumny/karty) oraz szczegółowy Widok Dnia (`DayCalendarView` z grupowaniem w sekcje kategorii posiłków `meal_categories` i odznakami kategorii, pełne makro B/W/T, lista składników). Zapytania `meal_plans` pobierają okno aktywnego miesiąca ± 7 dni (`getCalendarFetchWindow`), a statusy obliczane są w pojedynczym przebiegu O(1) (`calculateMealPlanStatusesMap` z mapami `usePantryStore` oraz memoizacją `useMemo`).
+    *   **Synchronizacja z Procesem Zakupowym i Zbiorczy Transfer (`MED-16`):** Pełne śledzenie statusów składników (`Zaplanowane` -> `W koszyku` -> `Na aktywnej liście` -> `Kupione` lub `W spiżarni`) zasilane na bieżąco z `pantryItems`, `draftItems`, `activeListItems` oraz `archivedListItems` (`useShoppingStore` / `getCalendarPipelineItems`). Zarówno kalkulacja statusów, jak i transfer wielodniowy (`transferWeekToDraft`, `generateDraftItemsFromMealPlans`) stosują kumulatywną rezerwację stanu spiżarni bez dublowania zapasów i z pojedynczym komunikatem Toast.
     *   **Wykrywanie Niepewności (⚠️):** Jeśli jakikolwiek składnik dania zostanie usunięty z koszyka lub listy przed zakupem, pojawia się wskaźnik niepewności z możliwością podglądu braków i natychmiastowego ich przywrócenia jednym kliknięciem.
-    *   **Elastyczność, Skalowanie i Szablony Tygodniowe (`LOW-08`):** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc, duplikowanie posiłku na kolejny dzień oraz zapisywanie/nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikiem porcji `0.5x–4x` (`WeeklyTemplatesModal`).
+    *   **Elastyczność, Skalowanie i Szablony Tygodniowe (`LOW-08`, `MED-17`):** Dodawanie dań z Książki Kucharskiej (z selektorem porcji/skalowania), szybkich dań Ad-Hoc, duplikowanie posiłku na kolejny dzień oraz zapisywanie/nakładanie szablonów tygodniowych Pn–Pt / Pn–Nd z mnożnikiem porcji `0.5x–4x` (`WeeklyTemplatesModal`) współdzielonych między domownikami w tabeli Supabase `weekly_meal_templates` (z RLS, Realtime, wsadowym `createMealPlansBatch` i `localStorage` jako buforem offline).
     *   **Tryb Archiwalny:** Przeszłe dni są zablokowane do edycji (tylko do odczytu) z trwałym oznaczeniem zrealizowanych posiłków.
 *   **Wiele Aktywnych List Zakupowych i Elastyczny Transfer z Koszyka (ADR-005):**
     *   Gospodarstwo domowe może posiadać jednocześnie wiele aktywnych list zakupowych (np. *"Bieżące spożywcze"*, *"Dom / Majsterkowanie"*, *"Apteka"*).
     *   W Koszyku (Draft) użytkownik może przenieść zaznaczone pozycje do istniejącej aktywnej listy (z automatycznym sumowaniem ilości i resetem stanu odhaczenia) LUB utworzyć zupełnie nową aktywną listę bez archiwizowania pozostałych.
-    *   Na ekranie Aktywnej Listy użytkownik błyskawicznie przełącza się między listami za pomocą horyzontalnych pigułek/chipsów z licznikami nieodhaczonych pozycji (Mobile PWA) lub Segmented Tabs (Desktop).
-    *   Możliwość oznaczania listy domyślnej, zmiany nazwy, archiwizacji pojedynczej listy oraz usuwania. Zobacz [ADR-005: Multiple Active Shopping Lists Architecture](./adr/ADR-005-multiple-active-shopping-lists.md).
-*   **Cykl Życia Listy i Historia:** 
+    *   Na ekranie Aktywnej Listy użytkownik błyskawicznie przełącza się między listami za pomocą horyzontalnych pigułek/chipsów z licznikami nieodhaczonych pozycji (Mobile PWA) lub Segmented Tabs (Desktop). Odhaczenie ostatniego brakującego artykułu na liście, gdy pozostałe mają status `in_pantry = true`, wyzwala powiadomienie `LIST_COMPLETED`. Edycja inline ilości w Koszyku i na Aktywnej Liście obsługuje wartości ułamkowe (`inputMode="decimal"`, `parseFloat`).
+    *   Możliwość oznaczania listy domyślnej, zmiany nazwy, archiwizacji pojedynczej listy (z zachowaniem `meal_plan_item_id` dla pozycji zwracanych do Koszyka i scalaniem przez `addMultipleToDraft`) oraz usuwania. Zobacz [ADR-005: Multiple Active Shopping Lists Architecture](./adr/ADR-005-multiple-active-shopping-lists.md).
+*   **Cykl Życia Listy i Historia:**
     *   `Draft` (Koszyk roboczy, z możliwością całkowitego **wyczyszczenia/opróżnienia** jednym kliknięciem lub selektywnego transferu).
     *   `Active` (Równorzędne aktywne listy gospodarstwa domowego z licznikami nieodhaczonych pozycji i synchronizacją Realtime).
-    *   `Archived` (Historia). Podczas zamykania listy aktywnej zapisywany jest znacznik czasu zakończenia (`completed_at`) oraz snapshot nazwy (`original_name`). Główna lista historii prezentuje datę zakończenia i jest według niej sortowana malejąco. Szczegóły zarchiwizowanej listy prezentują zarówno datę zakończenia, jak i datę utworzenia listy (`created_at`).
+    *   `Archived` (Historia z paginacją po 30 wpisów i przyciskiem **„Pokaż starsze listy”**, `MED-14`). Podczas zamykania listy aktywnej zapisywany jest znacznik czasu zakończenia (`completed_at`) oraz snapshot nazwy (`original_name`). Główna lista historii prezentuje datę zakończenia i jest według niej sortowana malejąco. Szczegóły zarchiwizowanej listy prezentują zarówno datę zakończenia, jak i datę utworzenia listy (`created_at`).
     *   **Śledzenie i Edycja Nazwy w Historii:** Użytkownik może zmienić nazwę zarchiwizowanej listy. W takim wypadku oryginalna nazwa z momentu zamykania jest prezentowana linijkę niżej drobną czcionką (`text-xs text-muted-foreground font-mono`) w widoku głównym i w szczegółach. Jeśli nazwa nie była zmieniana – linijka jest ukrywana.
     *   **Zachowanie Wybranych Kategorii:** Przy pozycjach listy zachowywana jest kategoria wybrana przez użytkownika (`shopping_list_items.category_id`), a grupowanie w historii i transfer z powrotem do koszyka respektuje ten wybór zamiast domyślnej kategorii katalogowej produktu.
     *   **Pasek Akcji w Szczegółach (Dual Layout):** Przyciski akcji na dole (zarówno Mobile, jak i Desktop) są podzielone symetrycznie po 50% szerokości: "Dodaj do koszyka" oraz czerwony przycisk "Usuń listę" wyzwalający modal potwierdzenia usunięcia (`ConfirmDeleteDialog`).

@@ -1,13 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { useShallow } from 'zustand/react/shallow'
 import {
-  calculateMealPlanStatus,
+  calculateMealPlanStatusesMap,
   calculateDayMacros
 } from '@/lib/calculations/calendarStatus'
+import { getCalendarFetchWindow } from '@/lib/calculations/weeklyTemplateCalculations'
+import type { MealPlanItem } from '@/types/calendar'
 import { ChevronLeft, ChevronRight, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn, formatLocalDateISO } from '@/lib/utils'
@@ -35,8 +37,21 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
 }) => {
   const { t, language } = useTranslation()
   const locale = language === 'pl' ? 'pl-PL' : 'en-US'
-  const mealPlans = useMealPlanStore((state) => state.mealPlans)
-  const pantryItems = usePantryStore((state) => state.pantryItems)
+  const { mealPlans, activeHouseholdId, loadedWindow, loadMealPlans } = useMealPlanStore(
+    useShallow((state) => ({
+      mealPlans: state.mealPlans,
+      activeHouseholdId: state.activeHouseholdId,
+      loadedWindow: state.loadedWindow,
+      loadMealPlans: state.loadMealPlans
+    }))
+  )
+  const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryItems: state.pantryItems,
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const { draftItems, activeListItems, archivedListItems } = useShoppingStore(
     useShallow((state) => ({
       draftItems: state.draftItems,
@@ -53,6 +68,59 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
   const cellRefs = useRef<Record<string, HTMLButtonElement | null>>({})
 
   const todayStr = formatLocalDateISO()
+
+  const plansByDate = useMemo(() => {
+    const grouped = new Map<string, MealPlanItem[]>()
+    for (const plan of mealPlans) {
+      const list = grouped.get(plan.date)
+      if (list) list.push(plan)
+      else grouped.set(plan.date, [plan])
+    }
+    return grouped
+  }, [mealPlans])
+
+  const statusByPlanId = useMemo(
+    () =>
+      calculateMealPlanStatusesMap(
+        mealPlans,
+        {
+          pantryItems,
+          pantryMapByProductId,
+          pantryItemsByParentId,
+          draftItems,
+          activeListItems,
+          archivedListItems
+        },
+        todayStr
+      ),
+    [
+      mealPlans,
+      pantryItems,
+      pantryMapByProductId,
+      pantryItemsByParentId,
+      draftItems,
+      activeListItems,
+      archivedListItems,
+      todayStr
+    ]
+  )
+
+  const ensureMonthLoaded = (year: number, month: number) => {
+    if (!activeHouseholdId || typeof loadMealPlans !== 'function') return
+    const firstISO = formatDateISO(year, month, 1)
+    const lastDayNum = new Date(year, month + 1, 0).getDate()
+    const lastISO = formatDateISO(year, month, lastDayNum)
+    const needsFetch =
+      !loadedWindow ||
+      loadedWindow.householdId !== activeHouseholdId ||
+      firstISO < loadedWindow.startDate ||
+      lastISO > loadedWindow.endDate
+
+    if (needsFetch) {
+      const { startDate, endDate } = getCalendarFetchWindow(firstISO)
+      void loadMealPlans(activeHouseholdId, startDate, endDate)
+    }
+  }
 
   useEffect(() => {
     if (shouldFocusRef.current) {
@@ -73,6 +141,7 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
     }
     setViewMonth(nextMonth)
     setViewYear(nextYear)
+    ensureMonthLoaded(nextYear, nextMonth)
   }
 
   const firstDayOfMonth = new Date(viewYear, viewMonth, 1)
@@ -161,6 +230,7 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
               setViewYear(now.getFullYear())
               setViewMonth(now.getMonth())
               setFocusedDate(todayStr)
+              ensureMonthLoaded(now.getFullYear(), now.getMonth())
             }}
             className="text-xs text-primary font-semibold rounded-lg min-h-[44px] px-3"
           >
@@ -215,19 +285,11 @@ export const MonthCalendarGrid: React.FC<MonthCalendarGridProps> = ({
                 const { iso, dayNum } = cell
                 const isToday = iso === todayStr
                 const isSelected = iso === selectedDate
-                const isPast = iso < todayStr
-                const plansForDay = mealPlans.filter((p) => p.date === iso)
+                const plansForDay = plansByDate.get(iso) || []
                 const macros = calculateDayMacros(plansForDay)
 
                 const statusList = plansForDay.map(
-                  (p) =>
-                    calculateMealPlanStatus(p, {
-                      pantryItems,
-                      draftItems,
-                      activeListItems,
-                      archivedListItems,
-                      isPastDate: isPast
-                    }).status
+                  (p) => statusByPlanId.get(p.id)?.status ?? 'planned'
                 )
 
                 const isTabStop =

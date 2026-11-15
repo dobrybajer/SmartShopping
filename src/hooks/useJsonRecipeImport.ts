@@ -85,19 +85,27 @@ export function useJsonRecipeImport({ open, onOpenChange, onSuccess }: UseJsonRe
         productLookup.set(p.name.trim().toLowerCase(), p.id)
       })
 
-      for (const recipe of validation.recipes) {
-        const ingredientsPayload: Array<{
-          product_id: string
-          base_quantity: number
-          is_pantry_item?: boolean
-        }> = []
+      // 1. Collect all unique missing products across all recipes cleanly before writing
+      const missingProductsByKey = new Map<
+        string,
+        {
+          name: string
+          unit_type: 'g' | 'ml' | 'pcs'
+          household_id: string
+          type: 'Household'
+          kcal_per_100: number
+          protein_per_100: number
+          carbs_per_100: number
+          fat_per_100: number
+          is_ad_hoc: boolean
+        }
+      >()
 
+      for (const recipe of validation.recipes) {
         for (const ing of recipe.ingredients) {
           const lowerName = ing.name.trim().toLowerCase()
-          let productId = productLookup.get(lowerName)
-
-          if (!productId) {
-            const created = await productService.createProduct({
+          if (!productLookup.has(lowerName) && !missingProductsByKey.has(lowerName)) {
+            missingProductsByKey.set(lowerName, {
               name: ing.name.trim(),
               unit_type: ing.unit,
               household_id: household.id,
@@ -108,36 +116,79 @@ export function useJsonRecipeImport({ open, onOpenChange, onSuccess }: UseJsonRe
               fat_per_100: ing.fat_per_100 ?? 0,
               is_ad_hoc: false
             })
-
-            if (created && created.id) {
-              productId = created.id
-              productLookup.set(lowerName, created.id)
-            } else {
-              throw new Error(`Failed to create product for ingredient "${ing.name}"`)
-            }
           }
+        }
+      }
 
-          ingredientsPayload.push({
+      const missingPayloads = Array.from(missingProductsByKey.values())
+      if (missingPayloads.length === 1) {
+        const created = await productService.createProduct(missingPayloads[0])
+        if (created && created.id) {
+          productLookup.set(missingPayloads[0].name.toLowerCase(), created.id)
+        } else {
+          throw new Error(`Failed to create product for ingredient "${missingPayloads[0].name}"`)
+        }
+      } else if (missingPayloads.length > 1) {
+        const batchCreated =
+          typeof productService.createProductsBatch === 'function'
+            ? await productService.createProductsBatch(missingPayloads)
+            : []
+
+        const createdProducts =
+          batchCreated && batchCreated.length === missingPayloads.length
+            ? batchCreated
+            : await Promise.all(missingPayloads.map((p) => productService.createProduct(p)))
+
+        createdProducts.forEach((created, index) => {
+          const fallbackName = missingPayloads[index]?.name || ''
+          if (created && created.id) {
+            productLookup.set((created.name || fallbackName).trim().toLowerCase(), created.id)
+          } else {
+            throw new Error(`Failed to create product for ingredient "${fallbackName}"`)
+          }
+        })
+      }
+
+      // 2. Build all meal creation payloads and persist in batch (or single)
+      const mealPayloads = validation.recipes.map((recipe) => ({
+        household_id: household.id,
+        type: 'Household' as const,
+        name: recipe.name,
+        description: recipe.description,
+        preparation_steps: recipe.preparation_steps,
+        comments: recipe.comments,
+        category_id: recipe.category_id,
+        tags: recipe.tags,
+        ingredients: recipe.ingredients.map((ing) => {
+          const productId = productLookup.get(ing.name.trim().toLowerCase())
+          if (!productId) {
+            throw new Error(`Failed to resolve product for ingredient "${ing.name}"`)
+          }
+          return {
             product_id: productId,
             base_quantity: ing.quantity,
             is_pantry_item: ing.is_pantry_item
-          })
-        }
-
-        const createdMeal = await mealService.createMeal({
-          household_id: household.id,
-          type: 'Household',
-          name: recipe.name,
-          description: recipe.description,
-          preparation_steps: recipe.preparation_steps,
-          comments: recipe.comments,
-          category_id: recipe.category_id,
-          tags: recipe.tags,
-          ingredients: ingredientsPayload
+          }
         })
+      }))
 
+      if (mealPayloads.length === 1) {
+        const createdMeal = await mealService.createMeal(mealPayloads[0])
         if (!createdMeal) {
-          throw new Error(`Failed to create meal "${recipe.name}"`)
+          throw new Error(`Failed to create meal "${mealPayloads[0].name}"`)
+        }
+      } else if (mealPayloads.length > 1) {
+        const batchMeals =
+          typeof mealService.createMealsBatch === 'function'
+            ? await mealService.createMealsBatch(mealPayloads)
+            : []
+
+        if (!batchMeals || batchMeals.length !== mealPayloads.length) {
+          const createdMeals = await Promise.all(mealPayloads.map((m) => mealService.createMeal(m)))
+          const failedIndex = createdMeals.findIndex((m) => !m)
+          if (failedIndex !== -1) {
+            throw new Error(`Failed to create meal "${mealPayloads[failedIndex].name}"`)
+          }
         }
       }
 

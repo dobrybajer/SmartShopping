@@ -3,12 +3,15 @@ import {
   addDaysIso,
   buildMealPlanInputsFromTemplate,
   buildWeeklyTemplateFromPlans,
+  getCalendarFetchWindow,
   getMondayIso,
   loadStoredWeeklyTemplates,
   saveStoredWeeklyTemplates
 } from '../weeklyTemplateCalculations'
+import { isUuid } from '@/lib/utils'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { mealPlanService } from '@/services/mealPlanService'
+import { weeklyTemplateService } from '@/services/weeklyTemplateService'
 import type { MealPlanItem } from '@/types/calendar'
 
 const SAMPLE_PLANS: MealPlanItem[] = [
@@ -129,26 +132,34 @@ describe('LOW-08: Weekly Meal Plan Templates Engine & Store Flows', () => {
     })
   })
 
-  it('Flow 04: persists templates per household and applies them via useMealPlanStore', async () => {
-    const createSpy = vi
-      .spyOn(mealPlanService, 'createMealPlan')
-      .mockImplementation(async (input) => ({
-        id: `created_${input.date}`,
-        household_id: input.household_id,
-        date: input.date,
-        meal_id: input.meal_id || null,
-        meal_category_id: input.meal_category_id || null,
-        custom_name: input.custom_name || null,
-        is_ad_hoc: input.is_ad_hoc ?? false,
-        servings: input.servings ?? 1,
-        target_kcal: input.target_kcal ?? null,
-        notes: input.notes || null,
-        sort_order: input.sort_order ?? 0,
-        is_uncertainty_dismissed: false,
-        created_at: '2026-11-15T12:00:00Z',
-        updated_at: '2026-11-15T12:00:00Z',
-        meal: null
-      }))
+  it('Flow 04: persists templates per household and applies them in batch via useMealPlanStore', async () => {
+    const createBatchSpy = vi
+      .spyOn(mealPlanService, 'createMealPlansBatch')
+      .mockImplementation(async (inputs) =>
+        inputs.map((input, idx) => ({
+          id: `created_${input.date}_${idx}`,
+          household_id: input.household_id,
+          date: input.date,
+          meal_id: input.meal_id || null,
+          meal_category_id: input.meal_category_id || null,
+          custom_name: input.custom_name || null,
+          is_ad_hoc: input.is_ad_hoc ?? false,
+          servings: input.servings ?? 1,
+          target_kcal: input.target_kcal ?? null,
+          notes: input.notes || null,
+          sort_order: input.sort_order ?? 0,
+          is_uncertainty_dismissed: false,
+          created_at: '2026-11-15T12:00:00Z',
+          updated_at: '2026-11-15T12:00:00Z',
+          meal: null
+        }))
+      )
+    const saveRemoteSpy = vi
+      .spyOn(weeklyTemplateService, 'saveWeeklyTemplate')
+      .mockImplementation(async (tpl) => tpl)
+    const deleteRemoteSpy = vi
+      .spyOn(weeklyTemplateService, 'deleteWeeklyTemplate')
+      .mockResolvedValue(true)
 
     useMealPlanStore.setState({
       activeHouseholdId: 'hh-1',
@@ -161,20 +172,26 @@ describe('LOW-08: Weekly Meal Plan Templates Engine & Store Flows', () => {
       .saveWeekAsTemplate('Szablon Domowy', '2026-11-16', 7)
 
     expect(saved).not.toBeNull()
+    expect(isUuid(saved!.id)).toBe(true)
     expect(loadStoredWeeklyTemplates('hh-1')).toHaveLength(1)
+    expect(saveRemoteSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'Szablon Domowy' }))
 
     const appliedCount = await useMealPlanStore
       .getState()
       .applyWeeklyTemplate(saved!.id, '2026-11-30', { servingsMultiplier: 2 })
 
     expect(appliedCount).toBe(2)
-    expect(createSpy).toHaveBeenCalledTimes(2)
+    expect(createBatchSpy).toHaveBeenCalledTimes(1)
     expect(useMealPlanStore.getState().mealPlans).toHaveLength(4)
 
     useMealPlanStore.getState().deleteWeeklyTemplate(saved!.id)
     expect(useMealPlanStore.getState().weeklyTemplates).toHaveLength(0)
+    expect(deleteRemoteSpy).toHaveBeenCalledWith(saved!.id, 'hh-1')
 
     saveStoredWeeklyTemplates('hh-2', [])
     expect(loadStoredWeeklyTemplates('hh-2')).toEqual([])
+
+    const fetchWin = getCalendarFetchWindow('2026-10-15')
+    expect(fetchWin).toEqual({ startDate: '2026-09-24', endDate: '2026-11-07' })
   })
 })

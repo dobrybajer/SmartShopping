@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
@@ -7,8 +7,10 @@ import { useShallow } from 'zustand/react/shallow'
 import { useDeviceLayout } from '@/hooks/useDeviceLayout'
 import {
   calculateMealPlanStatus,
+  calculateMealPlanStatusesMap,
   calculateDayMacros
 } from '@/lib/calculations/calendarStatus'
+import type { MealPlanItem } from '@/types/calendar'
 import { MealPlanStatusBadge } from './MealPlanStatusBadge'
 import { WeeklyTemplatesModal } from './WeeklyTemplatesModal'
 import {
@@ -62,17 +64,23 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
     weeklyTemplates,
     weekRangeMode,
     setWeekRangeMode,
-    transferDayToDraft
+    transferWeekToDraft
   } = useMealPlanStore(
     useShallow((state) => ({
       mealPlans: state.mealPlans,
       weeklyTemplates: state.weeklyTemplates,
       weekRangeMode: state.weekRangeMode,
       setWeekRangeMode: state.setWeekRangeMode,
-      transferDayToDraft: state.transferDayToDraft
+      transferWeekToDraft: state.transferWeekToDraft
     }))
   )
-  const pantryItems = usePantryStore((state) => state.pantryItems)
+  const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore(
+    useShallow((state) => ({
+      pantryItems: state.pantryItems,
+      pantryMapByProductId: state.pantryMapByProductId,
+      pantryItemsByParentId: state.pantryItemsByParentId
+    }))
+  )
   const { draftItems, activeListItems, archivedListItems } = useShoppingStore(
     useShallow((state) => ({
       draftItems: state.draftItems,
@@ -83,32 +91,69 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
 
   const todayStr = formatLocalDateISO()
-  const monday = getMonday(selectedDate)
+  const monday = useMemo(() => getMonday(selectedDate), [selectedDate])
   const mondayIso = formatDateISO(monday)
   const numDays = weekRangeMode === 'workweek' ? 5 : 7
 
-  // Generate days array for this week
-  const weekDays = Array.from({ length: numDays }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(monday.getDate() + i)
-    const iso = formatDateISO(d)
-    const isToday = iso === todayStr
-    const isSelected = iso === selectedDate
-    const isPast = iso < todayStr
-
-    const plansForDay = mealPlans.filter((p) => p.date === iso)
-    const macros = calculateDayMacros(plansForDay)
-
-    return {
-      dateObj: d,
-      iso,
-      isToday,
-      isSelected,
-      isPast,
-      plans: plansForDay,
-      macros
+  const plansByDate = useMemo(() => {
+    const grouped = new Map<string, MealPlanItem[]>()
+    for (const plan of mealPlans) {
+      const list = grouped.get(plan.date)
+      if (list) list.push(plan)
+      else grouped.set(plan.date, [plan])
     }
-  })
+    return grouped
+  }, [mealPlans])
+
+  // Generate days array for this week using O(1) pre-grouped day lookups
+  const weekDays = useMemo(() => {
+    return Array.from({ length: numDays }, (_, i) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + i)
+      const iso = formatDateISO(d)
+      const isToday = iso === todayStr
+      const isSelected = iso === selectedDate
+      const isPast = iso < todayStr
+
+      const plansForDay = plansByDate.get(iso) || []
+      const macros = calculateDayMacros(plansForDay)
+
+      return {
+        dateObj: d,
+        iso,
+        isToday,
+        isSelected,
+        isPast,
+        plans: plansForDay,
+        macros
+      }
+    })
+  }, [numDays, monday, todayStr, selectedDate, plansByDate])
+
+  const statusByPlanId = useMemo(() => {
+    const weekPlans = weekDays.flatMap((d) => d.plans)
+    return calculateMealPlanStatusesMap(
+      weekPlans,
+      {
+        pantryItems,
+        pantryMapByProductId,
+        pantryItemsByParentId,
+        draftItems,
+        activeListItems,
+        archivedListItems
+      },
+      todayStr
+    )
+  }, [
+    weekDays,
+    pantryItems,
+    pantryMapByProductId,
+    pantryItemsByParentId,
+    draftItems,
+    activeListItems,
+    archivedListItems,
+    todayStr
+  ])
 
   const shiftWeek = (deltaWeeks: number) => {
     const d = new Date(monday)
@@ -121,13 +166,10 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   const lastDay = weekDays[weekDays.length - 1].dateObj
   const rangeLabel = `${firstDay.getDate()} - ${lastDay.getDate()} ${lastDay.toLocaleDateString(locale, { month: 'short', year: 'numeric' })}`
 
-  // Send entire week to cart
+  // Send entire week to cart in a single batched action + single toast + shared pantry stock
   const handleTransferEntireWeek = () => {
-    for (const day of weekDays) {
-      if (!day.isPast && day.plans.length > 0) {
-        transferDayToDraft(day.iso)
-      }
-    }
+    const futureDates = weekDays.filter((day) => !day.isPast && day.plans.length > 0).map((d) => d.iso)
+    transferWeekToDraft(futureDates)
   }
 
   return (
@@ -283,13 +325,17 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                 {/* Planned Meals list */}
                 <div className="flex flex-col gap-2 flex-1">
                   {day.plans.map((plan) => {
-                    const statusDetails = calculateMealPlanStatus(plan, {
-                      pantryItems,
-                      draftItems,
-                      activeListItems,
-                      archivedListItems,
-                      isPastDate: day.isPast
-                    })
+                    const statusDetails =
+                      statusByPlanId.get(plan.id) ??
+                      calculateMealPlanStatus(plan, {
+                        pantryItems,
+                        pantryMapByProductId,
+                        pantryItemsByParentId,
+                        draftItems,
+                        activeListItems,
+                        archivedListItems,
+                        isPastDate: day.isPast
+                      })
                     const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
 
                     return (
@@ -388,13 +434,17 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {day.plans.map((plan) => {
-                      const statusDetails = calculateMealPlanStatus(plan, {
-                        pantryItems,
-                        draftItems,
-                        activeListItems,
-                        archivedListItems,
-                        isPastDate: day.isPast
-                      })
+                      const statusDetails =
+                        statusByPlanId.get(plan.id) ??
+                        calculateMealPlanStatus(plan, {
+                          pantryItems,
+                          pantryMapByProductId,
+                          pantryItemsByParentId,
+                          draftItems,
+                          activeListItems,
+                          archivedListItems,
+                          isPastDate: day.isPast
+                        })
                       const mealName = plan.meal?.name || plan.custom_name || t('calendar.defaultMealName')
 
                       return (

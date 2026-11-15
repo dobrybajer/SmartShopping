@@ -185,6 +185,8 @@ export const en = {
     archivedList: 'Archived List',
     itemsBoughtRatio: '{bought} of {total} items bought',
     deleteHistoryConfirm: 'Are you sure you want to delete this historical list record?',
+    loadMore: 'Show older lists',
+    loadingMore: 'Loading older lists...',
   },
   products: {
     title: 'Product Catalog',
@@ -719,6 +721,7 @@ export const en = {
     noIngredientsToTransfer: 'All ingredients are already in your pantry or no items to buy',
     transferredToDraftSuccess: 'Added {count} items to cart',
     dayTransferredToDraftSuccess: 'Added {count} items from this day to cart',
+    weekTransferredToDraftSuccess: 'Added {count} items from this week to cart',
     ingredientRestoredToast: 'Restored {name} to cart',
     dialog: {
       addTitle: 'Schedule a Meal',

@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateMealPlanStatus,
+  calculateMealPlanStatusesMap,
   calculateDayMacros,
   generateDraftItemsFromMealPlan,
+  generateDraftItemsFromMealPlans,
   getEffectiveMultiplier
 } from '../calendarStatus'
 import { addDaysISO, formatLocalDateISO } from '@/lib/utils'
@@ -477,6 +479,77 @@ describe('calendarStatus - Pure Calculations Engine (ADR-009)', () => {
 
       const localDate = new Date(2026, 10, 15, 0, 30, 0) // 00:30 local time
       expect(formatLocalDateISO(localDate)).toBe('2026-11-15')
+    })
+  })
+
+  describe('O(1) batch statuses & cumulative pantry allocation (MED-15 & MED-16)', () => {
+    it('prevents double-counting pantry stock across multiple planned meals in statuses and batch draft transfer', () => {
+      const mealA: MealPlanItem = {
+        ...mockMealPlan,
+        id: 'plan-a',
+        date: '2026-11-16',
+        servings: 1 // needs 2 Eggs + 10g Butter
+      }
+      const mealB: MealPlanItem = {
+        ...mockMealPlan,
+        id: 'plan-b',
+        date: '2026-11-17',
+        servings: 1 // needs 2 Eggs + 10g Butter
+      }
+
+      // Pantry only has 2 Eggs and 15g Butter -> covers mealA fully (0 Eggs & 5g Butter left), so mealB still needs both!
+      const pantryItems: PantryItem[] = [
+        {
+          id: 'pan-eggs',
+          household_id: 'house-1',
+          product_id: 'prod-1',
+          ad_hoc_name: null,
+          category_id: 2,
+          quantity: 2,
+          unit_type: 'pcs',
+          last_purchased_at: null,
+          last_verified_at: null,
+          created_at: '',
+          updated_at: ''
+        },
+        {
+          id: 'pan-butter',
+          household_id: 'house-1',
+          product_id: 'prod-2',
+          ad_hoc_name: null,
+          category_id: 2,
+          quantity: 15,
+          unit_type: 'g',
+          last_purchased_at: null,
+          last_verified_at: null,
+          created_at: '',
+          updated_at: ''
+        }
+      ]
+
+      const pantryMapByProductId = new Map<string, PantryItem>(
+        pantryItems.map((p) => [p.product_id!, p])
+      )
+
+      const statuses = calculateMealPlanStatusesMap(
+        [mealA, mealB],
+        { pantryItems, pantryMapByProductId, pantryItemsByParentId: new Map() },
+        '2026-11-15'
+      )
+
+      expect(statuses.get('plan-a')?.status).toBe('bought')
+      expect(statuses.get('plan-b')?.status).toBe('planned')
+      expect(statuses.get('plan-b')?.pantryCoveredCount).toBe(0)
+
+      const batchedDraft = generateDraftItemsFromMealPlans([mealA, mealB], {
+        pantryItems,
+        pantryMapByProductId,
+        pantryItemsByParentId: new Map(),
+        excludePantryItems: true
+      })
+
+      expect(batchedDraft).toHaveLength(2)
+      expect(batchedDraft.every((d) => d.meal_plan_item_id === 'plan-b')).toBe(true)
     })
   })
 })

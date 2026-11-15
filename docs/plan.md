@@ -383,3 +383,24 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Utwardzenie `supabase/functions/send-push-notification/index.ts`: walidacja UUID `householdId`, limitów znaków `title` (<= 120) i `body` (<= 500), ścieżek względnych `/^\/(?!\/)/` dla `url`/`icon`/`badge`, konfiguracja `ALLOWED_ORIGIN` CORS oraz usunięcie `any` (`parsePushError(err: unknown)`).
 3. **Reguła Lintera & Czysty TypeScript:**
    * Włączenie reguły `"typescript/no-explicit-any": "error"` w `.oxlintrc.json` i całkowita eliminacja jawnego typu `any` w kodzie produkcyjnym oraz testach.
+
+## Faza 18: Optymalizacja Wydajności Zapytań & O(1) Kalendarza, Poprawki Logiki Domenowej, Synchronizacja Szablonów Supabase oraz Więzy `CHECK` (`MED-14`..`MED-18`) (Zakończona)
+**Cel:** Eliminacja zapytań bez granic czasowych i paginacji, likwidacja pętli N+1 oraz liniowych skanów w Kalendarzu, naprawa 4 luk logiki biznesowej, współdzielenie szablonów tygodniowych w bazie Supabase oraz dodanie ograniczeń integralności `CHECK` w PostgreSQL.
+
+1. **Baza Danych, RPC & Integracja Multi-Tenant (Supabase):**
+   * Migracja `supabase/migrations/20261116150000_weekly_templates_sync_archive_plan_id_and_check_constraints.sql`:
+     * Aktualizacja RPC `archive_shopping_list` o zwracanie `'meal_plan_item_id', sli.meal_plan_item_id` dla niekupionych pozycji przywracanych do koszyka (`MED-16`).
+     * Utworzenie tabeli `public.weekly_meal_templates` z indeksami, triggerem `updated_at`, pełnymi politykami RLS dla `authenticated` (`get_user_household_ids`) oraz replikacją `supabase_realtime` (`MED-17`).
+     * Idempotentne ograniczenia `CHECK` (`> 0` / `>= 0` oraz limity `char_length(...)`) na tabelach `households`, `products`, `meals`, `meal_ingredients`, `shopping_lists`, `shopping_list_items`, `pantry_items`, `meal_plans`, `product_categories`, `household_category_settings` i `weekly_meal_templates` (`MED-18`).
+   * Rozszerzenie `src/types/supabase.ts` i `src/lib/__tests__/rlsSecurityAudit.test.ts` (`Audit 10`).
+2. **Warstwa Serwisów, Zapytań Wsadowych i Paginacji (`MED-14`, `MED-17`):**
+   * Serwis `weeklyTemplateService.ts` synchronizujący szablony tygodniowe z Supabase + `localStorage` jako bufor offline i migracją starszych lokalnych szablonów.
+   * Okno czasowe `getCalendarFetchWindow` (miesiąc ± 7 dni) i stan `loadedWindow` w `useMealPlanStore.ts`, `CalendarView.tsx`, `DesktopCalendarView.tsx`, `MonthCalendarGrid.tsx` oraz `syncFromRealtime`.
+   * Paginacja historii (`HISTORY_PAGE_SIZE = 30`, `.range(offset, offset + limit - 1)`) w `shoppingListArchive.ts` oraz przycisk *„Pokaż starsze listy”* w `HistoryView.tsx` i `DesktopHistoryView.tsx`.
+   * Operacje wsadowe i zrównoleglone zamiast sekwencyjnych pętli `for ... await`: `mealPlanService.createMealPlansBatch`, `productService.createProductsBatch`, `mealService.createMealsBatch` (`useJsonRecipeImport.ts`), `batchResolveAdHocProductIds` + `Promise.all` (`shoppingListTransfer.ts`), oraz pojedyncze pobranie + batch insert/update w `pantryService.batchIngestPurchasedItems`.
+3. **Wydajność O(1) Kalendarza & Naprawa Logiki Biznesowej (`MED-15`, `MED-16`):**
+   * Silnik `calendarStatus.ts`: mapy O(1) (`pantryMapByProductId`, `pantryItemsByParentId`), `calculateMealPlanStatusesMap` z pojedynczym grupowaniem powiązań pipeline'u oraz kumulatywną rezerwacją zapasów spiżarni (`generateDraftItemsFromMealPlans` + `transferWeekToDraft` z 1 komunikatem Toast).
+   * Memoizacja `plansByDate` i `statusByPlanId` w `MonthCalendarGrid.tsx`, `WeekCalendarView.tsx` i `DayCalendarView.tsx`.
+   * Uwzględnienie `in_pantry = true` w warunku powiadomienia `LIST_COMPLETED` w `useActiveListController.ts` oraz wsparcie liczb dziesiętnych (`sanitizePositiveDecimalInput`, `parsePositiveDecimalQuantity`, `inputMode="decimal"`) w `ActiveListItemRow.tsx`, `DraftItemRow.tsx`, `useActiveListController.ts` i `useDraftViewController.ts`.
+4. **Testy Jednostkowe i Flow UI:**
+   * Pokrycie testami w `rlsSecurityAudit.test.ts`, `calendarStatus.test.ts`, `weeklyTemplateCalculations.test.ts`, `useMealPlanStore.test.ts`, `ActiveListView.test.tsx`, `shoppingListService.test.ts` i `HistoryView.test.tsx`.

@@ -179,8 +179,7 @@ export const ActiveListItemRow: React.FC<ActiveListItemRowProps> = ({
             <div className="flex items-center gap-1 px-1" onClick={(e) => e.stopPropagation()}>
               <input
                 type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
+                inputMode="decimal"
                 autoFocus
                 value={editValue}
                 onChange={(e) => onEditInputChange(e.target.value)}

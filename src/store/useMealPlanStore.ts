@@ -1,10 +1,12 @@
 import { create } from 'zustand'
 import { mealPlanService } from '@/services/mealPlanService'
+import { weeklyTemplateService } from '@/services/weeklyTemplateService'
 import { shoppingListService } from '@/services/shoppingListService'
-import { generateDraftItemsFromMealPlan } from '@/lib/calculations/calendarStatus'
+import { generateDraftItemsFromMealPlans } from '@/lib/calculations/calendarStatus'
 import {
   buildMealPlanInputsFromTemplate,
   buildWeeklyTemplateFromPlans,
+  getCalendarFetchWindow,
   loadStoredWeeklyTemplates,
   saveStoredWeeklyTemplates
 } from '@/lib/calculations/weeklyTemplateCalculations'
@@ -23,11 +25,18 @@ import type {
   WeeklyMealTemplate
 } from '@/types/calendar'
 
+export interface CalendarLoadedWindow {
+  householdId: string
+  startDate: string
+  endDate: string
+}
+
 export interface MealPlanStoreState {
   mealPlans: MealPlanItem[]
   weeklyTemplates: WeeklyMealTemplate[]
   isLoading: boolean
   activeHouseholdId: string | null
+  loadedWindow: CalendarLoadedWindow | null
   viewMode: CalendarViewMode
   weekRangeMode: WeekRangeMode
   selectedDate: string // YYYY-MM-DD
@@ -44,6 +53,10 @@ export interface MealPlanStoreState {
   duplicateMealPlan: (planItem: MealPlanItem, targetDate: string) => Promise<MealPlanItem | null>
   transferMealToDraft: (planItem: MealPlanItem, options?: { excludePantryItems?: boolean }) => number
   transferDayToDraft: (date: string, options?: { excludePantryItems?: boolean }) => number
+  transferWeekToDraft: (
+    dates: string[],
+    options?: { excludePantryItems?: boolean; silentEmpty?: boolean }
+  ) => number
   restoreMissingIngredient: (missing: MissingIngredient, planItem: MealPlanItem) => void
   dismissUncertainty: (planId: string) => Promise<boolean>
   saveWeekAsTemplate: (
@@ -82,11 +95,22 @@ async function refreshCalendarPipelineItems(householdId: string): Promise<void> 
   }
 }
 
+async function fetchTemplatesWithCache(
+  householdId: string,
+  cachedLocal: WeeklyMealTemplate[]
+): Promise<WeeklyMealTemplate[]> {
+  if (typeof weeklyTemplateService.syncRemoteTemplates === 'function') {
+    return weeklyTemplateService.syncRemoteTemplates(householdId, cachedLocal)
+  }
+  return cachedLocal
+}
+
 export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   mealPlans: [],
   weeklyTemplates: [],
   isLoading: false,
   activeHouseholdId: null,
+  loadedWindow: null,
   viewMode: 'week',
   weekRangeMode: 'workweek',
   selectedDate: getTodayString(),
@@ -112,18 +136,34 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
 
   loadMealPlans: async (householdId, startDate, endDate) => {
     if (!householdId) return
+    const windowBounds =
+      startDate && endDate
+        ? { startDate, endDate }
+        : getCalendarFetchWindow(get().selectedDate)
+    const cachedTemplates = loadStoredWeeklyTemplates(householdId)
+
     set({
       isLoading: true,
       activeHouseholdId: householdId,
-      weeklyTemplates: loadStoredWeeklyTemplates(householdId)
+      weeklyTemplates: cachedTemplates
     })
 
     try {
-      const [items] = await Promise.all([
-        mealPlanService.getMealPlans(householdId, startDate, endDate),
+      const [items, syncedTemplates] = await Promise.all([
+        mealPlanService.getMealPlans(householdId, windowBounds.startDate, windowBounds.endDate),
+        fetchTemplatesWithCache(householdId, cachedTemplates),
         refreshCalendarPipelineItems(householdId)
       ])
-      set({ mealPlans: items, isLoading: false })
+      set({
+        mealPlans: items,
+        weeklyTemplates: syncedTemplates,
+        loadedWindow: {
+          householdId,
+          startDate: windowBounds.startDate,
+          endDate: windowBounds.endDate
+        },
+        isLoading: false
+      })
     } catch (err) {
       console.error('[useMealPlanStore] Error loading meal plans:', err)
       set({ isLoading: false })
@@ -228,11 +268,12 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   },
 
   transferMealToDraft: (planItem, options = {}) => {
-    const pantryItems = usePantryStore.getState().pantryItems
-    const payloads = generateDraftItemsFromMealPlan(planItem, {
+    const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore.getState()
+    const payloads = generateDraftItemsFromMealPlans([planItem], {
       excludePantryItems: options.excludePantryItems ?? true,
       pantryItems,
-      dayLabel: planItem.date
+      pantryMapByProductId,
+      pantryItemsByParentId
     })
 
     if (payloads.length === 0) {
@@ -249,17 +290,13 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     const plansForDay = get().mealPlans.filter((p) => p.date === date)
     if (plansForDay.length === 0) return 0
 
-    const pantryItems = usePantryStore.getState().pantryItems
-    const allPayloads = []
-
-    for (const plan of plansForDay) {
-      const payloads = generateDraftItemsFromMealPlan(plan, {
-        excludePantryItems: options.excludePantryItems ?? true,
-        pantryItems,
-        dayLabel: plan.date
-      })
-      allPayloads.push(...payloads)
-    }
+    const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore.getState()
+    const allPayloads = generateDraftItemsFromMealPlans(plansForDay, {
+      excludePantryItems: options.excludePantryItems ?? true,
+      pantryItems,
+      pantryMapByProductId,
+      pantryItemsByParentId
+    })
 
     if (allPayloads.length === 0) {
       toast.info(translate('calendar.noIngredientsToTransfer'))
@@ -268,6 +305,36 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
 
     useShoppingStore.getState().addMultipleToDraft(allPayloads)
     toast.success(translate('calendar.dayTransferredToDraftSuccess', { count: allPayloads.length }))
+    return allPayloads.length
+  },
+
+  transferWeekToDraft: (dates, options = {}) => {
+    const dateSet = new Set(dates)
+    const plansForWeek = get().mealPlans.filter((p) => dateSet.has(p.date))
+    if (plansForWeek.length === 0) {
+      if (!options.silentEmpty) {
+        toast.info(translate('calendar.noIngredientsToTransfer'))
+      }
+      return 0
+    }
+
+    const { pantryItems, pantryMapByProductId, pantryItemsByParentId } = usePantryStore.getState()
+    const allPayloads = generateDraftItemsFromMealPlans(plansForWeek, {
+      excludePantryItems: options.excludePantryItems ?? true,
+      pantryItems,
+      pantryMapByProductId,
+      pantryItemsByParentId
+    })
+
+    if (allPayloads.length === 0) {
+      if (!options.silentEmpty) {
+        toast.info(translate('calendar.noIngredientsToTransfer'))
+      }
+      return 0
+    }
+
+    useShoppingStore.getState().addMultipleToDraft(allPayloads)
+    toast.success(translate('calendar.weekTransferredToDraftSuccess', { count: allPayloads.length }))
     return allPayloads.length
   },
 
@@ -306,6 +373,19 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     saveStoredWeeklyTemplates(hhId, updated)
     set({ weeklyTemplates: updated })
     toast.success(translate('calendar.templates.savedToast', { name: template.name }))
+
+    if (typeof weeklyTemplateService.saveWeeklyTemplate === 'function') {
+      void weeklyTemplateService
+        .saveWeeklyTemplate(template)
+        .then((saved) => {
+          if (!saved || get().activeHouseholdId !== hhId) return
+          const current = get().weeklyTemplates.map((t) => (t.id === template.id ? saved : t))
+          saveStoredWeeklyTemplates(hhId, current)
+          set({ weeklyTemplates: current })
+        })
+        .catch(() => {})
+    }
+
     return template
   },
 
@@ -330,12 +410,13 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       return 0
     }
 
-    const createdItems: MealPlanItem[] = []
-    for (const input of inputs) {
-      const created = await mealPlanService.createMealPlan(input)
-      if (created) {
-        createdItems.push(created)
-      }
+    let createdItems: MealPlanItem[] = []
+    if (typeof mealPlanService.createMealPlansBatch === 'function') {
+      createdItems = await mealPlanService.createMealPlansBatch(inputs)
+    }
+    if (createdItems.length === 0 && typeof mealPlanService.createMealPlan === 'function') {
+      const results = await Promise.all(inputs.map((input) => mealPlanService.createMealPlan(input)))
+      createdItems = results.filter((item): item is MealPlanItem => item !== null)
     }
 
     if (createdItems.length > 0) {
@@ -358,6 +439,9 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
     const updated = get().weeklyTemplates.filter((tpl) => tpl.id !== templateId)
     if (hhId) {
       saveStoredWeeklyTemplates(hhId, updated)
+      if (typeof weeklyTemplateService.deleteWeeklyTemplate === 'function') {
+        void weeklyTemplateService.deleteWeeklyTemplate(templateId, hhId).catch(() => {})
+      }
     }
     set({ weeklyTemplates: updated })
     toast.success(translate('calendar.templates.deletedToast'))
@@ -366,11 +450,19 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   syncFromRealtime: async () => {
     const hhId = get().activeHouseholdId
     if (!hhId) return
-    const [items] = await Promise.all([
-      mealPlanService.getMealPlans(hhId),
+    const currentWindow = get().loadedWindow
+    const windowBounds =
+      currentWindow && currentWindow.householdId === hhId
+        ? { startDate: currentWindow.startDate, endDate: currentWindow.endDate }
+        : getCalendarFetchWindow(get().selectedDate)
+    const cachedTemplates = get().weeklyTemplates
+
+    const [items, syncedTemplates] = await Promise.all([
+      mealPlanService.getMealPlans(hhId, windowBounds.startDate, windowBounds.endDate),
+      fetchTemplatesWithCache(hhId, cachedTemplates),
       refreshCalendarPipelineItems(hhId)
     ])
-    set({ mealPlans: items })
+    set({ mealPlans: items, weeklyTemplates: syncedTemplates })
   },
 
   setupRealtimeSubscription: (householdId) => {
@@ -389,6 +481,21 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
         async () => {
           // Re-fetch meal plans when any household member makes changes
           await get().syncFromRealtime()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'weekly_meal_templates',
+          filter: `household_id=eq.${householdId}`
+        },
+        async () => {
+          const synced = await fetchTemplatesWithCache(householdId, get().weeklyTemplates)
+          if (get().activeHouseholdId === householdId) {
+            set({ weeklyTemplates: synced })
+          }
         }
       )
       .subscribe()

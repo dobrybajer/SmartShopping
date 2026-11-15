@@ -108,24 +108,31 @@ export const mealPlanService = {
   },
 
   /**
+   * Maps a UI creation payload into a normalized database insert row.
+   */
+  _mapInputToRow(input: CreateCalendarMealInput) {
+    return {
+      household_id: input.household_id,
+      date: input.date,
+      meal_id: input.meal_id || null,
+      meal_category_id: input.meal_category_id || null,
+      custom_name: input.custom_name || null,
+      is_ad_hoc: input.is_ad_hoc ?? false,
+      servings: input.servings ?? 1,
+      target_kcal: input.target_kcal ?? null,
+      notes: input.notes || null,
+      sort_order: input.sort_order ?? 0,
+      is_uncertainty_dismissed: input.is_uncertainty_dismissed ?? false
+    }
+  },
+
+  /**
    * Creates a new meal plan entry for a household.
    */
   async createMealPlan(input: CreateCalendarMealInput): Promise<MealPlanItem | null> {
     const { data, error } = await supabase
       .from('meal_plans')
-      .insert({
-        household_id: input.household_id,
-        date: input.date,
-        meal_id: input.meal_id || null,
-        meal_category_id: input.meal_category_id || null,
-        custom_name: input.custom_name || null,
-        is_ad_hoc: input.is_ad_hoc ?? false,
-        servings: input.servings ?? 1,
-        target_kcal: input.target_kcal ?? null,
-        notes: input.notes || null,
-        sort_order: input.sort_order ?? 0,
-        is_uncertainty_dismissed: input.is_uncertainty_dismissed ?? false
-      })
+      .insert(this._mapInputToRow(input))
       .select(MEAL_PLAN_SELECT_QUERY)
       .single()
 
@@ -135,6 +142,27 @@ export const mealPlanService = {
     }
 
     return mapMealPlanRow(data as unknown as RawMealPlanRow)
+  },
+
+  /**
+   * Creates multiple meal plan entries in a single batch SQL insert (eliminates N+1 loops).
+   */
+  async createMealPlansBatch(inputs: CreateCalendarMealInput[]): Promise<MealPlanItem[]> {
+    if (inputs.length === 0) return []
+
+    const rows = inputs.map((input) => this._mapInputToRow(input))
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .insert(rows)
+      .select(MEAL_PLAN_SELECT_QUERY)
+
+    if (error) {
+      console.error('[mealPlanService] Error batch creating meal plans:', error)
+      return []
+    }
+
+    const mapped = (data ?? []) as unknown as RawMealPlanRow[]
+    return mapped.map(mapMealPlanRow)
   },
 
   /**

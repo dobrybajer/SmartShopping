@@ -19,47 +19,104 @@ interface ShoppingListItemInsertRow {
   meal_plan_item_id: string | null
 }
 
-async function resolveOrCreateAdHocProductId(
-  householdId: string,
-  name: string,
-  categoryId?: number | null
-): Promise<string | undefined> {
-  const { data: existingProd } = await supabase
-    .from('products')
-    .select('id, category_id')
-    .eq('household_id', householdId)
-    .ilike('name', name.trim())
-    .maybeSingle()
+function buildAdHocKey(name: string, categoryId?: number | null): string {
+  return `${name.trim().toLowerCase()}::${categoryId ?? 'null'}`
+}
 
-  // If an existing product has the same category (or no category), reuse it.
-  // If the existing product has a DIFFERENT category, create an ad-hoc product with the temporary category
-  // to preserve the user's intended aisle!
-  if (
-    existingProd &&
-    (!categoryId || !existingProd.category_id || existingProd.category_id === categoryId)
-  ) {
-    if (!existingProd.category_id && categoryId) {
-      await supabase
-        .from('products')
-        .update({ category_id: categoryId })
-        .eq('id', existingProd.id)
+async function batchResolveAdHocProductIds(
+  householdId: string,
+  candidates: Array<{ name: string; category_id?: number | null }>
+): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>()
+  if (candidates.length === 0) return resolved
+
+  const uniqueCandidates = new Map<string, { name: string; categoryId: number | null }>()
+  for (const item of candidates) {
+    const categoryId = item.category_id ?? null
+    const key = buildAdHocKey(item.name, categoryId)
+    if (!uniqueCandidates.has(key)) {
+      uniqueCandidates.set(key, { name: item.name, categoryId })
     }
-    return existingProd.id
   }
 
-  const { data: adHocProduct } = await supabase
+  const { data: existingProducts } = await supabase
     .from('products')
-    .insert({
-      household_id: householdId,
-      name,
-      unit_type: 'pcs',
-      category_id: categoryId || null,
-      is_ad_hoc: true
-    })
-    .select('id')
-    .single()
+    .select('id, name, category_id')
+    .eq('household_id', householdId)
 
-  return adHocProduct?.id
+  const existingByLowerName = new Map<string, Array<{ id: string; category_id: number | null }>>()
+  for (const prod of existingProducts || []) {
+    const lowerName = prod.name.trim().toLowerCase()
+    const list = existingByLowerName.get(lowerName)
+    const entry = { id: prod.id, category_id: prod.category_id ?? null }
+    if (list) list.push(entry)
+    else existingByLowerName.set(lowerName, [entry])
+  }
+
+  const categoryBackfills: Array<{ id: string; categoryId: number }> = []
+  const productsToInsert: Array<{
+    key: string
+    payload: {
+      household_id: string
+      name: string
+      unit_type: 'pcs'
+      category_id: number | null
+      is_ad_hoc: boolean
+    }
+  }> = []
+
+  for (const [key, candidate] of uniqueCandidates.entries()) {
+    const lowerName = candidate.name.trim().toLowerCase()
+    const matches = existingByLowerName.get(lowerName) || []
+    const matched = matches.find(
+      (prod) => !candidate.categoryId || !prod.category_id || prod.category_id === candidate.categoryId
+    )
+
+    if (matched) {
+      resolved.set(key, matched.id)
+      if (!matched.category_id && candidate.categoryId) {
+        matched.category_id = candidate.categoryId
+        categoryBackfills.push({ id: matched.id, categoryId: candidate.categoryId })
+      }
+    } else {
+      productsToInsert.push({
+        key,
+        payload: {
+          household_id: householdId,
+          name: candidate.name,
+          unit_type: 'pcs',
+          category_id: candidate.categoryId,
+          is_ad_hoc: true
+        }
+      })
+    }
+  }
+
+  if (categoryBackfills.length > 0) {
+    await Promise.all(
+      categoryBackfills.map(({ id, categoryId }) =>
+        supabase.from('products').update({ category_id: categoryId }).eq('id', id)
+      )
+    )
+  }
+
+  if (productsToInsert.length > 0) {
+    const { data: inserted } = await supabase
+      .from('products')
+      .insert(productsToInsert.map((entry) => entry.payload))
+      .select('id')
+
+    if (inserted) {
+      inserted.forEach((row, index) => {
+        const entry = productsToInsert[index]
+        if (entry && row?.id) {
+          resolved.set(entry.key, row.id)
+        }
+      })
+    }
+  }
+
+  return resolved
 }
 
 async function insertShoppingListItemsWithFallback(
@@ -93,14 +150,17 @@ export async function insertDraftItemsToList(
   draftItems: DraftItem[]
 ): Promise<void> {
   const aggregated = aggregateDraftItems(draftItems)
+  const adHocNeedingResolution = aggregated.filter((item) => !item.product_id && item.is_ad_hoc)
+  const resolvedAdHocIds = await batchResolveAdHocProductIds(householdId, adHocNeedingResolution)
+
   const itemsToInsert: ShoppingListItemInsertRow[] = []
 
   for (const item of aggregated) {
-    let productId = item.product_id
-
-    if (!productId && item.is_ad_hoc) {
-      productId = await resolveOrCreateAdHocProductId(householdId, item.name, item.category_id)
-    }
+    const productId =
+      item.product_id ||
+      (item.is_ad_hoc
+        ? resolvedAdHocIds.get(buildAdHocKey(item.name, item.category_id))
+        : undefined)
 
     if (productId) {
       itemsToInsert.push({
@@ -139,30 +199,39 @@ export async function addItemsToActiveList(
     draftItems
   )
 
-  // 1. Update existing items
-  for (const update of itemsToUpdate) {
-    trackLocalItemMutation(update.id, {
-      total_quantity: update.total_quantity,
-      is_checked: update.is_checked
-    })
-    await supabase
-      .from('shopping_list_items')
-      .update({
+  // 1. Update existing items concurrently (zero sequential N+1 loops)
+  if (itemsToUpdate.length > 0) {
+    for (const update of itemsToUpdate) {
+      trackLocalItemMutation(update.id, {
         total_quantity: update.total_quantity,
         is_checked: update.is_checked
       })
-      .eq('id', update.id)
+    }
+    await Promise.all(
+      itemsToUpdate.map((update) =>
+        supabase
+          .from('shopping_list_items')
+          .update({
+            total_quantity: update.total_quantity,
+            is_checked: update.is_checked
+          })
+          .eq('id', update.id)
+      )
+    )
   }
 
-  // 2. Insert new items (create ad-hoc products if needed)
+  // 2. Insert new items in a single batch (resolving ad-hoc products in bulk first)
   if (itemsToInsert.length > 0) {
+    const adHocNeedingResolution = itemsToInsert.filter((item) => !item.product_id && item.added_ad_hoc)
+    const resolvedAdHocIds = await batchResolveAdHocProductIds(householdId, adHocNeedingResolution)
+
     const rowsToInsert: ShoppingListItemInsertRow[] = []
     for (const item of itemsToInsert) {
-      let productId = item.product_id
-
-      if (!productId && item.added_ad_hoc) {
-        productId = await resolveOrCreateAdHocProductId(householdId, item.name, item.category_id)
-      }
+      const productId =
+        item.product_id ||
+        (item.added_ad_hoc
+          ? resolvedAdHocIds.get(buildAdHocKey(item.name, item.category_id))
+          : undefined)
 
       if (productId) {
         rowsToInsert.push({

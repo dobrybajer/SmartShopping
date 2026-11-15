@@ -84,6 +84,35 @@ export function getNextQuantity(
 }
 
 /**
+ * Sanitizes inline decimal quantity input: normalizes commas to dots,
+ * permits at most one decimal point, and strips leading zeros before non-fractional digits.
+ */
+export function sanitizePositiveDecimalInput(raw: string): string {
+  let cleaned = raw.replace(/,/g, '.').replace(/[^0-9.]/g, '')
+  const firstDot = cleaned.indexOf('.')
+  if (firstDot !== -1) {
+    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '')
+  }
+  if (cleaned.startsWith('.')) {
+    cleaned = `0${cleaned}`
+  }
+  return cleaned.replace(/^0+(?=\d)/, '')
+}
+
+/**
+ * Parses an edited quantity string into a positive rounded decimal (up to 2 decimal places),
+ * returning null if empty, non-finite, or <= 0.
+ */
+export function parsePositiveDecimalQuantity(raw: string): number | null {
+  const normalized = raw.trim().replace(',', '.')
+  if (!normalized) return null
+  const parsed = Number.parseFloat(normalized)
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+  const rounded = Math.round(parsed * 100) / 100
+  return rounded > 0 ? rounded : null
+}
+
+/**
  * Returns the local date in YYYY-MM-DD format (avoids UTC timezone shift of toISOString)
  */
 export function getLocalDateISOString(dateInput?: Date): string {

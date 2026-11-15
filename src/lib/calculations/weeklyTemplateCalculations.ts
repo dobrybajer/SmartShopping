@@ -43,6 +43,39 @@ export function addDaysIso(dateStr: string, days: number): string {
   return formatLocalIsoDate(d)
 }
 
+/**
+ * Generates an RFC-4122 UUID v4 suitable for client-side optimistic creation of DB-synced records.
+ */
+export function generateUuidV4(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16)
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+/**
+ * Computes a bounded [startDate, endDate] calendar fetch window covering the full month
+ * of `centerDateISO` plus `bufferDays` padding on each side (for 6-row month grid bleed & adjacent weeks).
+ */
+export function getCalendarFetchWindow(
+  centerDateISO: string,
+  bufferDays = 7
+): { startDate: string; endDate: string } {
+  const anchor = parseLocalIsoDate(centerDateISO)
+  const year = anchor.getFullYear()
+  const month = anchor.getMonth()
+  const firstOfMonth = new Date(year, month, 1)
+  const lastOfMonth = new Date(year, month + 1, 0)
+  return {
+    startDate: addDaysIso(formatLocalIsoDate(firstOfMonth), -Math.max(0, bufferDays)),
+    endDate: addDaysIso(formatLocalIsoDate(lastOfMonth), Math.max(0, bufferDays))
+  }
+}
+
 export interface BuildWeeklyTemplateParams {
   name: string
   householdId: string
@@ -129,7 +162,7 @@ export function buildWeeklyTemplateFromPlans({
   }))
 
   return {
-    id: id || `wtpl_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: id || generateUuidV4(),
     household_id: householdId,
     name: trimmedName,
     created_at: createdAt || new Date().toISOString(),

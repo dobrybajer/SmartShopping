@@ -191,6 +191,8 @@ export const pl: TranslationSchema = {
     archivedList: 'Zarchiwizowana Lista',
     itemsBoughtRatio: '{bought} z {total} artykułów kupionych',
     deleteHistoryConfirm: 'Czy na pewno chcesz usunąć tę listę z historii?',
+    loadMore: 'Pokaż starsze listy',
+    loadingMore: 'Ładowanie starszych list...',
   },
   products: {
     title: 'Baza Produktów',
@@ -727,6 +729,7 @@ export const pl: TranslationSchema = {
     noIngredientsToTransfer: 'Wszystkie składniki masz w spiżarni lub brak składników do kupienia',
     transferredToDraftSuccess: 'Dodano {count} składników do koszyka',
     dayTransferredToDraftSuccess: 'Dodano {count} składników z tego dnia do koszyka',
+    weekTransferredToDraftSuccess: 'Dodano {count} składników z całego tygodnia do koszyka',
     ingredientRestoredToast: 'Przywrócono {name} do koszyka',
     dialog: {
       addTitle: 'Zaplanuj posiłek',
