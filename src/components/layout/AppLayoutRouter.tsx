@@ -79,6 +79,11 @@ export const AppLayoutRouter: React.FC = () => {
   useOfflineSync()
   const { isDesktop, layoutMode, setLayoutMode } = useDeviceLayout()
   const draftItems = useShoppingStore((state) => state.draftItems)
+  const activeListsSummary = useShoppingStore((state) => state.activeListsSummary)
+  const activeCount = activeListsSummary.reduce(
+    (sum, list) => sum + (list.unchecked_items || 0),
+    0
+  )
   const { t } = useTranslation()
   const [activeTab, setActiveTabState] = useState<TabType>(() => {
     try {
@@ -133,6 +138,7 @@ export const AppLayoutRouter: React.FC = () => {
           onTabChange={setActiveTab}
           headerTitle={headerTitle}
           draftCount={draftItems.length}
+          activeCount={activeCount}
           layoutMode={layoutMode}
           onLayoutModeChange={setLayoutMode}
         >
@@ -159,6 +165,9 @@ export const AppLayoutRouter: React.FC = () => {
       onTabChange={setActiveTab}
       headerTitle={headerTitle}
       draftCount={draftItems.length}
+      activeCount={activeCount}
+      layoutMode={layoutMode}
+      onLayoutModeChange={setLayoutMode}
     >
       <Suspense fallback={<ViewLoadingFallback />}>
         {activeTab === 'cookbook' && <CookbookView />}

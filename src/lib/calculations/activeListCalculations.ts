@@ -29,9 +29,10 @@ export function sortActiveLists(lists: ShoppingListSummary[]): ShoppingListSumma
 
 /**
  * Computes shopping progress metrics for a list of items.
+ * Items marked as either checked (`is_checked`) or covered by pantry (`in_pantry`) count as completed.
  */
 export function calculateActiveListMetrics(
-  items: Array<{ is_checked: boolean | null }>
+  items: Array<{ is_checked: boolean | null; in_pantry?: boolean | null }>
 ): ActiveListMetrics {
   const totalItems = items.length
   if (totalItems === 0) {
@@ -43,7 +44,7 @@ export function calculateActiveListMetrics(
     }
   }
 
-  const checkedItems = items.filter((item) => !!item.is_checked).length
+  const checkedItems = items.filter((item) => !!item.is_checked || !!item.in_pantry).length
   const uncheckedItems = totalItems - checkedItems
   const progressPercentage = Math.round((checkedItems / totalItems) * 100)
 

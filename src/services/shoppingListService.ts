@@ -72,6 +72,21 @@ export interface HistoryShoppingList extends ShoppingList {
 interface SummaryListItemJoinRow {
   id: string
   is_checked: boolean | null
+  in_pantry?: boolean | null
+}
+
+interface ArchivedSnapshotItem {
+  id?: string
+  product_id?: string | null
+  total_quantity?: number
+  is_checked?: boolean | null
+  in_pantry?: boolean | null
+}
+
+interface ArchivedItemsSnapshot {
+  total_items?: number
+  checked_items?: number
+  items?: ArchivedSnapshotItem[]
 }
 
 interface SummaryListJoinRow {
@@ -294,7 +309,7 @@ export const shoppingListService = {
         target_date,
         created_at,
         updated_at,
-        items:shopping_list_items(id, is_checked)
+        items:shopping_list_items(id, is_checked, in_pantry)
       `)
       .eq('household_id', householdId)
       .eq('status', 'active')
@@ -309,7 +324,7 @@ export const shoppingListService = {
     const rows = (data ?? []) as unknown as SummaryListJoinRow[]
     return rows.map((list) => {
       const items = list.items || []
-      const uncheckedCount = items.filter((i) => !i.is_checked).length
+      const uncheckedCount = items.filter((i) => !i.is_checked && !i.in_pantry).length
       return {
         id: list.id,
         household_id: list.household_id || householdId,
@@ -393,7 +408,55 @@ export const shoppingListService = {
       console.error('Error fetching shopping list items:', itemsErr)
     }
 
-    const rawItems = (itemsData ?? []) as unknown as RawActiveListItemRow[]
+    let rawItems = (itemsData ?? []) as unknown as RawActiveListItemRow[]
+
+    // Fallback for archived lists whose rows were moved by MED-02 retention (HIGH-09)
+    if (rawItems.length === 0 && listData.status === 'archived') {
+      const archiveTable = supabase.from('shopping_list_items_archive')
+      if (archiveTable && typeof archiveTable.select === 'function') {
+        const { data: archiveData, error: archiveErr } = await archiveTable
+          .select(`
+            *,
+            category:product_categories(*),
+            product:products(
+              id,
+              name,
+              unit_type,
+              category_id,
+              category:product_categories(*)
+            )
+          `)
+          .eq('shopping_list_id', listData.id)
+
+        if (archiveErr) {
+          console.error('Error fetching archived shopping list items:', archiveErr)
+        } else if (archiveData && archiveData.length > 0) {
+          rawItems = archiveData as unknown as RawActiveListItemRow[]
+        }
+      }
+
+      if (
+        rawItems.length === 0 &&
+        listData.archived_items_snapshot &&
+        typeof listData.archived_items_snapshot === 'object'
+      ) {
+        const snapshot = listData.archived_items_snapshot as unknown as ArchivedItemsSnapshot
+        if (Array.isArray(snapshot.items) && snapshot.items.length > 0) {
+          rawItems = snapshot.items.map((snap, idx) => ({
+            id: snap.id || `${listData.id}_snap_${idx}`,
+            shopping_list_id: listData.id,
+            product_id: snap.product_id ?? null,
+            category_id: null,
+            total_quantity: Number(snap.total_quantity ?? 1),
+            is_checked: Boolean(snap.is_checked),
+            in_pantry: Boolean(snap.in_pantry),
+            added_ad_hoc: false,
+            meal_plan_item_id: null,
+            updated_at: listData.updated_at
+          }))
+        }
+      }
+    }
 
     // Self-healing: if any item has neither item.category_id nor item.product.category_id,
     // match against other products in the household that have a category_id!
@@ -924,7 +987,38 @@ export const shoppingListService = {
       return []
     }
     const lists = ((data as unknown) || []) as HistoryShoppingList[]
-    return sortHistoryListsByCompletionDate(lists)
+    const hydratedLists = lists.map((list) => {
+      if (list.items && list.items.length > 0) {
+        return list
+      }
+      if (list.archived_items_snapshot && typeof list.archived_items_snapshot === 'object') {
+        const snapshot = list.archived_items_snapshot as unknown as ArchivedItemsSnapshot
+        if (Array.isArray(snapshot.items) && snapshot.items.length > 0) {
+          return {
+            ...list,
+            items: snapshot.items.map((item, idx) => ({
+              id: item.id || `${list.id}_snap_${idx}`,
+              is_checked: Boolean(item.is_checked || item.in_pantry)
+            }))
+          }
+        }
+        if (typeof snapshot.total_items === 'number' && snapshot.total_items > 0) {
+          const checked = Math.min(
+            snapshot.total_items,
+            Math.max(0, Number(snapshot.checked_items ?? 0))
+          )
+          return {
+            ...list,
+            items: Array.from({ length: snapshot.total_items }, (_, idx) => ({
+              id: `${list.id}_snap_${idx}`,
+              is_checked: idx < checked
+            }))
+          }
+        }
+      }
+      return list
+    })
+    return sortHistoryListsByCompletionDate(hydratedLists)
   },
 
   /**

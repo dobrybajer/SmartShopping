@@ -1,19 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
+import { useDeviceLayout, type LayoutMode } from '@/hooks/useDeviceLayout'
 import { AppLogo } from '@/components/ui/AppLogo'
+import { LanguageSwitcher } from '@/components/ui/LanguageSwitcher'
 import { AccountDetailsDialog } from '@/components/dialogs/AccountDetailsDialog'
 import { HouseholdsDialog } from '@/components/dialogs/HouseholdsDialog'
-import { User, Home, LogOut, ChevronDown, Sparkles } from 'lucide-react'
+import {
+  User,
+  Home,
+  LogOut,
+  ChevronDown,
+  Sparkles,
+  SlidersHorizontal,
+  Laptop,
+  Smartphone
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AppHeaderProps {
   title: string
+  layoutMode?: LayoutMode
+  onLayoutModeChange?: (mode: LayoutMode) => void
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({
+  title,
+  layoutMode,
+  onLayoutModeChange
+}) => {
   const { user, userProfile, household, userHouseholds, signOut } = useAuth()
   const { t } = useTranslation()
+  const deviceLayout = useDeviceLayout()
+  const activeLayoutMode = layoutMode ?? deviceLayout.layoutMode
+  const handleLayoutModeChange = onLayoutModeChange ?? deviceLayout.setLayoutMode
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
@@ -136,6 +156,76 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ title }) => {
                     </span>
                   )}
                 </button>
+              </div>
+
+              {/* Separator */}
+              <div className="border-t border-border my-1" />
+
+              {/* Layout Mode & Language Switcher (HIGH-10) */}
+              <div className="px-2.5 py-1.5 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-muted-foreground">
+                    {t('common.language')}
+                  </span>
+                  <LanguageSwitcher variant="pill" />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-3 h-3 text-primary" />
+                    <span>{t('dialogs.layout.mode')}</span>
+                  </span>
+                  <div className="grid grid-cols-3 gap-1 bg-background/60 p-1 rounded-xl border border-border">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLayoutModeChange('auto')
+                        setIsMenuOpen(false)
+                      }}
+                      className={cn(
+                        'py-1.5 px-1.5 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                        activeLayoutMode === 'auto'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )}
+                    >
+                      <SlidersHorizontal className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{t('dialogs.layout.auto')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLayoutModeChange('desktop')
+                        setIsMenuOpen(false)
+                      }}
+                      className={cn(
+                        'py-1.5 px-1.5 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                        activeLayoutMode === 'desktop'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )}
+                    >
+                      <Laptop className="w-3 h-3 shrink-0" />
+                      <span className="truncate">Desktop</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleLayoutModeChange('mobile')
+                        setIsMenuOpen(false)
+                      }}
+                      className={cn(
+                        'py-1.5 px-1.5 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer',
+                        activeLayoutMode === 'mobile'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                      )}
+                    >
+                      <Smartphone className="w-3 h-3 shrink-0" />
+                      <span className="truncate">Mobile</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Separator */}

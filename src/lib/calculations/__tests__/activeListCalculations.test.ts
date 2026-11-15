@@ -83,6 +83,23 @@ describe('activeListCalculations', () => {
         progressPercentage: 0
       })
     })
+
+    it('counts items covered by pantry (in_pantry = true) as completed (HIGH-09)', () => {
+      const items = [
+        { is_checked: true, in_pantry: false },
+        { is_checked: false, in_pantry: true },
+        { is_checked: true, in_pantry: true },
+        { is_checked: false, in_pantry: false }
+      ]
+
+      const metrics = calculateActiveListMetrics(items)
+      expect(metrics).toEqual({
+        totalItems: 4,
+        checkedItems: 3,
+        uncheckedItems: 1,
+        progressPercentage: 75
+      })
+    })
   })
 
   describe('findDefaultOrFirstListId', () => {

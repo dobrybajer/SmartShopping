@@ -2,6 +2,10 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Database, UnitEnum } from '@/types/supabase'
 import type { ShoppingListSummary } from '@/services/shoppingListService'
+import {
+  calculateIngredientMacros,
+  resolveEffectiveIngredientMacros
+} from '@/lib/calculations/macroCalculations'
 
 export type Product = Database['public']['Tables']['products']['Row']
 export type ProductCategory = Database['public']['Tables']['product_categories']['Row']
@@ -134,12 +138,17 @@ export const useShoppingStore = create<ShoppingStoreState>()(
         const key = state.activeHouseholdId || 'default'
         const currentDraft = [...(state.draftsByHousehold[key] || state.draftItems || [])]
 
-        // 1. Calculate total base calories of the meal
+        // 1. Calculate total base calories of the meal (unit-aware for pcs & ADR-010 reference_product)
         let baseKcalTotal = 0
         meal.ingredients.forEach((ing) => {
           if (ing.product) {
-            const kcalPer100 = ing.product.kcal_per_100 || 0
-            baseKcalTotal += (ing.base_quantity / 100) * kcalPer100
+            const effective = resolveEffectiveIngredientMacros(ing.product, ing.reference_product)
+            const macros = calculateIngredientMacros(
+              ing.base_quantity,
+              effective.macros,
+              ing.product.unit_type
+            )
+            baseKcalTotal += macros.kcal
           }
         })
 

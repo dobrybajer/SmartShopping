@@ -228,60 +228,71 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### HIGH-07: Naprawa Błędnego Skalowania Kalorii (`targetKcal`) dla Sztuk (`pcs`) i Produktów Ogólnych w `useShoppingStore.addMealToDraft`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Logika Biznesowa / Kalkulacje Makroskładników / Koszyk Roboczy
-* **Pliki do modyfikacji:** [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts#L138-L146), [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts), [useShoppingStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/useShoppingStore.test.ts)
+* **Pliki implementacji:** [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts)
+* **Pliki testów:** [useShoppingStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/useShoppingStore.test.ts)
 * **Problem / Uzasadnienie:**
-  * W metodzie `addMealToDraft` w [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts#L138-L146) bazowa suma kalorii posiłku (`baseKcalTotal`) wyliczana jest bezpośrednio ze wzoru `(ing.base_quantity / 100) * (ing.product.kcal_per_100 || 0)`.
-  * Prowadzi to do dwóch błędów biznesowych:
-    1. Dla jednostek sztukowych (`unit_type === 'pcs'`) wartości odżywcze zdefiniowane są **na 1 sztukę**, a nie na 100 jednostek (zgodnie z `calculateIngredientMacros` w [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts#L43-L45)). Dzielenie przez 100 zaniża kalorie składników sztukowych 100-krotnie i zawyża wyliczony mnożnik `multiplier = targetKcal / baseKcalTotal`.
-    2. Dla produktów ogólnych (`is_general = true`, ADR-010) makroskładniki znajdują się w `ing.reference_product`, a `ing.product.kcal_per_100` wynosi `null`/`0`. Pominięcie `resolveEffectiveIngredientMacros(ing.product, ing.reference_product)` powoduje błędne skalowanie gramatur przy dodawaniu przepisu z docelową kalorycznością do koszyka.
-* **Planowane Rozwiązanie:**
-  1. Zastąpić ręczną pętlę w `useShoppingStore.addMealToDraft` wywołaniem czystych funkcji `resolveEffectiveIngredientMacros` oraz `calculateIngredientMacros` z `src/lib/calculations/macroCalculations.ts`.
-  2. Dodać testy jednostkowe w `useShoppingStore.test.ts` dla skalowania `targetKcal` posiłków zawierających produkty sztukowe (`pcs`) oraz produkty ogólne z `reference_product`.
+  * W metodzie `addMealToDraft` w [useShoppingStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useShoppingStore.ts) bazowa suma kalorii posiłku (`baseKcalTotal`) wyliczana była bezpośrednio ze wzoru `(ing.base_quantity / 100) * (ing.product.kcal_per_100 || 0)`.
+  * Prowadziło to do dwóch błędów biznesowych:
+    1. Dla jednostek sztukowych (`unit_type === 'pcs'`) wartości odżywcze zdefiniowane są **na 1 sztukę**, a nie na 100 jednostek. Dzielenie przez 100 zaniżało kalorie składników sztukowych 100-krotnie i zawyżało wyliczony mnożnik `multiplier = targetKcal / baseKcalTotal`.
+    2. Dla produktów ogólnych (`is_general = true`, ADR-010) makroskładniki znajdują się w `ing.reference_product`, a `ing.product.kcal_per_100` wynosi `null`/`0`. Pominięcie `resolveEffectiveIngredientMacros(ing.product, ing.reference_product)` powodowało błędne skalowanie gramatur przy dodawaniu przepisu z docelową kalorycznością do koszyka.
+* **Wdrożone Rozwiązanie:**
+  1. Zastąpiono ręczną pętlę w `useShoppingStore.addMealToDraft` wywołaniem czystych funkcji `resolveEffectiveIngredientMacros` oraz `calculateIngredientMacros` z [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts).
+  2. Dodano test jednostkowy w [useShoppingStore.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/__tests__/useShoppingStore.test.ts) weryfikujący skalowanie `targetKcal` posiłków zawierających produkty sztukowe (`pcs`) oraz produkty ogólne z `reference_product`.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Skalowanie `targetKcal` w `addMealToDraft` poprawnie uwzględnia przelicznik `1 szt.` dla `pcs` oraz wartości odżywcze z `reference_product`.
 
 ---
 
 ### HIGH-08: Uszczelnienie Polityk RLS `INSERT`/`UPDATE` dla Tabel `meals`, `meal_ingredients` oraz Walidacji `parent_id` w `products`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Bezpieczeństwo / Baza Danych / Supabase RLS Multi-Tenancy
-* **Pliki do modyfikacji:** Nowa migracja SQL w `supabase/migrations/`, [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L329), [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
+* **Pliki implementacji:** [20261115120000_harden_meals_ingredients_and_products_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261115120000_harden_meals_ingredients_and_products_rls.sql)
+* **Pliki testów:** [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
 * **Problem / Uzasadnienie:**
-  * W migracji [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L263) polityka `"Authenticated users can insert meals"` zawiera warunek `WITH CHECK (household_id IS NULL OR household_id IN (SELECT public.get_user_household_ids(auth.uid())))`, a polityka `"Authenticated users can insert meal ingredients"` pozwala dodawać składniki do dań z `household_id IS NULL`.
-  * W odróżnieniu od tabel `products` i `product_categories` (gdzie `INSERT` z `household_id IS NULL` jest zablokowany), dowolny zalogowany użytkownik może wstrzykiwać globalne przepisy (`household_id = NULL`) widoczne u wszystkich użytkowników aplikacji lub dopisywać składniki do istniejących przepisów globalnych.
-  * Ponadto w `meal_ingredients` (`INSERT`/`UPDATE`) brakuje sprawdzenia, czy `product_id` i `reference_product_id` należą do katalogu globalnego lub gospodarstwa danego przepisu, a w `products` (`INSERT`/`UPDATE`) czy `parent_id` wskazuje na produkt globalny bądź należący do tego samego gospodarstwa.
-* **Planowane Rozwiązanie:**
-  1. Dodać migrację zastępującą polityki `INSERT`/`UPDATE` na `meals` oraz `meal_ingredients` warunkiem wymagającym jawnej przynależności `household_id IN (SELECT public.get_user_household_ids(auth.uid()))` (blokada modyfikacji rekordów globalnych z poziomu klienta).
-  2. Dodać weryfikację spójności dzierżawcy (tenant isolation) dla `parent_id` w `products` oraz `product_id`/`reference_product_id` w `meal_ingredients`.
-  3. Rozszerzyć statyczny audyt bezpieczeństwa w `rlsSecurityAudit.test.ts`.
+  * W migracji [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L263) polityka `"Authenticated users can insert meals"` zawierała warunek `WITH CHECK (household_id IS NULL OR household_id IN (SELECT public.get_user_household_ids(auth.uid())))`, a polityka `"Authenticated users can insert meal ingredients"` pozwalała dodawać składniki do dań z `household_id IS NULL`.
+  * Ponadto w `meal_ingredients` (`INSERT`/`UPDATE`) brakowało sprawdzenia, czy `product_id` i `reference_product_id` należą do katalogu globalnego lub gospodarstwa danego przepisu, a w `products` (`INSERT`/`UPDATE`) czy `parent_id` wskazuje na produkt globalny bądź należący do tego samego gospodarstwa.
+* **Wdrożone Rozwiązanie:**
+  1. Wdrożono migrację [20261115120000_harden_meals_ingredients_and_products_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261115120000_harden_meals_ingredients_and_products_rls.sql) zastępującą polityki `INSERT`/`UPDATE` na `meals` oraz `meal_ingredients` warunkiem wymagającym jawnej przynależności `household_id IN (SELECT public.get_user_household_ids(auth.uid()))`.
+  2. Dodano weryfikację spójności dzierżawcy (tenant isolation) dla `parent_id` w `products` oraz `product_id`/`reference_product_id` w `meal_ingredients`.
+  3. Rozszerzono statyczny audyt bezpieczeństwa o `Audit 08 (HIGH-08)` w [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Klient API nie może wstrzykiwać globalnych przepisów (`household_id IS NULL`) ani dowiązywać składników/produktów nadrzędnych z obcych gospodarstw.
 
 ---
 
 ### HIGH-09: Spójność Liczników i Paska Postępu dla Pozycji `in_pantry` oraz Obsługa Snapshotu Retencji (`MED-02`) w Historii
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Logika Biznesowa / Aktywna Lista Zakupów & Historia (`shoppingListService.ts`)
-* **Pliki do modyfikacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts#L297-L320), [shoppingListService.ts (getHistoryLists)](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts#L905-L925), [activeListCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/activeListCalculations.ts#L45-L53), [activeListDiff.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/activeListDiff.ts#L22-L35), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L71-L72)
+* **Pliki implementacji:** [shoppingListService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/shoppingListService.ts), [activeListCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/activeListCalculations.ts), [activeListDiff.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/realtime/activeListDiff.ts), [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx)
+* **Pliki testów:** [activeListCalculations.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/activeListCalculations.test.ts), [shoppingListService.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/__tests__/shoppingListService.test.ts)
 * **Problem / Uzasadnienie:**
-  * **Niespójność `in_pantry`:** W [DesktopActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopActiveListView.tsx#L73) oraz w nagłówkach kategorii obu layoutów pozycje oznaczone jako `in_pantry = true` wliczane są do zrealizowanych (`i.is_checked || i.in_pantry`, zgodnie z ADR-008 i `docs/plan.md`). Jednak w `shoppingListService.getActiveListsSummary`, `activeListDiff.recalculateSummaries`, `calculateActiveListMetrics` oraz w głównym liczniku nagłówka mobilnego [ActiveListView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/ActiveListView.tsx#L71) uwzględniane jest wyłącznie `i.is_checked`, przez co badge na chipie listy pokazuje niekupione pozycje mimo pokrycia ich ze spiżarni.
-  * **Odczyt zarchiwizowanych pozycji po retencji (`MED-02`):** Po wykonaniu procedury `archive_old_shopping_list_items` stare wiersze z `shopping_list_items` są przenoszone do `shopping_list_items_archive` i zapisywane w `shopping_lists.archived_items_snapshot`. Metody `getHistoryLists` oraz `getListWithDetails` odpytują jednak wyłącznie `shopping_list_items`, co dla starszych list skutkuje wyświetleniem statusu `0/0 (Niezrealizowano)` i pustych szczegółów.
-* **Planowane Rozwiązanie:**
-  1. Ujednolicić liczenie pozycji zrealizowanych na aktywnej liście (`is_checked || in_pantry`) w `getActiveListsSummary`, `recalculateSummaries`, `calculateActiveListMetrics` oraz mobilnym `ActiveListView.tsx`.
-  2. W `getHistoryLists` oraz `getListWithDetails` dodać fallback do `archived_items_snapshot` / `shopping_list_items_archive`, gdy `shopping_list_items` dla zarchiwizowanej listy jest puste.
+  * **Niespójność `in_pantry`:** W `DesktopActiveListView.tsx` oraz w nagłówkach kategorii obu layoutów pozycje oznaczone jako `in_pantry = true` były wliczane do zrealizowanych (`i.is_checked || i.in_pantry`), natomiast w `shoppingListService.getActiveListsSummary`, `activeListDiff.recalculateSummaries`, `calculateActiveListMetrics` oraz w nagłówku mobilnym `ActiveListView.tsx` uwzględniane było wyłącznie `i.is_checked`.
+  * **Odczyt zarchiwizowanych pozycji po retencji (`MED-02`):** Po wykonaniu procedury `archive_old_shopping_list_items` metody `getHistoryLists` oraz `getListWithDetails` odpytywały wyłącznie `shopping_list_items`, pomijając `archived_items_snapshot` i `shopping_list_items_archive`.
+* **Wdrożone Rozwiązanie:**
+  1. Ujednolicono liczenie pozycji zrealizowanych na aktywnej liście (`is_checked || in_pantry`) w `getActiveListsSummary`, `recalculateSummaries`, `calculateActiveListMetrics` oraz mobilnym `ActiveListView.tsx`.
+  2. W `getHistoryLists` oraz `getListWithDetails` dodano fallback do `archived_items_snapshot` oraz tabeli `shopping_list_items_archive`, gdy `shopping_list_items` dla zarchiwizowanej listy jest puste.
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Liczniki niekupionych pozycji i paski postępu są w 100% spójne dla pozycji `in_pantry`, a zarchiwizowane listy po retencji zachowują status i szczegóły pozycji.
 
 ---
 
 ### HIGH-10: Optymalizacja Ergonomii Mobilnej Nawigacji Dolnej (`BottomNavigation` – 7 Zakładek), Licznika `activeCount` oraz Przełącznika Układu w `AppHeader`
-* **Status:** ⏳ **Oczekujące (Do wdrożenia)**
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** UI/UX / Responsywność Mobile / Nawigacja (`BottomNavigation.tsx`, `AppLayoutRouter.tsx`, `AppHeader.tsx`)
-* **Pliki do modyfikacji:** [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx#L30-L128), [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L131-L163), [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx#L87-L158)
+* **Pliki implementacji:** [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx), [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx), [MobileLayout.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/MobileLayout.tsx), [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
+* **Pliki testów:** [BottomNavigation.test.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/__tests__/BottomNavigation.test.tsx)
 * **Problem / Uzasadnienie:**
-  * **Zatłoczenie `BottomNavigation` (7 zakładek w jednym rzędzie — potwierdzone pomiarami DOM w Microsoft Edge):** W [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx#L30-L68) umieszczono 7 pozycji obok siebie (`max-w-[56px]`, font `text-[10px]`). Pomiar w żywej przeglądarce Microsoft Edge wykazał, że każda zakładka ma zaledwie `50px × 44px` na ekranie `360x800` oraz `56px × 44px` na tablecie `768x1024`, a etykieta **„Aktywna Lista"** ulega ucięciu (`truncate`) zarówno na telefonie (`clientWidth: 46px` vs `scrollWidth: 59px`), jak i na tablecie (`clientWidth: 52px` vs `scrollWidth: 59px`). Przeczy to standardom Apple HIG i Material Design 3 (zalecającym maks. 4–5 głównych zakładek w dolnym pasku).
-  * **Brak przekazania `activeCount` z `AppLayoutRouter.tsx`:** Zarówno `DesktopSidebar`, jak i `BottomNavigation` obsługują prop `activeCount` wyświetlający badge z liczbą niekupionych pozycji na zakładce *„Aktywna Lista"*, jednak [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx#L131-L163) przekazuje wyłącznie `draftCount={draftItems.length}`, pomijając `activeCount`.
-  * **Jednokierunkowa pułapka przełącznika `LayoutMode` w trybie Mobile:** Gdy użytkownik na komputerze przełączy układ w `DesktopSidebar` na *„Widok Mobilny"*, renderowany jest `MobileLayout` z [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx), w którego menu profilu brakuje opcji zmiany `LayoutMode` (powrót do Desktopu wymaga znajomości skrótu `Ctrl + Alt + L`).
-* **Planowane Rozwiązanie:**
-  1. Zoptymalizować `BottomNavigation.tsx` na wąskich ekranach (np. 5 głównych zakładek w dolnym pasku + szuflada *„Więcej"* lub usunięcie sztywnego `max-w-[56px]` i skrócenie etykiety *„Aktywna Lista"* do *„Zakupy"* / *„Lista"*) oraz dodać obsługę `env(safe-area-inset-bottom)` dla urządzeń iOS/Android z gestem Home Bar.
-  2. Przekazać `activeCount` (wyliczony z `activeListsSummary`) z `AppLayoutRouter.tsx` do `DesktopLayout` oraz `MobileLayout`.
-  3. Dodać przełącznik trybu układu (`Auto / Desktop / Mobile`) oraz przełącznik języka w menu profilu mobilnego [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx).
+  * **Zatłoczenie `BottomNavigation`:** Sztywne ograniczenie `max-w-[56px]` oraz długa etykieta *„Aktywna Lista"* powodowały ucinanie tekstu (`truncate`) na ekranach `360px` i `768px`.
+  * **Brak przekazania `activeCount` z `AppLayoutRouter.tsx`:** `AppLayoutRouter.tsx` przekazywał wyłącznie `draftCount`, pomijając `activeCount`.
+  * **Jednokierunkowa pułapka przełącznika `LayoutMode` w trybie Mobile:** W menu profilu [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx) brakowało przełącznika `LayoutMode` oraz języka.
+* **Wdrożone Rozwiązanie:**
+  1. W [BottomNavigation.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/BottomNavigation.tsx) usunięto sztuczny limit `max-w-[56px]`, wprowadzono zwięzłą etykietę mobilną `Lista` / `List` (`navigation.activeListShort`, przy zachowaniu pełnego `aria-label="Aktywna Lista"`) oraz dodano obsługę `pb-[max(0.375rem,env(safe-area-inset-bottom))]`.
+  2. Wyliczono `activeCount` z `activeListsSummary` w [AppLayoutRouter.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppLayoutRouter.tsx) i przekazano go do `DesktopLayout` oraz `MobileLayout`.
+  3. Dodano przełącznik trybu układu (`Auto / Desktop / Mobile`) oraz przełącznik języka (`LanguageSwitcher`) w menu profilu mobilnego [AppHeader.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/AppHeader.tsx).
+* **Definition of Done (DoD) - Rezultat:**
+  - ✅ Etykiety w `BottomNavigation` mieszczą się bez ucinania, badge `activeCount` wyświetla liczbę pozycji do kupienia na obu układach, a z poziomu `AppHeader` można swobodnie przełączyć język oraz tryb układu (`Auto / Desktop / Mobile`).
 
 ---
 
@@ -778,10 +789,10 @@ gantt
     HIGH-05 Zustand Selectors & Shallow  :done, 2026-11, 2d
     HIGH-06 Stop Realtime Echo & Vibrate :done, 2026-11, 2d
     HIGH-03 RLS Multi-tenancy Audit      :done, 2026-11, 2d
-    HIGH-07 Fix targetKcal pcs & refProd :2026-11, 1d
-    HIGH-08 Harden RLS meals & parent_id :2026-11, 1d
-    HIGH-09 Sync in_pantry & Retention   :2026-11, 2d
-    HIGH-10 Mobile BottomNav & LayoutUX  :2026-11, 2d
+    HIGH-07 Fix targetKcal pcs & refProd :done, 2026-11, 1d
+    HIGH-08 Harden RLS meals & parent_id :done, 2026-11, 1d
+    HIGH-09 Sync in_pantry & Retention   :done, 2026-11, 2d
+    HIGH-10 Mobile BottomNav & LayoutUX  :done, 2026-11, 2d
     section Średnie (Backend & Biznes)
     MED-07 Setup GitHub Actions CI/CD    :done, 2026-11, 4d
     MED-06 Transactional RPC Archive     :done, 2026-11, 12d
@@ -836,10 +847,10 @@ gantt
 | **HIGH-04** | ✅ Zrealizowane | 🟠 High | Database / Indexes | 1 dzień | Błyskawiczna ewaluacja RLS `get_user_household_ids` w całej bazie danych. |
 | **HIGH-05** | ✅ Zrealizowane | 🟠 High | Performance / React | 2 dni | Eliminacja kaskadowych przerenderowań dzięki selektorom Zustand i `useShallow`. |
 | **HIGH-06** | ✅ Zrealizowane | 🟠 High | UX / Realtime | 1-2 dni | Usunięcie podwójnych wibracji telefonu i zbędnych zapytań GET przy każdym odhaczeniu. |
-| **HIGH-07** | ⏳ Oczekujące | 🟠 High | Logika / Makro | 0.5 dnia | Poprawne skalowanie `targetKcal` w koszyku dla sztuk (`pcs`) oraz produktów ogólnych (`reference_product`). |
-| **HIGH-08** | ⏳ Oczekujące | 🟠 High | Security / Supabase RLS | 1 dzień | Blokada wstrzykiwania globalnych przepisów (`household_id IS NULL`) i walidacja tenant-isolation na `parent_id`. |
-| **HIGH-09** | ⏳ Oczekujące | 🟠 High | Logika / Lista & Historia | 1-2 dni | Spójne wliczanie `in_pantry` do liczników list oraz obsługa snapshotu retencji (`MED-02`) w Historii. |
-| **HIGH-10** | ⏳ Oczekujące | 🟠 High | UI/UX / Nawigacja Mobile | 1-2 dni | Odchudzenie 7-zakładkowego `BottomNavigation`, badge `activeCount` i przełącznik układu w `AppHeader`. |
+| **HIGH-07** | ✅ Zrealizowane | 🟠 High | Logika / Makro | 0.5 dnia | Poprawne skalowanie `targetKcal` w koszyku dla sztuk (`pcs`) oraz produktów ogólnych (`reference_product`). |
+| **HIGH-08** | ✅ Zrealizowane | 🟠 High | Security / Supabase RLS | 1 dzień | Blokada wstrzykiwania globalnych przepisów (`household_id IS NULL`) i walidacja tenant-isolation na `parent_id`. |
+| **HIGH-09** | ✅ Zrealizowane | 🟠 High | Logika / Lista & Historia | 1-2 dni | Spójne wliczanie `in_pantry` do liczników list oraz obsługa snapshotu retencji (`MED-02`) w Historii. |
+| **HIGH-10** | ✅ Zrealizowane | 🟠 High | UI/UX / Nawigacja Mobile | 1-2 dni | Odchudzenie 7-zakładkowego `BottomNavigation`, badge `activeCount` i przełącznik układu w `AppHeader`. |
 | **MED-01** | ✅ Zrealizowane | 🟡 Medium | Frontend / Bundle | 2-3 dni | Redukcja głównego chunka z 1,036 kB do 134 kB (`React.lazy` + Rolldown `codeSplitting`). |
 | **MED-02** | ✅ Zrealizowane | 🟡 Medium | Database / Retention | 1 dzień | Ręczny skrypt retencji `shopping_list_items_archive` i RPC archiwizujące (bez CRON). |
 | **MED-03** | ✅ Zrealizowane | 🟡 Medium | UX / Kalendarz | 1 dzień | Możliwość wyciszenia ostrzeżenia ⚠️ braków w `UncertaintyWarningModal`. |
@@ -873,6 +884,5 @@ gantt
 | **LOW-12** | ⏳ Oczekujące | 🔵 Low | Dietetyka / Kalendarz | 2-3 dni | Analityka makroskładników i historia realizacji dziennych celów kalorycznych. |
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
-> 1. **Naprawy priorytetowe (Quick Wins):** W pierwszej kolejności należy zamknąć `HIGH-07` (skalowanie `targetKcal` dla `pcs` i `reference_product` w `useShoppingStore.ts`), `HIGH-08` (uszczelnienie RLS dla `meals`/`meal_ingredients`/`products.parent_id`), `HIGH-09` (spójność `in_pantry` i odczyt archiwum `MED-02` w Historii) oraz `HIGH-10` (ergonomia mobilnego `BottomNavigation` i przełącznik układu w `AppHeader`).  
-> 2. **Spójność wizualna, domenowa i higiena (`MED-08`..`MED-12`, `NORM-10`..`NORM-13`):** Wyrównanie hierarchicznego wykrywania spiżarni na kartach przepisów i w widoku dnia, lokalna arytmetyka dat w Kalendarzu, wskaźnik pracy Offline, kontrast odznak w motywie `clean-light`, strefy dotyku `44px`, pełne i18n, dekompozycja `shoppingListService.ts` oraz uzupełnienie `README.md`.  
-> 3. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-12`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`) oraz trybu „Gotuję Teraz" (`LOW-10`).
+> 1. **Spójność wizualna, domenowa i higiena (`MED-08`..`MED-13`, `NORM-10`..`NORM-13`):** Wyrównanie hierarchicznego wykrywania spiżarni na kartach przepisów i w widoku dnia, lokalna arytmetyka dat w Kalendarzu, wskaźnik pracy Offline, kontrast odznak w motywie `clean-light`, szerokość wyszukiwarki w Spiżarni, strefy dotyku `44px`, pełne i18n, dekompozycja `shoppingListService.ts` oraz uzupełnienie `README.md`.  
+> 2. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-12`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`) oraz trybu „Gotuję Teraz" (`LOW-10`).

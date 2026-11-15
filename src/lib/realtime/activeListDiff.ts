@@ -21,7 +21,7 @@ function recalculateSummaries(
   nextList: ActiveListWithDetails
 ): ShoppingListSummary[] {
   const totalItems = nextList.items.length
-  const uncheckedItems = nextList.items.filter((i) => !i.is_checked).length
+  const uncheckedItems = nextList.items.filter((i) => !i.is_checked && !i.in_pantry).length
   const updated = summaries.map((s) =>
     s.id === nextList.id
       ? {

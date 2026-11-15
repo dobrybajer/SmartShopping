@@ -15,6 +15,7 @@ interface BottomNavigationProps {
 interface NavItem {
   id: TabType
   label: string
+  fullLabel?: string
   icon: React.ComponentType<{ className?: string }>
   badge?: number
 }
@@ -51,7 +52,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
     },
     {
       id: 'active',
-      label: t('navigation.activeList'),
+      label: t('navigation.activeListShort'),
+      fullLabel: t('navigation.activeList'),
       icon: CheckSquare,
       badge: activeCount
     },
@@ -81,12 +83,13 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   return (
     <nav
       aria-label={t('navigation.mainMenu')}
-      className="bg-card/95 backdrop-blur-md border-t border-border px-1 py-1.5 flex items-center justify-around sticky bottom-0 z-30 select-none shadow-2xl"
+      className="bg-card/95 backdrop-blur-md border-t border-border px-1 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] flex items-center justify-around sticky bottom-0 z-30 select-none shadow-2xl"
     >
       {items.map((item) => {
         const Icon = item.icon
         const isActive = activeTab === item.id
-        const ariaLabel = item.badge && item.badge > 0 ? `${item.label} (${item.badge})` : item.label
+        const baseLabel = item.fullLabel || item.label
+        const ariaLabel = item.badge && item.badge > 0 ? `${baseLabel} (${item.badge})` : baseLabel
 
         return (
           <button
@@ -96,7 +99,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             aria-current={isActive ? 'page' : undefined}
             aria-label={ariaLabel}
             className={cn(
-              "flex flex-col items-center justify-center min-h-[44px] py-1 px-0.5 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1 max-w-[56px]",
+              "flex flex-col items-center justify-center min-h-[44px] py-1 px-0.5 rounded-xl transition-all relative group cursor-pointer min-w-0 flex-1",
               isActive
                 ? "text-primary font-semibold"
                 : "text-muted-foreground hover:text-foreground"

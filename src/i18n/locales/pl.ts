@@ -47,6 +47,7 @@ export const pl: TranslationSchema = {
     cookbook: 'Przepisy',
     draft: 'Koszyk',
     activeList: 'Aktywna Lista',
+    activeListShort: 'Lista',
     history: 'Historia',
     products: 'Produkty',
     households: 'Gospodarstwa',

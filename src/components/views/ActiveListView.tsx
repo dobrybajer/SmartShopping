@@ -68,7 +68,7 @@ export const ActiveListView: React.FC = () => {
   }
 
   const activeList = c.activeList
-  const checkedCount = activeList.items.filter((i) => i.is_checked).length
+  const checkedCount = activeList.items.filter((i) => i.is_checked || i.in_pantry).length
   const totalCount = activeList.items.length
   const sortedCategories = groupItemsByAisle(activeList.items, c.resolvedCategories, 'other')
 

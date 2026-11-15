@@ -45,6 +45,7 @@ export const en = {
     cookbook: 'Cookbook',
     draft: 'Draft',
     activeList: 'Active List',
+    activeListShort: 'List',
     history: 'History',
     products: 'Products',
     households: 'Households',

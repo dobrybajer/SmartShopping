@@ -123,4 +123,91 @@ describe('useShoppingStore - Draft Management', () => {
     expect(items[0].category_name).toBe('Mrożonki')
     expect(items[0].sort_order).toBe(10)
   })
+
+  it('Flow 05 (HIGH-07): addMealToDraft scales targetKcal accurately for pcs units and general products with reference_product', () => {
+    // 2 pcs of Eggs (70 kcal per 1 pc = 140 kcal) + 200ml general Milk with reference 2% Milk (50 kcal/100ml = 100 kcal)
+    // Total base calories = 240 kcal. Target = 480 kcal -> multiplier = 2.0
+    useShoppingStore.getState().addMealToDraft(
+      {
+        id: 'meal-scrambled-eggs',
+        household_id: 'household-1',
+        name: 'Jajecznica z mlekiem',
+        description: null,
+        preparation_steps: null,
+        comments: null,
+        category_id: 1,
+        tags: [],
+        ingredients: [
+          {
+            id: 'ing-eggs',
+            meal_id: 'meal-scrambled-eggs',
+            product_id: 'prod-eggs',
+            base_quantity: 2,
+            is_pantry_item: false,
+            product: {
+              id: 'prod-eggs',
+              household_id: null,
+              name: 'Jajka M',
+              unit_type: 'pcs',
+              category_id: 3,
+              kcal_per_100: 70,
+              protein_per_100: 6,
+              carbs_per_100: 0.5,
+              fat_per_100: 5,
+              is_ad_hoc: false,
+              type: 'Global',
+              is_general: false,
+              parent_id: null
+            }
+          },
+          {
+            id: 'ing-milk-gen',
+            meal_id: 'meal-scrambled-eggs',
+            product_id: 'prod-milk-general',
+            reference_product_id: 'prod-milk-2pct',
+            base_quantity: 200,
+            is_pantry_item: false,
+            product: {
+              id: 'prod-milk-general',
+              household_id: null,
+              name: 'Mleko',
+              unit_type: 'ml',
+              category_id: 3,
+              kcal_per_100: null,
+              protein_per_100: null,
+              carbs_per_100: null,
+              fat_per_100: null,
+              is_ad_hoc: false,
+              type: 'Global',
+              is_general: true,
+              parent_id: null
+            },
+            reference_product: {
+              id: 'prod-milk-2pct',
+              household_id: null,
+              name: 'Mleko 2%',
+              unit_type: 'ml',
+              category_id: 3,
+              kcal_per_100: 50,
+              protein_per_100: 3.4,
+              carbs_per_100: 4.8,
+              fat_per_100: 2,
+              is_ad_hoc: false,
+              type: 'Global',
+              is_general: false,
+              parent_id: 'prod-milk-general'
+            }
+          }
+        ]
+      },
+      480
+    )
+
+    const items = useShoppingStore.getState().draftItems
+    expect(items).toHaveLength(2)
+    expect(items[0].product_id).toBe('prod-eggs')
+    expect(items[0].quantity).toBe(4) // 2 pcs * 2.0
+    expect(items[1].product_id).toBe('prod-milk-general')
+    expect(items[1].quantity).toBe(400) // 200 ml * 2.0
+  })
 })

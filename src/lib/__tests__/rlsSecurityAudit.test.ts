@@ -289,4 +289,31 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
       expect(createdIndexes.has(idx), `Missing database index ${idx}`).toBe(true)
     }
   })
+
+  it('Audit 08 (HIGH-08): meals, meal_ingredients, and products enforce strict household ownership and cross-tenant FK isolation', () => {
+    const mealInsert = getPoliciesFor('meals', 'INSERT')[0]
+    const mealUpdate = getPoliciesFor('meals', 'UPDATE')[0]
+
+    expect(mealInsert.withCheckClause).toContain('get_user_household_ids(auth.uid())')
+    expect(mealInsert.withCheckClause).not.toMatch(/household_id\s+IS\s+NULL/i)
+    expect(mealUpdate.withCheckClause).toContain('get_user_household_ids(auth.uid())')
+    expect(mealUpdate.withCheckClause).not.toMatch(/household_id\s+IS\s+NULL/i)
+
+    const ingInsert = getPoliciesFor('meal_ingredients', 'INSERT')[0]
+    const ingUpdate = getPoliciesFor('meal_ingredients', 'UPDATE')[0]
+    for (const pol of [ingInsert, ingUpdate]) {
+      expect(pol.withCheckClause).toContain('get_user_household_ids(auth.uid())')
+      expect(pol.withCheckClause).toContain('product_id')
+      expect(pol.withCheckClause).toContain('reference_product_id')
+      expect(pol.withCheckClause).not.toMatch(/m\.household_id\s+IS\s+NULL/i)
+    }
+
+    const prodInsert = getPoliciesFor('products', 'INSERT')[0]
+    const prodUpdate = getPoliciesFor('products', 'UPDATE')[0]
+    for (const pol of [prodInsert, prodUpdate]) {
+      expect(pol.withCheckClause).toContain('get_user_household_ids(auth.uid())')
+      expect(pol.withCheckClause).toContain('parent_id')
+      expect(pol.withCheckClause).toContain('p.household_id = products.household_id')
+    }
+  })
 })
