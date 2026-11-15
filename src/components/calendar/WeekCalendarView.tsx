@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useTranslation } from '@/i18n'
 import { useMealPlanStore } from '@/store/useMealPlanStore'
 import { usePantryStore } from '@/store/usePantryStore'
@@ -10,6 +10,7 @@ import {
   calculateDayMacros
 } from '@/lib/calculations/calendarStatus'
 import { MealPlanStatusBadge } from './MealPlanStatusBadge'
+import { WeeklyTemplatesModal } from './WeeklyTemplatesModal'
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,7 +18,8 @@ import {
   CalendarDays,
   Plus,
   Flame,
-  ShoppingCart
+  ShoppingCart,
+  LayoutTemplate
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn, formatLocalDateISO } from '@/lib/utils'
@@ -57,12 +59,14 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   const { isDesktop } = useDeviceLayout()
   const {
     mealPlans,
+    weeklyTemplates,
     weekRangeMode,
     setWeekRangeMode,
     transferDayToDraft
   } = useMealPlanStore(
     useShallow((state) => ({
       mealPlans: state.mealPlans,
+      weeklyTemplates: state.weeklyTemplates,
       weekRangeMode: state.weekRangeMode,
       setWeekRangeMode: state.setWeekRangeMode,
       transferDayToDraft: state.transferDayToDraft
@@ -70,9 +74,11 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
   )
   const pantryItems = usePantryStore((state) => state.pantryItems)
   const draftItems = useShoppingStore((state) => state.draftItems)
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false)
 
   const todayStr = formatLocalDateISO()
   const monday = getMonday(selectedDate)
+  const mondayIso = formatDateISO(monday)
   const numDays = weekRangeMode === 'workweek' ? 5 : 7
 
   // Generate days array for this week
@@ -192,8 +198,24 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setIsTemplatesOpen(true)}
+            className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium cursor-pointer"
+            title={t('calendar.templates.openButtonTitle')}
+          >
+            <LayoutTemplate className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden md:inline">{t('calendar.templates.openButton')}</span>
+            {weeklyTemplates.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-md bg-primary/15 text-primary font-mono text-[10px] font-bold">
+                {weeklyTemplates.length}
+              </span>
+            )}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={handleTransferEntireWeek}
-            className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium"
+            className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium cursor-pointer"
             title={t('calendar.transferWeekToDraftTitle')}
           >
             <ShoppingCart className="w-3.5 h-3.5 text-sky-400" />
@@ -382,6 +404,15 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
           })}
         </div>
       )}
+
+      <WeeklyTemplatesModal
+        open={isTemplatesOpen}
+        onOpenChange={setIsTemplatesOpen}
+        weekStartMondayIso={mondayIso}
+        weekRangeLabel={rangeLabel}
+        currentWeekMealsCount={weekDays.reduce((sum, d) => sum + d.plans.length, 0)}
+        numDays={numDays}
+      />
     </div>
   )
 }

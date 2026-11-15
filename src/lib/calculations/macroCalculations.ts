@@ -1,4 +1,12 @@
 import type { Database } from '@/types/supabase'
+export {
+  KITCHEN_UNIT_FACTORS,
+  getAvailableKitchenUnitsForProduct,
+  convertKitchenUnitToBaseQuantity,
+  formatKitchenUnitConversionPreview,
+  type KitchenUnit,
+  type KitchenUnitOption
+} from './kitchenUnits'
 
 export interface MacroNutrients {
   kcal: number;

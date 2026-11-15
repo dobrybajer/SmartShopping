@@ -3,12 +3,18 @@ import { useAuth } from '@/hooks/useAuth'
 import { mealService } from '@/services/mealService'
 import { productService } from '@/services/productService'
 import type { Product, ProductCategory } from '@/services/productService'
+import {
+  convertKitchenUnitToBaseQuantity,
+  type KitchenUnit
+} from '@/lib/calculations/kitchenUnits'
 
 export interface MealFormIngredientInput {
   product_id: string
   product_name: string
   unit_type: 'g' | 'ml' | 'pcs'
   base_quantity: number
+  input_quantity?: number
+  input_unit?: KitchenUnit
   is_pantry_item: boolean
   is_general?: boolean
   reference_product_id?: string | null
@@ -37,6 +43,7 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedProductName, setSelectedProductName] = useState('')
   const [selectedProductUnit, setSelectedProductUnit] = useState<'g' | 'ml' | 'pcs'>('g')
+  const [selectedInputUnit, setSelectedInputUnit] = useState<KitchenUnit>('g')
   const [quantityInput, setQuantityInput] = useState<number | ''>(100)
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
@@ -69,6 +76,15 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     setTags(tags.filter((t) => t !== tagToRemove))
   }
 
+  const handleInputUnitChange = (newUnit: KitchenUnit) => {
+    setSelectedInputUnit(newUnit)
+    if (newUnit !== 'g' && newUnit !== 'ml' && newUnit !== 'dag' && quantityInput === 100) {
+      setQuantityInput(1)
+    } else if ((newUnit === 'g' || newUnit === 'ml') && quantityInput === 1) {
+      setQuantityInput(100)
+    }
+  }
+
   const handleAddIngredient = () => {
     if (!selectedProductId || !quantityInput || quantityInput <= 0) return
 
@@ -79,13 +95,23 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
       : []
     const defaultRef = childVariants.length > 0 ? childVariants[0] : null
 
+    const rawQty = Number(quantityInput)
+    const convertedBaseQty = convertKitchenUnitToBaseQuantity(
+      rawQty,
+      selectedInputUnit,
+      selectedProductUnit
+    )
+    const isKitchenUnitUsed = selectedInputUnit !== selectedProductUnit
+
     setIngredients([
       ...ingredients,
       {
         product_id: selectedProductId,
         product_name: selectedProductName,
         unit_type: selectedProductUnit,
-        base_quantity: Number(quantityInput),
+        base_quantity: convertedBaseQty,
+        input_quantity: isKitchenUnitUsed ? rawQty : undefined,
+        input_unit: isKitchenUnitUsed ? selectedInputUnit : undefined,
         is_pantry_item: false,
         is_general: isGeneral,
         reference_product_id: defaultRef ? defaultRef.id : null,
@@ -95,6 +121,7 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
 
     setSelectedProductId('')
     setSelectedProductName('')
+    setSelectedInputUnit('g')
     setQuantityInput(100)
   }
 
@@ -123,6 +150,8 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     if (match) {
       setSelectedProductId(match.id)
       setSelectedProductUnit(match.unit_type)
+      setSelectedInputUnit(match.unit_type)
+      setQuantityInput(match.unit_type === 'pcs' ? 1 : 100)
     } else {
       setSelectedProductId('')
     }
@@ -132,6 +161,8 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     setSelectedProductId(product.id)
     setSelectedProductName(product.name)
     setSelectedProductUnit(product.unit_type)
+    setSelectedInputUnit(product.unit_type)
+    setQuantityInput(product.unit_type === 'pcs' ? 1 : 100)
   }
 
   const handleProductSaved = (newProduct: Product) => {
@@ -142,6 +173,8 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     setSelectedProductId(newProduct.id)
     setSelectedProductName(newProduct.name)
     setSelectedProductUnit(newProduct.unit_type)
+    setSelectedInputUnit(newProduct.unit_type)
+    setQuantityInput(newProduct.unit_type === 'pcs' ? 1 : 100)
     window.dispatchEvent(new CustomEvent('smartshopping_refresh_products'))
     setIsAddProductOpen(false)
   }
@@ -202,6 +235,8 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     selectedProductId,
     selectedProductName,
     selectedProductUnit,
+    selectedInputUnit,
+    setSelectedInputUnit: handleInputUnitChange,
     quantityInput,
     setQuantityInput,
     isAddProductOpen,
@@ -218,4 +253,3 @@ export function useMealForm({ open, onOpenChange, onMealCreated }: UseMealFormPa
     handleSubmit
   }
 }
-

@@ -69,3 +69,24 @@ export interface UpdateCalendarMealInput {
   sort_order?: number
   is_uncertainty_dismissed?: boolean
 }
+
+export interface WeeklyTemplateEntry {
+  day_offset: number // 0 = Monday .. 6 = Sunday
+  meal_id: string | null
+  meal_name: string | null
+  meal_category_id: number | null
+  custom_name: string | null
+  is_ad_hoc: boolean
+  servings: number
+  target_kcal: number | null
+  notes: string | null
+  sort_order: number
+}
+
+export interface WeeklyMealTemplate {
+  id: string
+  household_id: string
+  name: string
+  created_at: string
+  entries: WeeklyTemplateEntry[]
+}

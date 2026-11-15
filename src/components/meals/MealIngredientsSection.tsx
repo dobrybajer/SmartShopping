@@ -2,10 +2,15 @@ import React from 'react'
 import { useTranslation } from '@/i18n'
 import type { Product, ProductCategory } from '@/services/productService'
 import type { MealFormIngredientInput } from '@/hooks/useMealForm'
+import {
+  formatKitchenUnitConversionPreview,
+  getAvailableKitchenUnitsForProduct,
+  type KitchenUnit
+} from '@/lib/calculations/kitchenUnits'
 import { ProductAutocomplete } from '@/components/ui/ProductAutocomplete'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Trash2, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Sparkles, Scale } from 'lucide-react'
 
 interface MealIngredientsSectionProps {
   ingredients: MealFormIngredientInput[]
@@ -14,6 +19,8 @@ interface MealIngredientsSectionProps {
   selectedProductId: string
   selectedProductName: string
   selectedProductUnit: 'g' | 'ml' | 'pcs'
+  selectedInputUnit?: KitchenUnit
+  onInputUnitChange?: (unit: KitchenUnit) => void
   quantityInput: number | ''
   onQuantityChange: (val: number | '') => void
   onProductNameChange: (val: string) => void
@@ -31,6 +38,8 @@ export const MealIngredientsSection: React.FC<MealIngredientsSectionProps> = ({
   selectedProductId,
   selectedProductName,
   selectedProductUnit,
+  selectedInputUnit,
+  onInputUnitChange,
   quantityInput,
   onQuantityChange,
   onProductNameChange,
@@ -41,6 +50,14 @@ export const MealIngredientsSection: React.FC<MealIngredientsSectionProps> = ({
   onOpenAddProduct
 }) => {
   const { t, formatUnit, formatQuantity } = useTranslation()
+
+  const activeInputUnit: KitchenUnit = selectedInputUnit || selectedProductUnit
+  const availableUnitOptions = getAvailableKitchenUnitsForProduct(selectedProductUnit)
+  const conversionPreview = formatKitchenUnitConversionPreview(
+    quantityInput,
+    activeInputUnit,
+    selectedProductUnit
+  )
 
   return (
     <div className="p-3 rounded-xl bg-background border border-border flex flex-col gap-3">
@@ -94,9 +111,16 @@ export const MealIngredientsSection: React.FC<MealIngredientsSectionProps> = ({
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono text-primary font-bold">
-                  {formatQuantity(ing.base_quantity, ing.unit_type)}
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="font-mono text-primary font-bold">
+                    {formatQuantity(ing.base_quantity, ing.unit_type)}
+                  </span>
+                  {ing.input_unit && ing.input_quantity && (
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      ({ing.input_quantity} {t(`units.kitchen.short.${ing.input_unit}` as never)})
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => onRemoveIngredient(idx)}
                   className="text-muted-foreground hover:text-destructive p-1 cursor-pointer"
@@ -135,15 +159,32 @@ export const MealIngredientsSection: React.FC<MealIngredientsSectionProps> = ({
           <div className="relative flex-1">
             <Input
               type="number"
+              step="any"
               placeholder={`${t('dialogs.mealForm.quantityLabel')} (${formatUnit(selectedProductUnit)})`}
               value={quantityInput}
               onChange={(e) => onQuantityChange(e.target.value === '' ? '' : Number(e.target.value))}
-              className="h-10 font-mono pr-14"
+              className="h-10 font-mono"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground font-mono pointer-events-none">
-              {formatUnit(selectedProductUnit)}
-            </span>
           </div>
+
+          {availableUnitOptions.length > 1 && onInputUnitChange ? (
+            <select
+              aria-label={t('dialogs.mealForm.kitchenUnitSelectLabel')}
+              value={activeInputUnit}
+              onChange={(e) => onInputUnitChange(e.target.value as KitchenUnit)}
+              className="h-10 rounded-lg bg-card border border-border px-2.5 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+            >
+              {availableUnitOptions.map((opt) => (
+                <option key={opt.unit} value={opt.unit} className="bg-card text-foreground">
+                  {t(opt.labelKey as never)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="h-10 px-3 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-bold text-muted-foreground font-mono shrink-0">
+              {formatUnit(selectedProductUnit)}
+            </div>
+          )}
 
           <Button
             type="button"
@@ -154,8 +195,18 @@ export const MealIngredientsSection: React.FC<MealIngredientsSectionProps> = ({
             <Plus className="w-4 h-4" />
           </Button>
         </div>
+
+        {conversionPreview.isConverted && (
+          <div className="flex items-center gap-1.5 text-[11px] font-mono text-primary bg-primary/10 border border-primary/20 rounded-lg px-2.5 py-1.5">
+            <Scale className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {t('dialogs.mealForm.convertedToBaseHint', {
+                quantity: formatQuantity(conversionPreview.baseQuantity, conversionPreview.baseUnit)
+              })}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-

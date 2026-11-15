@@ -747,11 +747,13 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### LOW-08: Szablony i Powtarzalne Cykle Tygodniowe w Kalendarzu Posiłków
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Planowanie / Kalendarz Posiłków (ADR-009)
-* **Pliki:** [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [CalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/views/CalendarView.tsx)
-* **Opis:**
-  - Możliwość zapisania całego skomponowanego tygodnia posiłków jako nazwanego szablonu (np. *"Tydzień redukcyjny 2200 kcal"*, *"Szybki tydzień pracujący"*).
-  - Aplikowanie szablonu na dowolny przyszły tydzień w kalendarzu jednym kliknięciem, z automatycznym skalowaniem porcji pod domowników.
+* **Pliki implementacji:** [weeklyTemplateCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/weeklyTemplateCalculations.ts), [useMealPlanStore.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/store/useMealPlanStore.ts), [WeeklyTemplatesModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeeklyTemplatesModal.tsx), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx), [calendar.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/types/calendar.ts)
+* **Pliki testów:** [weeklyTemplateCalculations.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/weeklyTemplateCalculations.test.ts)
+* **Wdrożone Rozwiązanie:**
+  - Możliwość zapisania całego skomponowanego tygodnia posiłków jako nazwanego szablonu gospodarstwa (np. *"Tydzień redukcyjny 2200 kcal"*, *"Szybki tydzień pracujący"*) w oknie Dual Layout (`WeeklyTemplatesModal` – `Dialog` na Desktopie / `Sheet` na Mobile PWA).
+  - Aplikowanie szablonu na dowolny tydzień w kalendarzu jednym kliknięciem z automatycznym skalowaniem porcji (`0.5x`–`4x`) oraz kaloryczności `target_kcal` i pomijaniem duplikatów.
 
 ---
 
@@ -775,11 +777,13 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### LOW-11: Automatyczne Przeliczanie Miar Kuchennych (Łyżka / Łyżeczka / Szklanka / Szczypta ↔ Gramy / Mililitry)
+* **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Kulinaria / Czyste Kalkulacje
-* **Pliki:** [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts)
-* **Opis:**
-  - Słownik przeliczników miar domowych (np. `1 szklanka = 250 ml`, `1 łyżka = 15 ml / g`, `1 łyżeczka = 5 ml / g`) w formularzu przepisu.
-  - Pozwala autorowi przepisu wprowadzać wygodne jednostki kuchenne przy zachowaniu automatycznej agregacji w gramach/mililitrach na liście zakupowej, w kalkulatorze kalorii oraz przy odejmowaniu stanów ze spiżarni.
+* **Pliki implementacji:** [kitchenUnits.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/kitchenUnits.ts), [macroCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/macroCalculations.ts), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts), [recipeJsonImport.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/recipeJsonImport.ts), [useMealForm.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useMealForm.ts), [MealIngredientsSection.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/meals/MealIngredientsSection.tsx), [AddMealSheet.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/dialogs/AddMealSheet.tsx)
+* **Pliki testów:** [kitchenUnits.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/__tests__/kitchenUnits.test.ts)
+* **Wdrożone Rozwiązanie:**
+  - Słownik przeliczników miar domowych (`1 szklanka = 250 ml / g`, `1 łyżka = 15 ml / g`, `1 łyżeczka = 5 ml / g`, `1 szczypta = 1 g`, `dag`, `kg`, `l`) z selektorem i podglądem konwersji na żywo w formularzu przepisu (`MealIngredientsSection`).
+  - Pełna integracja z `pantryCalculations.ts` (`areUnitsCompatible`, `convertQuantity`), `macroCalculations.ts` oraz importerem JSON (`normalizeUnitAndQuantity`), zapewniająca automatyczną agregację w gramach/mililitrach na liście zakupowej, w kalkulatorze kalorii i przy rozchodzie ze spiżarni.
 
 ---
 
@@ -848,8 +852,8 @@ gantt
     LOW-06 Multi-Store Aisle Profiles    :2027-01, 14d
     LOW-10 Step-by-Step Cooking Mode     :2027-01, 10d
     LOW-01 Barcode Scanner               :2027-02, 25d
-    LOW-08 Weekly Meal Plan Templates    :2027-02, 14d
-    LOW-11 Kitchen Units Converter       :2027-02, 10d
+    LOW-08 Weekly Meal Plan Templates    :done, 2026-11, 2d
+    LOW-11 Kitchen Units Converter       :done, 2026-11, 2d
     LOW-02 Price & Budget Tracking       :2027-03, 20d
     LOW-09 Email List Export (Resend)    :2027-03, 10d
     LOW-12 Household Macro Analytics     :2027-03, 14d
@@ -901,8 +905,9 @@ gantt
 | **NORM-13** | ✅ Zrealizowane | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` / powiększone przyciski mobilne oraz responsywność tabletowa (`768px–1023px`) i `LoginScreen`. |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
+| **LOW-08** | ✅ Zrealizowane | 🔵 Low | Planowanie / Kalendarz | 2 dni | Zapisywanie i aplikowanie szablonów tygodniowych posiłków ze skalowaniem porcji. |
 | **LOW-10** | ⏳ Oczekujące | 🔵 Low | UX Kulinaria / PWA | 2-3 dni | Tryb „Gotuję Teraz" krok-po-kroku z minutnikami i blokadą wygaszania ekranu (`WakeLock API`). |
-| **LOW-11** | ⏳ Oczekujące | 🔵 Low | Kulinaria / Kalkulacje | 2 dni | Przelicznik miar domowych (szklanka, łyżka, łyżeczka ↔ g/ml). |
+| **LOW-11** | ✅ Zrealizowane | 🔵 Low | Kulinaria / Kalkulacje | 2 dni | Przelicznik miar domowych (szklanka, łyżka, łyżeczka, szczypta ↔ g/ml) w formularzu przepisu i spiżarni. |
 | **LOW-12** | ⏳ Oczekujące | 🔵 Low | Dietetyka / Kalendarz | 2-3 dni | Analityka makroskładników i historia realizacji dziennych celów kalorycznych. |
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  

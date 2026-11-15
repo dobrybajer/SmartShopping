@@ -232,11 +232,11 @@ export function sortPantryItemsByExpiry(items: PantryItemWithDetails[]): PantryI
   })
 }
 
-type UnitFamily = 'weight' | 'volume' | 'pieces'
+type UnitFamily = 'weight' | 'volume' | 'pieces' | 'kitchen'
 
 interface UnitSpec {
   family: UnitFamily
-  factorToBase: number // g (weight), ml (volume), pcs (pieces)
+  factorToBase: number // g (weight), ml (volume), pcs (pieces), g/ml (kitchen)
 }
 
 const UNIT_SPECS: Record<string, UnitSpec> = {
@@ -246,16 +246,37 @@ const UNIT_SPECS: Record<string, UnitSpec> = {
   ml: { family: 'volume', factorToBase: 1 },
   l: { family: 'volume', factorToBase: 1000 },
   pcs: { family: 'pieces', factorToBase: 1 },
-  szt: { family: 'pieces', factorToBase: 1 }
+  szt: { family: 'pieces', factorToBase: 1 },
+  pinch: { family: 'kitchen', factorToBase: 1 },
+  szczypta: { family: 'kitchen', factorToBase: 1 },
+  tsp: { family: 'kitchen', factorToBase: 5 },
+  łyżeczka: { family: 'kitchen', factorToBase: 5 },
+  lyzeczka: { family: 'kitchen', factorToBase: 5 },
+  tbsp: { family: 'kitchen', factorToBase: 15 },
+  łyżka: { family: 'kitchen', factorToBase: 15 },
+  lyzka: { family: 'kitchen', factorToBase: 15 },
+  cup: { family: 'kitchen', factorToBase: 250 },
+  szklanka: { family: 'kitchen', factorToBase: 250 }
 }
 
 function normalizeUnit(unit?: string | null): string {
   return (unit || 'pcs').trim().toLowerCase()
 }
 
+function areFamiliesCompatible(familyA: UnitFamily, familyB: UnitFamily): boolean {
+  if (familyA === familyB) return true
+  if (
+    (familyA === 'kitchen' && (familyB === 'weight' || familyB === 'volume')) ||
+    (familyB === 'kitchen' && (familyA === 'weight' || familyA === 'volume'))
+  ) {
+    return true
+  }
+  return false
+}
+
 /**
  * Checks whether two units belong to the same physical measurement family
- * (weight: g/dag/kg, volume: ml/l, pieces: pcs/szt).
+ * (weight: g/dag/kg, volume: ml/l, pieces: pcs/szt, kitchen: tbsp/tsp/cup/pinch ↔ g/ml).
  */
 export function areUnitsCompatible(unitA?: string | null, unitB?: string | null): boolean {
   const a = normalizeUnit(unitA)
@@ -264,7 +285,7 @@ export function areUnitsCompatible(unitA?: string | null, unitB?: string | null)
   const specA = UNIT_SPECS[a]
   const specB = UNIT_SPECS[b]
   if (!specA || !specB) return false
-  return specA.family === specB.family
+  return areFamiliesCompatible(specA.family, specB.family)
 }
 
 /**
@@ -283,7 +304,7 @@ export function convertQuantity(
 
   const specFrom = UNIT_SPECS[from]
   const specTo = UNIT_SPECS[to]
-  if (!specFrom || !specTo || specFrom.family !== specTo.family) {
+  if (!specFrom || !specTo || !areFamiliesCompatible(specFrom.family, specTo.family)) {
     return null
   }
 

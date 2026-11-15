@@ -71,6 +71,9 @@ export function normalizeUnitAndQuantity(
   if (['mg', 'miligram', 'miligramy'].includes(u)) {
     return { quantity: Math.max(1, Math.round((quantity / 1000) * 100) / 100), unit: 'g', isValidUnit: true }
   }
+  if (['szczypta', 'szczypty', 'szczypt', 'pinch', 'pinches'].includes(u)) {
+    return { quantity: Math.round(quantity * 1 * 100) / 100, unit: 'g', isValidUnit: true }
+  }
 
   // Volume (Milliliters)
   if (['ml', 'mililitr', 'mililitry', 'mililitrow', 'mililitrów', 'milliliters', 'millilitres'].includes(u)) {

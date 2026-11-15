@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { mealPlanService } from '@/services/mealPlanService'
 import { generateDraftItemsFromMealPlan } from '@/lib/calculations/calendarStatus'
+import {
+  buildMealPlanInputsFromTemplate,
+  buildWeeklyTemplateFromPlans,
+  loadStoredWeeklyTemplates,
+  saveStoredWeeklyTemplates
+} from '@/lib/calculations/weeklyTemplateCalculations'
 import { useShoppingStore } from '@/store/useShoppingStore'
 import { usePantryStore } from '@/store/usePantryStore'
 import { toast } from '@/store/useToastStore'
@@ -12,11 +18,13 @@ import type {
   WeekRangeMode,
   CreateCalendarMealInput,
   UpdateCalendarMealInput,
-  MissingIngredient
+  MissingIngredient,
+  WeeklyMealTemplate
 } from '@/types/calendar'
 
 export interface MealPlanStoreState {
   mealPlans: MealPlanItem[]
+  weeklyTemplates: WeeklyMealTemplate[]
   isLoading: boolean
   activeHouseholdId: string | null
   viewMode: CalendarViewMode
@@ -37,6 +45,17 @@ export interface MealPlanStoreState {
   transferDayToDraft: (date: string, options?: { excludePantryItems?: boolean }) => number
   restoreMissingIngredient: (missing: MissingIngredient, planItem: MealPlanItem) => void
   dismissUncertainty: (planId: string) => Promise<boolean>
+  saveWeekAsTemplate: (
+    name: string,
+    weekStartMondayIso: string,
+    numDays?: 5 | 7
+  ) => WeeklyMealTemplate | null
+  applyWeeklyTemplate: (
+    templateId: string,
+    targetMondayIso: string,
+    options?: { servingsMultiplier?: number; skipDuplicates?: boolean }
+  ) => Promise<number>
+  deleteWeeklyTemplate: (templateId: string) => void
   syncFromRealtime: () => Promise<void>
   setupRealtimeSubscription: (householdId: string) => () => void
 }
@@ -51,6 +70,7 @@ function getTodayString(): string {
 
 export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   mealPlans: [],
+  weeklyTemplates: [],
   isLoading: false,
   activeHouseholdId: null,
   viewMode: 'week',
@@ -58,7 +78,10 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   selectedDate: getTodayString(),
 
   setActiveHouseholdId: (householdId) => {
-    set({ activeHouseholdId: householdId })
+    set({
+      activeHouseholdId: householdId,
+      weeklyTemplates: loadStoredWeeklyTemplates(householdId)
+    })
   },
 
   setViewMode: (mode) => {
@@ -75,7 +98,11 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
 
   loadMealPlans: async (householdId, startDate, endDate) => {
     if (!householdId) return
-    set({ isLoading: true, activeHouseholdId: householdId })
+    set({
+      isLoading: true,
+      activeHouseholdId: householdId,
+      weeklyTemplates: loadStoredWeeklyTemplates(householdId)
+    })
 
     try {
       const items = await mealPlanService.getMealPlans(householdId, startDate, endDate)
@@ -239,6 +266,84 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       toast.success(translate('calendar.uncertainty.dismissedToast'))
     }
     return success
+  },
+
+  saveWeekAsTemplate: (name, weekStartMondayIso, numDays = 7) => {
+    const hhId = get().activeHouseholdId
+    if (!hhId) return null
+
+    const template = buildWeeklyTemplateFromPlans({
+      name,
+      householdId: hhId,
+      weekStartMondayIso,
+      plans: get().mealPlans,
+      numDays
+    })
+
+    if (!template) {
+      toast.info(translate('calendar.templates.emptyWeekNotice'))
+      return null
+    }
+
+    const updated = [template, ...get().weeklyTemplates]
+    saveStoredWeeklyTemplates(hhId, updated)
+    set({ weeklyTemplates: updated })
+    toast.success(translate('calendar.templates.savedToast', { name: template.name }))
+    return template
+  },
+
+  applyWeeklyTemplate: async (templateId, targetMondayIso, options = {}) => {
+    const hhId = get().activeHouseholdId
+    if (!hhId) return 0
+
+    const template = get().weeklyTemplates.find((tpl) => tpl.id === templateId)
+    if (!template) return 0
+
+    const inputs = buildMealPlanInputsFromTemplate({
+      template,
+      targetMondayIso,
+      householdId: hhId,
+      servingsMultiplier: options.servingsMultiplier ?? 1,
+      existingPlansForWeek: get().mealPlans,
+      skipDuplicates: options.skipDuplicates ?? true
+    })
+
+    if (inputs.length === 0) {
+      toast.info(translate('calendar.templates.nothingToApplyNotice'))
+      return 0
+    }
+
+    const createdItems: MealPlanItem[] = []
+    for (const input of inputs) {
+      const created = await mealPlanService.createMealPlan(input)
+      if (created) {
+        createdItems.push(created)
+      }
+    }
+
+    if (createdItems.length > 0) {
+      set({ mealPlans: [...get().mealPlans, ...createdItems] })
+      toast.success(
+        translate('calendar.templates.appliedToast', {
+          name: template.name,
+          count: createdItems.length
+        })
+      )
+    } else {
+      toast.error(translate('toasts.errorOccurred'))
+    }
+
+    return createdItems.length
+  },
+
+  deleteWeeklyTemplate: (templateId) => {
+    const hhId = get().activeHouseholdId
+    const updated = get().weeklyTemplates.filter((tpl) => tpl.id !== templateId)
+    if (hhId) {
+      saveStoredWeeklyTemplates(hhId, updated)
+    }
+    set({ weeklyTemplates: updated })
+    toast.success(translate('calendar.templates.deletedToast'))
   },
 
   syncFromRealtime: async () => {
