@@ -67,7 +67,26 @@ All business-critical algorithms must maintain complete unit test coverage in `s
 
 ---
 
-## 5. Execution Workflow for Agents
+## 5. Living E2E & Dual-Household Test Specification (`docs/testing.md`)
+
+Whenever an existing module is modified or a new module/feature is introduced, the agent **MUST** update [docs/testing.md](../../docs/testing.md) in the **same turn**:
+
+1. **Changes to Existing Modules:**
+   - Update affected `TC-...` test cases, expected results, and the `[BASE]` Dataset Reference Matrix (Section 1.5) whenever UI behavior, validation bounds, math, or flows change.
+   - Preserve idempotent `[BASE]` entities (`Household_Test` / `Household_Test_Manual`) and self-cleaning `[TEMP]` cleanup steps so partial Playwright runs (`--grep "@module:..."`) remain repeatable.
+2. **New Modules or Features:**
+   - Add new `TC-...` cases (and a new `@module:<slug>` section + Table of Contents entry when introducing a new module) covering:
+     - **Happy Path** (`[BASE]` where persistent state is needed by downstream features),
+     - **Corner Cases** (decimals, bounds, empty/full states, offline/OCC),
+     - **Negative & Security Checks** (how the app **MUST NOT** behave: validation blocks, `ConfirmDeleteDialog` cancel, RLS / role denials),
+     - **Dual Layout & RWD** (`[Desktop >=1024px]`, `[Tablet 768-1023px]`, `[Mobile PWA 360px]`),
+     - **Localization (`PL` / `EN`)**,
+     - **Execution Annotation** (`[Playwright: E2E]`, `[Playwright: Mock/Route]`, or `[Manual]`) and **Expected Results**.
+   - Update the Selective Regression Mapping Table (Section 3.2 in `docs/testing.md`) linking the new `src/` files to the corresponding `@module:...` grep tag.
+
+---
+
+## 6. Execution Workflow for Agents
 
 - After making logical or UI changes, the agent must run:
   ```bash

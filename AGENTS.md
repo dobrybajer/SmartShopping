@@ -65,10 +65,11 @@ Every subsequent prompt and interaction MUST adhere to the principles, architect
 - Cover both **Mobile** (`src/components/views/__tests__/`) and **Desktop** (`src/components/layout/desktop/views/__tests__/`) User Flows in Vitest + React Testing Library with **zero `act(...)` warnings**.
 - Pure calculations live in `src/lib/calculations/` with exhaustive unit tests.
 - All cross-cutting regression suites (`rlsSecurityAudit.test.ts`, `wcagContrast.test.ts`, `i18n.test.ts`, `zustandSelectors.test.tsx`) must remain green.
+- Maintain the living E2E & dual-household (`Household_Test` / `Household_Test_Manual`) test specification in [docs/testing.md](./docs/testing.md) in lockstep with every modified module or newly added feature.
 - See [.agents/rules/05-testing-and-user-flows.md](./.agents/rules/05-testing-and-user-flows.md).
 
 ### 2.6 Living Documentation & Deep-Dive ADRs
-- Documentation in `docs/PRD.md`, `docs/plan.md`, `docs/Roadmap.md`, and `README.md` must stay synchronized with every feature, fix, table, or column change.
+- Documentation in `docs/PRD.md`, `docs/plan.md`, `docs/Roadmap.md`, `docs/testing.md`, and `README.md` must stay synchronized with every feature, fix, table, or column change.
 - New architectural patterns must be drafted using [.agents/skills/deep-dive-adr/SKILL.md](./.agents/skills/deep-dive-adr/SKILL.md) and recorded in `docs/adr/ADR-XXX-<name>.md`.
 - See [.agents/rules/06-documentation-and-adrs.md](./.agents/rules/06-documentation-and-adrs.md).
 
@@ -89,7 +90,7 @@ When executing tasks on this repository, all AI agents must follow this standard
    6. **Performance & Scalability:** `useShallow` Zustand selectors, O(1) maps in render loops, zero `for ... await` N+1 DB loops, bounded date windows / `.limit()`.
    7. **Security, RLS & UI Parity:** RLS on new tables (`rlsSecurityAudit.test.ts`), `isUuid()` before `.or()`, explicit PostgREST FK joins, `CHECK` constraints, Edge Function input validation, and no client UI toggles that attempt RLS-forbidden `Global` writes.
    8. **Strict Typing & Modularity:** Zero `any` (use `unknown`), Fast Refresh compliant exports, local date math (`getLocalDateISOString` / `formatLocalDateISO`), and edited files kept `< 250–300` lines.
-   9. **Documentation Sync:** Updated `docs/PRD.md` (DDL + business spec), `docs/plan.md`, `docs/Roadmap.md` (status + links), and `README.md` when affected.
+   9. **Documentation & Test Spec Sync:** Updated `docs/PRD.md` (DDL + business spec), `docs/plan.md`, `docs/Roadmap.md` (status + links), `docs/testing.md` (updated/added `TC-...` test cases with Happy Path, Corner Cases, Negative/RLS checks, `[Playwright: E2E]`/`[Playwright: Mock/Route]`/`[Manual]` annotations, `[BASE]`/`[TEMP]` state matrix, Dual Layout & `PL`/`EN` expectations, plus Section 3.2 selective regression mapping), and `README.md` when affected.
    10. **Quality Gates:** Run `npm run test`, `npm run lint`, and `npx tsc -b` cleanly with `0` failures, `0` warnings, and `0` `act(...)` noise.
 3. **Quality Gates Check:** Before concluding any task, run:
    - `npm run test` (Vitest unit & flow test suites)

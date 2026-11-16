@@ -13,10 +13,11 @@ To prevent architectural drift and knowledge loss, documentation in SmartShoppin
      - `docs/PRD.md` — functional requirements, exact SQL DDL (`CREATE TABLE` / `ALTER TABLE` / constraints matching `supabase/migrations/`), and user flows.
      - `docs/plan.md` — implementation phase status, components, stores, and verification outcomes.
      - `docs/Roadmap.md` — mark completed backlog items (`✅ Zrealizowane`), add verification file/test links, update Section 7 Gantt + summary table, and register any newly deferred technical debt without duplicate IDs.
+     - `docs/testing.md` — keep all 10+ module test specs (`TC-...`), `[BASE]`/`[TEMP]` data matrix, `[Playwright: E2E]`/`[Playwright: Mock/Route]`/`[Manual]` annotations, Happy Path / Corner Case / Negative / Dual Layout / `PL`&`EN` expectations, and Section 3.2 selective regression table synchronized with every modified module or new feature.
      - `README.md` — feature overview, current tech stack versions matching `package.json`, and valid links to every file in `docs/adr/`.
 2. **Mandatory Documentation Sync Checklist:**
    - Schema changed (`supabase/migrations/*` or `src/types/supabase.ts`)? -> Verify `docs/PRD.md` DDL and Section 3 (`RLS`) match 1:1.
-   - New or modified feature? -> Verify `docs/PRD.md` functional specs, `docs/plan.md` phase checklist, and `README.md` features list match implementation.
+   - New or modified feature / module? -> Verify `docs/PRD.md` functional specs, `docs/plan.md` phase checklist, `docs/testing.md` (`TC-...` test cases, `[BASE]`/`[TEMP]` state, Playwright annotations, and Section 3.2 selective regression mapping), and `README.md` features list match implementation.
    - New ADR authored? -> Verify `README.md` ADR registry link points to the exact filename in `docs/adr/` and follows `.agents/skills/deep-dive-adr/SKILL.md`.
    - New rule or invariant discovered? -> Verify `AGENTS.md` (including its 10-Point Pre-Completion Self-Audit Checklist) and the relevant `.agents/rules/01..06` stay consistent without contradictions.
 3. **No Monolithic Bloat:**

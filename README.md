@@ -99,6 +99,7 @@ SmartShopping/
 │   ├── PRD.md                # Product Requirements Document (schemat DB, logika biznesowa)
 │   ├── plan.md               # Plan implementacji i historia zrealizowanych faz
 │   ├── Roadmap.md            # Mapa drogowa audytu architektonicznego i status zadań
+│   ├── testing.md            # Kompleksowa specyfikacja testów E2E Playwright i manualnych (Household_Test)
 │   └── adr/                  # Architecture Decision Records (ADR-001 .. ADR-010)
 ├── supabase/
 │   ├── functions/            # Supabase Edge Functions (np. send-push-notification)
@@ -124,6 +125,7 @@ Szczegółowa dokumentacja architektury oraz standardów projektu znajduje się 
 - **[AGENTS.md](./AGENTS.md)** – Konstytucja projektu i główny przewodnik dla kontrybutorów oraz agentów AI
 - **[docs/PRD.md](./docs/PRD.md)** – Specyfikacja wymagań produktowych i modelu danych
 - **[docs/Roadmap.md](./docs/Roadmap.md)** – Mapa drogowa rozwoju i audytu technicznego
+- **[docs/testing.md](./docs/testing.md)** – Kompleksowa specyfikacja testowa E2E (Playwright) oraz utrzymania długożyjących domostw testowych
 - **Rejestr Decyzji Architektonicznych (`docs/adr/`):**
   - [ADR-001: Dual Layout Architecture (Mobile PWA & Desktop)](./docs/adr/ADR-001-dual-layout-architecture.md)
   - [ADR-002: State & Realtime Architecture](./docs/adr/ADR-002-state-and-realtime-architecture.md)
