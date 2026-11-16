@@ -12,6 +12,9 @@ jobs:
   quality-gates:
     name: Lint, Typecheck, Tests & Build
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
 
     steps:
       - name: Checkout repository
@@ -37,7 +40,4 @@ jobs:
 
       - name: Verify production Vite build
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
 

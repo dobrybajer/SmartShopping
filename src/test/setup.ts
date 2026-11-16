@@ -1,6 +1,14 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+// Ensure Supabase client initialization succeeds in environments without .env.local (e.g. CI)
+if (!import.meta.env.VITE_SUPABASE_URL) {
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
+}
+if (!import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-placeholder-anon-key');
+}
+
 // Mock window.matchMedia for responsive layout tests
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
