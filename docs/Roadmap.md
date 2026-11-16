@@ -248,15 +248,15 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ### HIGH-08: Uszczelnienie Polityk RLS `INSERT`/`UPDATE` dla Tabel `meals`, `meal_ingredients` oraz Walidacji `parent_id` w `products`
 * **Status:** ✅ **Zrealizowane (Listopad 2026)**
 * **Obszar:** Bezpieczeństwo / Baza Danych / Supabase RLS Multi-Tenancy
-* **Pliki implementacji:** [20261115120000_harden_meals_ingredients_and_products_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261115120000_harden_meals_ingredients_and_products_rls.sql)
+* **Pliki implementacji:** [20261115120000_harden_meals_ingredients_and_products_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261115120000_harden_meals_ingredients_and_products_rls.sql), [20261117000000_fix_products_rls_infinite_recursion.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261117000000_fix_products_rls_infinite_recursion.sql)
 * **Pliki testów:** [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts)
 * **Problem / Uzasadnienie:**
   * W migracji [20260822000000_enable_rls_and_security_policies.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20260822000000_enable_rls_and_security_policies.sql#L256-L263) polityka `"Authenticated users can insert meals"` zawierała warunek `WITH CHECK (household_id IS NULL OR household_id IN (SELECT public.get_user_household_ids(auth.uid())))`, a polityka `"Authenticated users can insert meal ingredients"` pozwalała dodawać składniki do dań z `household_id IS NULL`.
   * Ponadto w `meal_ingredients` (`INSERT`/`UPDATE`) brakowało sprawdzenia, czy `product_id` i `reference_product_id` należą do katalogu globalnego lub gospodarstwa danego przepisu, a w `products` (`INSERT`/`UPDATE`) czy `parent_id` wskazuje na produkt globalny bądź należący do tego samego gospodarstwa.
 * **Wdrożone Rozwiązanie:**
   1. Wdrożono migrację [20261115120000_harden_meals_ingredients_and_products_rls.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261115120000_harden_meals_ingredients_and_products_rls.sql) zastępującą polityki `INSERT`/`UPDATE` na `meals` oraz `meal_ingredients` warunkiem wymagającym jawnej przynależności `household_id IN (SELECT public.get_user_household_ids(auth.uid()))`.
-  2. Dodano weryfikację spójności dzierżawcy (tenant isolation) dla `parent_id` w `products` oraz `product_id`/`reference_product_id` w `meal_ingredients`.
-  3. Rozszerzono statyczny audyt bezpieczeństwa o `Audit 08 (HIGH-08)` w [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts).
+  2. Dodano weryfikację spójności dzierżawcy (tenant isolation) dla `parent_id` w `products` oraz `product_id`/`reference_product_id` w `meal_ingredients`, a w migracji uzupełniającej [20261117000000_fix_products_rls_infinite_recursion.sql](file:///d:/08_Git/SmartShopping/SmartShopping/supabase/migrations/20261117000000_fix_products_rls_infinite_recursion.sql) wydzielono walidację `parent_id` do funkcji `SECURITY DEFINER` `public.can_link_parent_product(UUID, UUID)` (eliminując błąd PostgreSQL `42P17` *infinite recursion detected in policy for relation "products"*).
+  3. Rozszerzono statyczny audyt bezpieczeństwa o `Audit 08 (HIGH-08)` oraz `Audit 11 (42P17 Prevention)` w [rlsSecurityAudit.test.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/__tests__/rlsSecurityAudit.test.ts).
 * **Definition of Done (DoD) - Rezultat:**
   - ✅ Klient API nie może wstrzykiwać globalnych przepisów (`household_id IS NULL`) ani dowiązywać składników/produktów nadrzędnych z obcych gospodarstw.
 

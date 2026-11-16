@@ -1,0 +1,191 @@
+import { test, expect } from './fixtures/householdFixture'
+import { CANONICAL_MEAL_NAME } from './fixtures/baseDataset'
+import {
+  confirmDeleteDialog,
+  ensureProductExists,
+  isMobileViewport,
+  navigateToTab,
+  selectFromAutocomplete,
+} from './helpers/uiHelpers'
+
+async function addCanonicalMealToDraft(page: import('@playwright/test').Page): Promise<void> {
+  await navigateToTab(page, 'cookbook')
+  const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
+  await searchInput.fill(CANONICAL_MEAL_NAME)
+  await page.getByText(CANONICAL_MEAL_NAME).first().click()
+
+  const detailsDialog = page.getByRole('dialog').last()
+  await expect(detailsDialog).toBeVisible()
+  await detailsDialog
+    .getByRole('button', { name: /Dodaj Składniki do Koszyka|Add Ingredients to Cart|Do Koszyka/i })
+    .first()
+    .click()
+  await expect(detailsDialog).toBeHidden({ timeout: 10000 })
+  await searchInput.fill('')
+}
+
+test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Hoc Items', () => {
+  test('TC-DRAFT-01: Add canonical recipe from Cookbook into Draft Cart with pantry badges @module:draft @type:happy-path @state:TEMP', async ({
+    page,
+  }) => {
+    await navigateToTab(page, 'draft')
+
+    // Start clean if leftover items exist
+    const clearBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
+    if ((await clearBtn.count()) > 0 && (await clearBtn.isEnabled())) {
+      await clearBtn.click()
+      await confirmDeleteDialog(page, 'confirm')
+    }
+
+    await addCanonicalMealToDraft(page)
+    await navigateToTab(page, 'draft')
+
+    await expect(page.getByText('[BASE] Pierś z kurczaka').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Ryż basmati').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Oliwa z oliwek Extra Virgin').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Awokado').first()).toBeVisible()
+
+    // Check Warehouse pantry badge appears on items stocked in pantry
+    await expect(
+      page.locator('[aria-label*="spiżarni" i], [title*="spiżarni" i]').first()
+    ).toBeVisible()
+  })
+
+  test('TC-DRAFT-02: Adding duplicate recipe merges ingredient quantities atomically @module:draft @type:corner-case @state:TEMP', async ({
+    page,
+  }) => {
+    await navigateToTab(page, 'draft')
+    const clearBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
+    if ((await clearBtn.count()) > 0 && (await clearBtn.isEnabled())) {
+      await clearBtn.click()
+      await confirmDeleteDialog(page, 'confirm')
+    }
+
+    // Add once (Pierś = 200 g) and then add a second time (Pierś = 400 g)
+    await addCanonicalMealToDraft(page)
+    await addCanonicalMealToDraft(page)
+
+    await navigateToTab(page, 'draft')
+    const chickenRows = page.locator('div, li').filter({ hasText: '[BASE] Pierś z kurczaka' })
+    await expect(chickenRows.getByText(/400\s*g/).first()).toBeVisible()
+    await expect(page.getByText('[BASE] Pierś z kurczaka')).toHaveCount(1)
+  })
+
+  test('TC-DRAFT-03: PantryConfirmModal in Draft marks item "Mam całość" (in_pantry) & "Przywróć do kupienia" @module:draft @type:happy-path @state:TEMP', async ({
+    page,
+  }) => {
+    await navigateToTab(page, 'draft')
+    if ((await page.getByText('[BASE] Pierś z kurczaka').count()) === 0) {
+      await addCanonicalMealToDraft(page)
+      await navigateToTab(page, 'draft')
+    }
+
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: '[BASE] Pierś z kurczaka' })
+      .filter({ has: page.locator('button[aria-label*="spiżarni" i]') })
+      .last()
+
+    await row.locator('button[aria-label*="spiżarni" i]').first().click()
+    const pantryModal = page.getByRole('dialog').last()
+    await expect(pantryModal).toBeVisible()
+
+    await pantryModal.getByRole('button', { name: /Mam całość|Have all/i }).click()
+    await expect(pantryModal).toBeHidden({ timeout: 10000 })
+
+    // Re-open modal and verify "Przywróć do kupienia" restores item to buyable state
+    await page
+      .locator('div, li')
+      .filter({ hasText: '[BASE] Pierś z kurczaka' })
+      .locator('button[aria-label*="spiżarni" i]')
+      .last()
+      .click()
+    const pantryModal2 = page.getByRole('dialog').last()
+    await pantryModal2.getByRole('button', { name: /Przywróć do kupienia|Restore to buy/i }).click()
+    await expect(pantryModal2).toBeHidden({ timeout: 10000 })
+  })
+
+  test('TC-DRAFT-04: Ad-hoc item + fractional decimal inline quantity edit + negative quantity guard @module:draft @type:corner-case @state:TEMP', async ({
+    page,
+  }) => {
+    const tempAdHoc = `[TEMP] AdHocDecimal ${isMobileViewport(page) ? 'M' : 'D'}`
+    await navigateToTab(page, 'products')
+    await ensureProductExists(page, {
+      name: tempAdHoc,
+      unit: 'pcs',
+      categoryLabel: 'Spiżarnia i Sypkie',
+    })
+
+    await navigateToTab(page, 'draft')
+    await page.getByRole('button', { name: /Dodaj Ad-hoc|Add Ad-hoc/i }).first().click()
+    const adhocDialog = page.getByRole('dialog').last()
+    await expect(adhocDialog).toBeVisible()
+
+    await selectFromAutocomplete(adhocDialog, tempAdHoc)
+    await adhocDialog.locator('input[type="number"]').first().fill('1.5')
+    await adhocDialog.getByRole('button', { name: /Dodaj|Zapisz|Add|Save/i }).last().click()
+    await expect(adhocDialog).toBeHidden({ timeout: 10000 })
+
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: tempAdHoc })
+      .filter({ has: page.locator('button[title="Edytuj"], button[title="Edit"]') })
+      .last()
+    await expect(row.getByText(/1\.5|1,5/)).toBeVisible()
+
+    // Inline decimal edit to 2.5
+    await row.locator('button[title="Edytuj"], button[title="Edit"]').first().click()
+    const inlineInput = row.locator('input[inputmode="decimal"]').first()
+    await inlineInput.fill('2.5')
+    await inlineInput.press('Enter')
+    await expect(row.getByText(/2\.5|2,5/)).toBeVisible()
+
+    // Try invalid negative value -> stays >= positive (guard keeps 2.5)
+    await row.locator('button[title="Edytuj"], button[title="Edit"]').first().click()
+    const inlineInputNeg = row.locator('input[inputmode="decimal"]').first()
+    await inlineInputNeg.fill('-3')
+    await inlineInputNeg.press('Enter')
+    await expect(row.getByText(/2\.5|2,5/)).toBeVisible()
+
+    // Cleanup [TEMP] product (also cascades or clear cart)
+    await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
+    await confirmDeleteDialog(page, 'confirm')
+
+    await navigateToTab(page, 'products')
+    await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempAdHoc)
+    await page
+      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+      .first()
+      .click()
+    await confirmDeleteDialog(page, 'confirm')
+  })
+
+  test('TC-DRAFT-05: Select all / uncheck all toggles and Clear Cart ConfirmDeleteDialog @module:draft @type:happy-path @state:TEMP', async ({
+    page,
+  }) => {
+    await addCanonicalMealToDraft(page)
+    await navigateToTab(page, 'draft')
+
+    const uncheckAllBtn = page
+      .getByRole('button', { name: /Odznacz wszystkie|Uncheck all/i })
+      .first()
+    if ((await uncheckAllBtn.count()) > 0) {
+      await uncheckAllBtn.click()
+      await expect(
+        page.getByRole('button', { name: /Przenieś do Listy Zakupów|Transfer to Shopping List/i }).first()
+      ).toBeDisabled()
+
+      await page.getByRole('button', { name: /Zaznacz wszystkie|Check all/i }).first().click()
+    }
+
+    // Cancel clear cart -> items remain
+    await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
+    await confirmDeleteDialog(page, 'cancel')
+    await expect(page.getByText('[BASE] Pierś z kurczaka').first()).toBeVisible()
+
+    // Confirm clear cart -> empty state
+    await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
+    await confirmDeleteDialog(page, 'confirm')
+    await expect(page.getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
+  })
+})

@@ -314,8 +314,30 @@ describe('HIGH-03 & HIGH-04: Supabase RLS Multi-Tenancy Security Audit & Perform
     const prodUpdate = getPoliciesFor('products', 'UPDATE')[0]
     for (const pol of [prodInsert, prodUpdate]) {
       expect(pol.withCheckClause).toContain('get_user_household_ids(auth.uid())')
-      expect(pol.withCheckClause).toContain('parent_id')
-      expect(pol.withCheckClause).toContain('p.household_id = products.household_id')
+      expect(pol.withCheckClause).toContain('can_link_parent_product(parent_id, household_id)')
+    }
+
+    const recursionFixMigrationKey = Object.keys(migrationFiles).find((f) =>
+      f.includes('20261117000000_fix_products_rls_infinite_recursion')
+    )
+    expect(recursionFixMigrationKey).toBeDefined()
+    const fixSql = migrationFiles[recursionFixMigrationKey as string]
+    expect(fixSql).toContain('SECURITY DEFINER')
+    expect(fixSql).toContain('SET search_path = public')
+    expect(fixSql).toContain('p.household_id = p_household_id')
+  })
+
+  it('Audit 11 (42P17 Prevention): No active RLS policy queries its own table directly (prevents PostgreSQL infinite recursion)', () => {
+    for (const pol of policies) {
+      const selfQueryRe = new RegExp(`\\b(?:FROM|JOIN)\\s+(?:public\\.)?${pol.table}\\b`, 'i')
+      expect(
+        selfQueryRe.test(pol.usingClause),
+        `Policy "${pol.name}" (${pol.command}) USING on ${pol.table} self-references ${pol.table} (PostgreSQL 42P17)`
+      ).toBe(false)
+      expect(
+        selfQueryRe.test(pol.withCheckClause),
+        `Policy "${pol.name}" (${pol.command}) WITH CHECK on ${pol.table} self-references ${pol.table} (PostgreSQL 42P17)`
+      ).toBe(false)
     }
   })
 

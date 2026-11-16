@@ -37,7 +37,7 @@
 | **Styling & UI** | Tailwind CSS, Radix UI / shadcn/ui, Lucide React |
 | **Zarządzanie Stanem** | Zustand (persystencja `localStorage`, Optimistic UI, kolejka offline) |
 | **Backend & Baza Danych** | Supabase (PostgreSQL, PostgREST, GoTrue Google OAuth, Realtime WebSockets, Edge Functions) |
-| **Testy & Jakość Kodu** | Vitest, React Testing Library (`jsdom`), `oxlint`, `tsc -b` |
+| **Testy & Jakość Kodu** | Vitest, React Testing Library (`jsdom`), Playwright (E2E & Dual-Layout Visual Audit), `oxlint`, `tsc -b` |
 
 ---
 
@@ -84,7 +84,17 @@ npm run lint
 # 3. Ścisła weryfikacja typów TypeScript
 npx tsc -b
 
-# 4. Budowanie wersji produkcyjnej PWA
+# 4. Audyt wizualny Playwright (zamockowane API Supabase, bez logowania)
+npm run e2e:mock
+
+# 5. Pełny zestaw testów E2E Playwright (Desktop + Mobile PWA na domostwie Household_Test)
+#    Jednorazowe zapisanie sesji Google OAuth (e2e/.auth/user.json):
+npm run e2e:auth
+#    Bootstrap danych bazowych [BASE] lub pełny przebieg:
+npm run e2e:bootstrap
+npm run e2e:all
+
+# 6. Budowanie wersji produkcyjnej PWA
 npm run build
 ```
 
@@ -101,6 +111,7 @@ SmartShopping/
 │   ├── Roadmap.md            # Mapa drogowa audytu architektonicznego i status zadań
 │   ├── testing.md            # Kompleksowa specyfikacja testów E2E Playwright i manualnych (Household_Test)
 │   └── adr/                  # Architecture Decision Records (ADR-001 .. ADR-010)
+├── e2e/                      # Kompletny zestaw testów E2E Playwright (01..10 + fixtures + visual-audit)
 ├── supabase/
 │   ├── functions/            # Supabase Edge Functions (np. send-push-notification)
 │   └── migrations/           # Migracje SQL PostgreSQL + polityki RLS
