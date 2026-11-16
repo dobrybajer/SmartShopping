@@ -248,15 +248,9 @@ const UNIT_SPECS: Record<string, UnitSpec> = {
   pcs: { family: 'pieces', factorToBase: 1 },
   szt: { family: 'pieces', factorToBase: 1 },
   pinch: { family: 'kitchen', factorToBase: 1 },
-  szczypta: { family: 'kitchen', factorToBase: 1 },
   tsp: { family: 'kitchen', factorToBase: 5 },
-  łyżeczka: { family: 'kitchen', factorToBase: 5 },
-  lyzeczka: { family: 'kitchen', factorToBase: 5 },
   tbsp: { family: 'kitchen', factorToBase: 15 },
-  łyżka: { family: 'kitchen', factorToBase: 15 },
-  lyzka: { family: 'kitchen', factorToBase: 15 },
-  cup: { family: 'kitchen', factorToBase: 250 },
-  szklanka: { family: 'kitchen', factorToBase: 250 }
+  cup: { family: 'kitchen', factorToBase: 250 }
 }
 
 function normalizeUnit(unit?: string | null): string {

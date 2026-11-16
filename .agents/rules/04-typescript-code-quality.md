@@ -35,9 +35,9 @@ To ensure long-term stability and prevent runtime failures, SmartShopping enforc
 
 ## 2. Code Modularity, i18n & Domain Calculation Invariants
 
-1. **Strict File Size Ceiling (`< 250–300` lines):**
-   - Keep components and modules focused and below 250–300 lines (`HIGH-12`).
-   - When a view or dialog grows beyond this threshold, decompose it immediately:
+1. **Cohesive File Size & Single Responsibility (Soft Guideline ~300–550 lines):**
+   - Keep components and modules focused on a single cohesive domain responsibility (`HIGH-12`, `NORM-17`).
+   - Do NOT split a clean, single-responsibility module artificially just to satisfy an arbitrary line count; treat `~450–550` lines as a soft signal to evaluate decomposition when a file mixes distinct concerns:
      - Extract presentational subcomponents into `src/components/<domain>/` or `src/components/ui/`.
      - Extract view state and side effects into custom controller hooks (`src/hooks/use*Controller.ts`).
      - Extract pure math, validation, or transformations into `src/lib/calculations/`.

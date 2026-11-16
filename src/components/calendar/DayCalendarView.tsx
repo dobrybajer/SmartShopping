@@ -235,7 +235,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
         <div className="flex items-center gap-2">
           <Button
             onClick={() => setIsAddMealOpen(true)}
-            className="flex-1 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold gap-2 shadow-xs"
+            className="flex-1 min-h-[44px] rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold gap-2 shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>{t('calendar.addMeal')}</span>
@@ -245,7 +245,7 @@ export const DayCalendarView: React.FC<DayCalendarViewProps> = ({
             <Button
               variant="outline"
               onClick={() => transferDayToDraft(selectedDate)}
-              className="rounded-xl border-border gap-2 text-foreground hover:bg-muted font-medium"
+              className="min-h-[44px] rounded-xl border-border gap-2 text-foreground hover:bg-muted font-medium"
               title={t('calendar.transferDayToDraft')}
             >
               <ShoppingCart className="w-4 h-4 text-sky-600 dark:text-sky-400" />

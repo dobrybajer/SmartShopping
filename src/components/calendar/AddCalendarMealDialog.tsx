@@ -233,7 +233,7 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
                   >
                     <span>{meal.name}</span>
                     <span className="text-[10px] opacity-70">
-                      {meal.ingredients?.length || 0} składników
+                      {t('calendar.dialog.ingredientsCount', { count: meal.ingredients?.length || 0 })}
                     </span>
                   </button>
                 )
@@ -244,7 +244,7 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
       ) : (
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Nazwa dania
+            {t('calendar.dialog.customNameLabel')}
           </label>
           <Input
             type="text"
@@ -265,7 +265,8 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
         <div className="flex flex-wrap gap-1.5">
           {mealCategories.map((cat) => {
             const isSelected = selectedCategoryId === cat.id
-            const catKey = `categories.${cat.name}` as TranslationKey
+            const catSlug = cat.name.trim().toLowerCase()
+            const catKey = `categories.${catSlug}` as TranslationKey
             const catLabel = t(catKey) !== catKey ? t(catKey) : cat.name
             return (
               <button
@@ -273,7 +274,7 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
                 type="button"
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-xl text-xs font-medium border transition-all cursor-pointer",
+                  "px-3 py-1.5 min-h-[44px] sm:min-h-[36px] rounded-xl text-xs font-medium border transition-all cursor-pointer",
                   isSelected
                     ? "bg-primary border-primary text-primary-foreground font-semibold"
                     : "bg-card border-border text-muted-foreground hover:text-foreground"
@@ -298,17 +299,21 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
               type="button"
               onClick={() => setServings((prev) => Math.max(1, prev - 1))}
               disabled={servings <= 1}
-              className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 disabled:opacity-30 cursor-pointer"
+              aria-label={t('common.decrease')}
+              title={t('common.decrease')}
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 disabled:opacity-30 cursor-pointer"
             >
-              <Minus className="w-3.5 h-3.5" />
+              <Minus className="w-4 h-4" />
             </button>
             <span className="font-bold text-sm text-foreground">{servings}</span>
             <button
               type="button"
               onClick={() => setServings((prev) => prev + 1)}
-              className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 cursor-pointer"
+              aria-label={t('common.increase')}
+              title={t('common.increase')}
+              className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -320,7 +325,7 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
           </label>
           <Input
             type="number"
-            placeholder="np. 650"
+            placeholder={t('calendar.dialog.targetKcalPlaceholder')}
             value={targetKcal}
             onChange={(e) => setTargetKcal(e.target.value)}
             className="bg-card border-border rounded-xl text-foreground"
@@ -336,7 +341,7 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
         </label>
         <Input
           type="text"
-          placeholder="np. Obiad dla gości, posiłek na 2 dni"
+          placeholder={t('calendar.dialog.notesPlaceholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="bg-card border-border rounded-xl text-foreground"
@@ -345,12 +350,12 @@ export const AddCalendarMealDialog: React.FC<AddCalendarMealDialogProps> = ({
 
       {/* Buttons */}
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-        <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl">
+        <Button type="button" variant="ghost" onClick={onClose} className="min-h-[44px] sm:min-h-[40px] rounded-xl">
           {t('common.cancel')}
         </Button>
         <Button
           type="submit"
-          className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+          className="min-h-[44px] sm:min-h-[40px] rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
           disabled={(!isAdHoc && !selectedMealId) || (isAdHoc && !customName.trim())}
         >
           {t('calendar.dialog.save')}

@@ -404,3 +404,17 @@ Ten dokument definiuje krok po kroku proces budowy i wdrażania aplikacji. Nale�
    * Uwzględnienie `in_pantry = true` w warunku powiadomienia `LIST_COMPLETED` w `useActiveListController.ts` oraz wsparcie liczb dziesiętnych (`sanitizePositiveDecimalInput`, `parsePositiveDecimalQuantity`, `inputMode="decimal"`) w `ActiveListItemRow.tsx`, `DraftItemRow.tsx`, `useActiveListController.ts` i `useDraftViewController.ts`.
 4. **Testy Jednostkowe i Flow UI:**
    * Pokrycie testami w `rlsSecurityAudit.test.ts`, `calendarStatus.test.ts`, `weeklyTemplateCalculations.test.ts`, `useMealPlanStore.test.ts`, `ActiveListView.test.tsx`, `shoppingListService.test.ts` i `HistoryView.test.tsx`.
+
+## Faza 19: Higiena i18n Kalendarza, Dostępność `44px` + Potwierdzenia Usuwania oraz Audyt Modularności (`NORM-14`, `NORM-15`, `NORM-17`) (Zakończona)
+**Cel:** Domknięcie ostatnich detali i18n i UX dotykowego w modalach Kalendarza oraz urealnienie wytycznych wielkości plików na podstawie audytu spójności.
+
+1. **Czystość i18n (`NORM-14`):**
+   * Przeniesienie twardo zakodowanych tekstów i placeholderów w `AddCalendarMealDialog.tsx`, `UncertaintyWarningModal.tsx` i `calendarStatus.ts` do `pl.ts` / `en.ts`.
+   * Usunięcie polskich aliasów jednostek z `pantryCalculations.ts` (normalizacja zostaje na granicy importu w `recipeJsonImport.ts`).
+2. **Strefy Dotyku `44x44px` & Bezpieczne Usuwanie (`NORM-15`):**
+   * Powiększenie przycisków stepperów porcji (`AddCalendarMealDialog`), przycisku kosza (`WeeklyTemplatesModal`) oraz przycisków akcji (`DayCalendarView`, `UncertaintyWarningModal`) do minimum `44x44px`.
+   * Dodanie `ConfirmDeleteDialog` dla usuwania szablonów tygodniowych w `WeeklyTemplatesModal.tsx`.
+3. **Audyt Spójności Plików i Konstytucja (`NORM-17`):**
+   * Przegląd spójności ~26 plików produkcyjnych `>300` linii (pozostawionych bez sztucznego rozbijania) oraz aktualizacja miękkiego limitu spójności (`~300–550` linii) w `AGENTS.md` i `.agents/rules/04-typescript-code-quality.md`.
+4. **Weryfikacja:**
+   * Nowe testy komponentowe `src/components/calendar/__tests__/CalendarModals.test.tsx`, symetria słowników (`i18n.test.ts`) oraz przejście wszystkich quality gates (`oxlint`, `tsc -b`, `vitest`).

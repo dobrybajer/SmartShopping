@@ -33,7 +33,7 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
   planItem,
   missingIngredients
 }) => {
-  const { t } = useTranslation()
+  const { t, formatUnit } = useTranslation()
   const { isDesktop } = useDeviceLayout()
   const restoreMissingIngredient = useMealPlanStore((state) => state.restoreMissingIngredient)
   const dismissUncertainty = useMealPlanStore((state) => state.dismissUncertainty)
@@ -71,14 +71,14 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
     }
   }
 
-  const mealName = planItem.meal?.name || planItem.custom_name || 'Posiłek'
+  const mealName = planItem.meal?.name || planItem.custom_name || t('calendar.defaultMealName')
 
   const contentBody = (
     <div className="flex flex-col gap-4 py-2">
       <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-start gap-3">
-        <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+        <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
         <div className="flex flex-col gap-1 text-xs">
-          <span className="font-semibold text-rose-400">
+          <span className="font-semibold text-rose-600 dark:text-rose-400">
             {mealName} ({planItem.date})
           </span>
           <span className="text-muted-foreground leading-relaxed">
@@ -104,7 +104,7 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-foreground">{ing.productName}</span>
                   <span className="text-xs text-muted-foreground">
-                    {ing.requiredQuantity} {ing.unitType}
+                    {ing.requiredQuantity} {formatUnit(ing.unitType)}
                   </span>
                 </div>
 
@@ -113,12 +113,12 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
                   variant={isRestored ? 'outline' : 'default'}
                   onClick={() => handleRestoreOne(ing)}
                   disabled={isRestored}
-                  className="h-8 gap-1.5 text-xs rounded-lg"
+                  className="min-h-[44px] sm:h-9 gap-1.5 text-xs rounded-lg"
                 >
                   {isRestored ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Przywrócono</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>{t('calendar.uncertainty.restored')}</span>
                     </>
                   ) : (
                     <>
@@ -134,20 +134,20 @@ export const UncertaintyWarningModal: React.FC<UncertaintyWarningModalProps> = (
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-border">
-        <Button variant="ghost" onClick={onClose} className="rounded-xl">
+        <Button variant="ghost" onClick={onClose} className="min-h-[44px] sm:min-h-[40px] rounded-xl">
           {t('common.close')}
         </Button>
         <Button
           variant="outline"
           onClick={handleDismiss}
           disabled={isDismissing}
-          className="rounded-xl border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+          className="min-h-[44px] sm:min-h-[40px] rounded-xl border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
         >
           {t('calendar.uncertainty.dismiss')}
         </Button>
         <Button
           onClick={handleRestoreAll}
-          className="rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+          className="min-h-[44px] sm:min-h-[40px] rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
         >
           {t('calendar.uncertainty.restoreAll')}
         </Button>

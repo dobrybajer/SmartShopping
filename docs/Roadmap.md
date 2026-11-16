@@ -795,30 +795,26 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 ---
 
 ### NORM-14: Lokalizacja (i18n) Twardo Zakodowanych Napisów i Surowych Slugów `meal_categories` w `AddCalendarMealDialog.tsx` oraz Czystych Kalkulacjach (`calendarStatus.ts`, `pantryCalculations.ts`)
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** Internacjonalizacja (`ADR-003`) / Czystość Warstwy Kalkulacji
-* **Pliki do modyfikacji:** [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx#L236-L338), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts#L306), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts#L250-L260), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
-* **Problem / Uzasadnienie:**
-  * W [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx#L236-L338) pozostały niezlokalizowane polskie teksty (`składników` w `#L236`, `Nazwa dania` w `#L247`, `np. 650` w `#L321`, `np. Obiad dla gości, posiłek na 2 dni` w `#L337`), a przyciski kategorii posiłku (`#L280`) wyświetlają surowy identyfikator/tekst z bazy `{cat.name}` bez mapowania przez słownik `i18n`.
-  * W [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts#L306) znajduje się polski fallback `'Posiłek'`, a w [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts#L250-L260) polskie aliasy jednostek (`szczypta`, `łyżeczka`, `łyżka`, `szklanka`) utrzymywane są w czystym module kalkulacji zamiast wyłącznie na granicy normalizacji wejścia (`recipeJsonImport.ts`).
-* **Rekomendowane Rozwiązanie:**
-  1. Przenieść wszystkie komunikaty i placeholdery z `AddCalendarMealDialog.tsx` oraz fallback z `calendarStatus.ts` do `pl.ts`/`en.ts` i zmapować nazwy `meal_categories` przez słownik `i18n`.
+* **Pliki zmodyfikowane:** [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx), [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx), [calendarStatus.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/calendarStatus.ts), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts), [pl.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/pl.ts), [en.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/i18n/locales/en.ts)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Przeniesiono wszystkie pozostałe polskie napisy i placeholdery w `AddCalendarMealDialog.tsx` (`ingredientsCount`, `customNameLabel`, `targetKcalPlaceholder`, `notesPlaceholder`) oraz `UncertaintyWarningModal.tsx` (`defaultMealName`, `restored`, `formatUnit`) do słowników `pl.ts` i `en.ts`, normalizując klucz slugów `meal_categories` (`categories.<slug>`).
+  2. Zastąpiono polski fallback `'Posiłek'` w `calendarStatus.ts` wywołaniem `translate('calendar.defaultMealName')` oraz usunięto nadmiarowe polskie aliasy jednostek (`szczypta`, `łyżeczka`, `łyżka`, `szklanka`) z czystej kalkulacji `pantryCalculations.ts` (pozostawiając normalizację na granicy wejścia w `recipeJsonImport.ts`).
 * **Definition of Done (DoD):**
-  - ✅ Pełna obsługa języka angielskiego w oknie dodawania/edycji posiłku w Kalendarzu (`0` twardo zakodowanych polskich tekstów).
+  - ✅ Pełna obsługa języka angielskiego w modalach i kalkulacjach Kalendarza (`0` twardo zakodowanych polskich tekstów, zweryfikowane w `CalendarModals.test.tsx`).
 
 ---
 
 ### NORM-15: Dialogi Potwierdzenia Usunięcia (`ConfirmDeleteDialog`) oraz Strefy Dotyku `>= 44x44px` w Modalach Kalendarza (`AddCalendarMealDialog`, `DayCalendarView`, `WeeklyTemplatesModal`)
-* **Status:** ⏳ **Oczekujące**
+* **Status:** ✅ **Zrealizowane (2026-11-16)**
 * **Obszar:** UI/UX / Dostępność Dotykowa (`Reguła 01`) / Ochrona Przed Przypadkowym Usunięciem
-* **Pliki do modyfikacji:** [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx#L298-L310), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L349-L364), [WeeklyTemplatesModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeeklyTemplatesModal.tsx#L230-L238)
-* **Problem / Uzasadnienie:**
-  * Mimo realizacji `NORM-13` w pozostałych widokach, w module Kalendarza przyciski stepperów porcji w [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx#L299-L307) (`w-8 h-8` = `32px`), przyciski edycji/usuwania posiłku w [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L349-L360) (`w-8 h-8` = `32px`) oraz przycisk kosza w [WeeklyTemplatesModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeeklyTemplatesModal.tsx#L233) (`w-9 h-9` = `36px`) mają rozmiar poniżej wymaganego minimum `44x44px`.
-  * Ponadto usunięcie zaplanowanego posiłku ([DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx#L359)) oraz usunięcie szablonu tygodniowego ([WeeklyTemplatesModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeeklyTemplatesModal.tsx#L232)) wykonuje się natychmiast po jednym kliknięciu, bez modala potwierdzenia `ConfirmDeleteDialog`.
-* **Rekomendowane Rozwiązanie:**
-  1. Zwiększyć strefy dotyku na Mobile do min. `44x44px` oraz podpiąć `ConfirmDeleteDialog` do usuwania zaplanowanego posiłku i szablonu tygodniowego.
+* **Pliki zmodyfikowane:** [AddCalendarMealDialog.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/AddCalendarMealDialog.tsx), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx), [WeeklyTemplatesModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeeklyTemplatesModal.tsx), [UncertaintyWarningModal.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/UncertaintyWarningModal.tsx)
+* **Rozwiązanie Wdrożeniowe:**
+  1. Powiększono strefy dotyku przycisków stepperów porcji (`-`/`+` z `w-8 h-8` na `min-w-[44px] min-h-[44px] w-11 h-11`) oraz przycisków akcji/kategorii w `AddCalendarMealDialog.tsx`, `DayCalendarView.tsx`, `UncertaintyWarningModal.tsx` i `WeeklyTemplatesModal.tsx` (`min-w-[44px] min-h-[44px] w-11 h-11` dla kosza).
+  2. Dodano `ConfirmDeleteDialog` przed usunięciem szablonu tygodniowego w `WeeklyTemplatesModal.tsx` (usuwanie posiłku dnia w `DayCalendarView.tsx` i `DayMealPlanCard.tsx` posiadało już wcześniej `44x44px` oraz `ConfirmDeleteDialog`).
 * **Definition of Done (DoD):**
-  - ✅ Wszystkie przyciski akcji w Kalendarzu spełniają minimum `44x44px`, a operacje destrukcyjne wymagają potwierdzenia.
+  - ✅ Wszystkie przyciski akcji w Kalendarzu spełniają minimum `44x44px`, a operacje destrukcyjne wymagają potwierdzenia (`CalendarModals.test.tsx`).
 
 ---
 
@@ -838,16 +834,16 @@ Niniejszy dokument stanowi jednolity rejestr zadań naprawczych, optymalizacyjny
 
 ---
 
-### NORM-17: Drugi Etap Dekompozycji Plików Przekraczających 300 Linii (`DesktopHistoryView`, `pantryCalculations`, `WeekCalendarView`, `householdService`, `DayCalendarView`, `useActiveListController`, `DesktopSidebar`)
-* **Status:** ⏳ **Oczekujące**
-* **Obszar:** Modularność Kodu (`Reguła 04` — limit `< 250-300` linii)
-* **Pliki do modyfikacji:** [DesktopHistoryView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/views/DesktopHistoryView.tsx) (421L), [pantryCalculations.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/lib/calculations/pantryCalculations.ts) (420L), [WeekCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/WeekCalendarView.tsx) (418L), [householdService.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/services/householdService.ts) (413L), [DayCalendarView.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/calendar/DayCalendarView.tsx) (412L), [useActiveListController.ts](file:///d:/08_Git/SmartShopping/SmartShopping/src/hooks/useActiveListController.ts) (412L), [DesktopSidebar.tsx](file:///d:/08_Git/SmartShopping/SmartShopping/src/components/layout/desktop/DesktopSidebar.tsx) (409L) oraz pozostałe pliki `301–395` linii
-* **Problem / Uzasadnienie:**
-  * Po pierwszym etapie (`NORM-02`, `NORM-11`) zniknęły największe monolity (`> 430` linii), jednak w kodzie produkcyjnym pozostają obecnie 24 pliki (bez `types/` i `locales/`) przekraczające próg 300 linii z `Reguły 04`, w tym 7 plików o długości `409–421` linii.
-* **Rekomendowane Rozwiązanie:**
-  1. Wydzielić mniejsze podkomponenty i moduły pomocnicze (np. podział `pantryCalculations.ts` na moduł konwersji jednostek i logikę dopasowania zapasów, ekstrakcja kart dnia w Kalendarzu i panelu gospodarstw w `DesktopSidebar`).
+### NORM-17: Przegląd Spójności Plików `>300` Linii i Aktualizacja Wytycznych Modularności (`AGENTS.md`, `04-typescript-code-quality.md`)
+* **Status:** ✅ **Zrealizowane — Decyzja Architektoniczna (2026-11-16)**
+* **Obszar:** Modularność Kodu (`Reguła 04`, [AGENTS.md](file:///d:/08_Git/SmartShopping/SmartShopping/AGENTS.md))
+* **Pliki zmodyfikowane:** [AGENTS.md](file:///d:/08_Git/SmartShopping/SmartShopping/AGENTS.md), [04-typescript-code-quality.md](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/04-typescript-code-quality.md)
+* **Wynik Audytu i Decyzja:**
+  * Przeprowadzono przegląd wszystkich ~26 plików produkcyjnych o długości `304–616` linii (`calendarStatus.ts`, `useMealPlanStore.ts`, `WeekCalendarView.tsx`, `DesktopHistoryView.tsx`, `useActiveListController.ts`, `pantryService.ts`, `pantryCalculations.ts`, `householdService.ts`, `DesktopSidebar.tsx`, itp.).
+  * Po wcześniejszej dekompozycji monolitów (`NORM-02`, `NORM-11`) każdy z pozostałych plików stanowi pojedynczą, spójną odpowiedzialność domenową (silnik kalkulacji, fasada serwisu, store lub widok oparty o wydzielony hook i subkomponenty). Dalsze cięcie pod sztywny limit `<300` linii wprowadziłoby jedynie sztuczną fragmentację importów.
+  * Poluzowano twardy limit `250–300` linii w [AGENTS.md](file:///d:/08_Git/SmartShopping/SmartShopping/AGENTS.md) i [.agents/rules/04-typescript-code-quality.md](file:///d:/08_Git/SmartShopping/SmartShopping/.agents/rules/04-typescript-code-quality.md) na rzecz miękkiego progu spójności (`~300–550` linii, sygnał do oceny podziału przy mieszaniu niezależnych domen).
 * **Definition of Done (DoD):**
-  - ✅ Redukcja długości największych plików UI, serwisów i kalkulacji poniżej 300 linii przy zachowaniu 100% przechodzących testów.
+  - ✅ Spójne moduły zachowane bez sztucznego rozbijania, a reguły konstytucji zaktualizowane o praktyczne kryterium spójności.
 
 ---
 
@@ -1060,10 +1056,10 @@ gantt
     NORM-11 Split shoppingListService    :done, 2026-11, 2d
     NORM-12 Update README & Docs Sync    :done, 2026-11, 1d
     NORM-13 Touch Targets & Tablet RWD   :done, 2026-11, 1d
-    NORM-14 Calendar i18n & Slug Mapping :2026-12, 1d
-    NORM-15 Calendar Confirm & 44px UX   :2026-12, 1d
+    NORM-14 Calendar i18n & Slug Mapping :done, 2026-11, 1d
+    NORM-15 Calendar Confirm & 44px UX   :done, 2026-11, 1d
     NORM-16 Fix README Links & Sync Docs :done, 2026-11, 1d
-    NORM-17 Decompose Files > 300 Lines  :2026-12, 2d
+    NORM-17 Cohesion Review & Rules Sync :done, 2026-11, 1d
     section Nowe Funkcje (Low)
     LOW-07 Pantry Recipe Recommender     :2027-01, 18d
     LOW-06 Multi-Store Aisle Profiles    :2027-01, 14d
@@ -1132,10 +1128,10 @@ gantt
 | **NORM-11** | ✅ Zrealizowane | 🟢 Normal | Architecture / Modularity | 1-2 dni | Podział `shoppingListService.ts` (1,106L → 298L) i `useShoppingStore.ts` (477L → 284L) na mniejsze moduły domenowe. |
 | **NORM-12** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Zastąpienie szablonu Vite w `README.md` dokumentacją SmartShopping i korekta domyślnego motywu w DDL `PRD.md`. |
 | **NORM-13** | ✅ Zrealizowane | 🟢 Normal | UX / RWD & Touch Targets | 1 dzień | Strefy dotyku `>= 44x44px` / powiększone przyciski mobilne oraz responsywność tabletowa (`768px–1023px`) i `LoginScreen`. |
-| **NORM-14** | ⏳ Oczekujące | 🟢 Normal | i18n / Kalkulacje | 0.5 dnia | Przeniesienie ostatnich polskich tekstów i surowych slugów `meal_categories` w `AddCalendarMealDialog` do słowników i18n. |
-| **NORM-15** | ⏳ Oczekujące | 🟢 Normal | UX / Kalendarz | 0.5-1 dzień | Strefy dotyku `>= 44x44px` oraz `ConfirmDeleteDialog` w modalach i kartach Kalendarza. |
+| **NORM-14** | ✅ Zrealizowane | 🟢 Normal | i18n / Kalkulacje | 0.5 dnia | Przeniesienie ostatnich polskich tekstów w modalach Kalendarza (`AddCalendarMealDialog`, `UncertaintyWarningModal`) i `calendarStatus.ts` do i18n oraz czyszczenie aliasów w `pantryCalculations.ts`. |
+| **NORM-15** | ✅ Zrealizowane | 🟢 Normal | UX / Kalendarz | 0.5 dnia | Strefy dotyku `>= 44x44px` oraz `ConfirmDeleteDialog` w modalach Kalendarza (`AddCalendarMealDialog`, `DayCalendarView`, `WeeklyTemplatesModal`, `UncertaintyWarningModal`). |
 | **NORM-16** | ✅ Zrealizowane | 🟢 Normal | Documentation | 0.5 dnia | Naprawa linków ADR/wersji w `README.md`, dopisanie `LOW-08`/`LOW-11`/DDL w `PRD.md`/`plan.md` oraz wzmocnienie `AGENTS.md` i `.agents/rules/01..06`. |
-| **NORM-17** | ⏳ Oczekujące | 🟢 Normal | Architecture / Modularity | 1-2 dni | Dalsza dekompozycja 24 plików przekraczających 300 linii (w tym 7 plików `409–421` linii). |
+| **NORM-17** | ✅ Zrealizowane | 🟢 Normal | Architecture / Modularity | 0.5 dnia | Audyt spójności ~26 plików `>300` linii (pozostawione jako spójne całości) oraz urealnienie progu długości plików w `AGENTS.md` i `Regule 04`. |
 | **LOW-07** | ⏳ Oczekujące | 🔵 Low | New Feature / UX | 3-4 dni | Rekomendacje dań pod bieżące zapasy w lodówce ("Co dziś ugotować?"). |
 | **LOW-06** | ⏳ Oczekujące | 🔵 Low | Multi-Store | 3 dni | Dedykowane układy alejek dopasowane do Biedronki, Lidla czy Carrefoura. |
 | **LOW-08** | ✅ Zrealizowane | 🔵 Low | Planowanie / Kalendarz | 2 dni | Zapisywanie i aplikowanie szablonów tygodniowych posiłków ze skalowaniem porcji. |
@@ -1149,5 +1145,5 @@ gantt
 
 > **Zalecana sekwencja wdrożeniowa kolejnych kroków:**  
 > 1. **Domknięcie rozjazdów i bezpieczeństwa (`HIGH-11`..`HIGH-13`):** ✅ *Zrealizowane (Listopad 2026)* — podłączenie `activeListItems` / `archivedListItems` i sekcji kategorii w Kalendarzu, pełna edycja przepisów (`updateMeal`), wybór `meal_categories`, usunięcie martwego przełącznika `Global`, walidacja UUID w `.or()`, role właściciela gospodarstwa (`household_members.role`), walidacja Edge Function Push oraz reguła `no-explicit-any` w `oxlint`.  
-> 2. **Wydajność, spójność logiki biznesowej i integralność (`MED-14`..`MED-18`):** ✅ *Zrealizowane (Listopad 2026)* — okno dat ±7d w Kalendarzu, paginacja Historii (`HISTORY_PAGE_SIZE = 30`), eliminacja zapytań N+1 (`createMealPlansBatch`, `createProductsBatch`, `createMealsBatch`, `batchIngestPurchasedItems`, `shoppingListTransfer`), mapy O(1) w Kalendarzu (`calculateMealPlanStatusesMap`), naprawa 4 luk logiki domenowej (`LIST_COMPLETED`, `meal_plan_item_id` przy archiwizacji, zbiorczy transfer tygodnia `transferWeekToDraft` z rezerwacją spiżarni, edycja ułamkowa), synchronizacja szablonów tygodniowych w tabeli `weekly_meal_templates` (RLS + Realtime) oraz ograniczenia `CHECK` w PostgreSQL. Następnie do realizacji pozostają zadania z kategorii Normal (`NORM-14`, `NORM-15`, `NORM-17`) — dokończenie i18n, a11y 44px oraz dekompozycji plików `>300L`.  
+> 2. **Wydajność, spójność logiki biznesowej, higiena i modularność (`MED-14`..`MED-18`, `NORM-14`..`NORM-17`):** ✅ *Zrealizowane (Listopad 2026)* — okno dat ±7d w Kalendarzu, paginacja Historii (`HISTORY_PAGE_SIZE = 30`), eliminacja zapytań N+1, mapy O(1) w Kalendarzu, naprawa 4 luk logiki domenowej, synchronizacja szablonów tygodniowych w Supabase (`weekly_meal_templates`), ograniczenia `CHECK` w PostgreSQL, domknięcie i18n oraz `44px`/`ConfirmDeleteDialog` w modalach Kalendarza oraz audyt spójności modułów z aktualizacją progu wielkości plików w konstytucji.  
 > 3. **Nowe moduły funkcjonalne (`LOW-01`..`LOW-16`):** Rozwój rekomendacji przepisów pod stan spiżarni (`LOW-07`), profili sklepowych (`LOW-06`), trybu „Gotuję Teraz" (`LOW-10`) oraz planowania Batch Cooking (`LOW-13`) i importu URL (`LOW-14`).

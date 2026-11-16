@@ -20,6 +20,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { ConfirmDeleteDialog } from '@/components/dialogs/ConfirmDeleteDialog'
+import type { WeeklyMealTemplate } from '@/types/calendar'
 import {
   LayoutTemplate,
   BookmarkPlus,
@@ -68,6 +70,7 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
   const [templateName, setTemplateName] = useState('')
   const [servingsMultiplier, setServingsMultiplier] = useState<number>(1)
   const [applyingId, setApplyingId] = useState<string | null>(null)
+  const [templateToDelete, setTemplateToDelete] = useState<WeeklyMealTemplate | null>(null)
 
   const handleSaveTemplate = (e: React.FormEvent) => {
     e.preventDefault()
@@ -133,14 +136,14 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
           <Button
             type="submit"
             disabled={!templateName.trim() || currentWeekMealsCount === 0}
-            className="h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-4 shrink-0 cursor-pointer"
+            className="min-h-[44px] sm:h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl px-4 shrink-0 cursor-pointer"
           >
             {t('calendar.templates.saveButton')}
           </Button>
         </div>
 
         {currentWeekMealsCount === 0 && (
-          <p className="text-[11px] text-amber-400">
+          <p className="text-[11px] text-amber-600 dark:text-amber-400">
             {t('calendar.templates.emptyWeekHint')}
           </p>
         )}
@@ -163,7 +166,7 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
               type="button"
               onClick={() => setServingsMultiplier(preset)}
               className={cn(
-                'py-2 rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer',
+                'py-2 min-h-[44px] sm:min-h-[36px] rounded-xl font-mono text-xs font-bold border transition-all cursor-pointer',
                 servingsMultiplier === preset
                   ? 'bg-primary text-primary-foreground border-primary shadow-xs'
                   : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted'
@@ -221,7 +224,7 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
                         size="sm"
                         onClick={() => handleApply(tpl.id)}
                         disabled={applyingId === tpl.id}
-                        className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl gap-1.5 px-3 text-xs cursor-pointer"
+                        className="min-h-[44px] sm:h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl gap-1.5 px-3 text-xs cursor-pointer"
                       >
                         <CalendarCheck className="w-3.5 h-3.5" />
                         <span>{t('calendar.templates.applyButton')}</span>
@@ -229,8 +232,8 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => deleteWeeklyTemplate(tpl.id)}
-                        className="w-9 h-9 rounded-xl border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors cursor-pointer"
+                        onClick={() => setTemplateToDelete(tpl)}
+                        className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-xl border border-border text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors cursor-pointer"
                         title={t('common.delete')}
                         aria-label={t('common.delete')}
                       >
@@ -261,38 +264,58 @@ export const WeeklyTemplatesModal: React.FC<WeeklyTemplatesModalProps> = ({
     </div>
   )
 
+  const confirmDialog = (
+    <ConfirmDeleteDialog
+      open={!!templateToDelete}
+      onOpenChange={(isOpen) => !isOpen && setTemplateToDelete(null)}
+      itemName={templateToDelete?.name}
+      onConfirm={() => {
+        if (templateToDelete) {
+          deleteWeeklyTemplate(templateToDelete.id)
+          setTemplateToDelete(null)
+        }
+      }}
+    />
+  )
+
   if (isDesktop) {
     return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-            <DialogTitle className="sr-only">{t('calendar.templates.title')}</DialogTitle>
-            <DialogDescription className="sr-only">
-              {t('calendar.templates.subtitle', { week: weekRangeLabel })}
-            </DialogDescription>
-            {headerContent}
-          </DialogHeader>
-          {bodyContent}
-        </DialogContent>
-      </Dialog>
+      <>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-lg w-full bg-card border-border text-foreground p-0 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+              <DialogTitle className="sr-only">{t('calendar.templates.title')}</DialogTitle>
+              <DialogDescription className="sr-only">
+                {t('calendar.templates.subtitle', { week: weekRangeLabel })}
+              </DialogDescription>
+              {headerContent}
+            </DialogHeader>
+            {bodyContent}
+          </DialogContent>
+        </Dialog>
+        {confirmDialog}
+      </>
     )
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[90vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden"
-      >
-        <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
-          <SheetTitle className="sr-only">{t('calendar.templates.title')}</SheetTitle>
-          <SheetDescription className="sr-only">
-            {t('calendar.templates.subtitle', { week: weekRangeLabel })}
-          </SheetDescription>
-          {headerContent}
-        </SheetHeader>
-        {bodyContent}
-      </SheetContent>
-    </Sheet>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[90vh] bg-card border-t border-border text-foreground rounded-t-3xl flex flex-col p-0 overflow-hidden"
+        >
+          <SheetHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0 text-left">
+            <SheetTitle className="sr-only">{t('calendar.templates.title')}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {t('calendar.templates.subtitle', { week: weekRangeLabel })}
+            </SheetDescription>
+            {headerContent}
+          </SheetHeader>
+          {bodyContent}
+        </SheetContent>
+      </Sheet>
+      {confirmDialog}
+    </>
   )
 }

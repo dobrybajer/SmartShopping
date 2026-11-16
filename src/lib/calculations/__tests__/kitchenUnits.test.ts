@@ -50,21 +50,36 @@ describe('LOW-11: Kitchen Units Conversion Engine', () => {
     })
   })
 
-  it('Flow 05: integrates with pantryCalculations (areUnitsCompatible & convertQuantity) and JSON import', () => {
+  it('Flow 05: integrates with pantryCalculations (canonical units) and Polish normalization in JSON import (NORM-14)', () => {
     expect(areUnitsCompatible('tbsp', 'g')).toBe(true)
-    expect(areUnitsCompatible('łyżka', 'ml')).toBe(true)
-    expect(areUnitsCompatible('szklanka', 'ml')).toBe(true)
-    expect(areUnitsCompatible('szczypta', 'g')).toBe(true)
+    expect(areUnitsCompatible('tbsp', 'ml')).toBe(true)
+    expect(areUnitsCompatible('cup', 'ml')).toBe(true)
+    expect(areUnitsCompatible('pinch', 'g')).toBe(true)
     expect(areUnitsCompatible('tbsp', 'pcs')).toBe(false)
 
     expect(convertQuantity(2, 'tbsp', 'g')).toBe(30)
-    expect(convertQuantity(1, 'szklanka', 'ml')).toBe(250)
-    expect(convertQuantity(3, 'łyżeczka', 'g')).toBe(15)
-    expect(convertQuantity(2, 'szczypta', 'g')).toBe(2)
+    expect(convertQuantity(1, 'cup', 'ml')).toBe(250)
+    expect(convertQuantity(3, 'tsp', 'g')).toBe(15)
+    expect(convertQuantity(2, 'pinch', 'g')).toBe(2)
 
     expect(normalizeUnitAndQuantity(2, 'szczypta')).toEqual({
       quantity: 2,
       unit: 'g',
+      isValidUnit: true
+    })
+    expect(normalizeUnitAndQuantity(1, 'szklanka')).toEqual({
+      quantity: 250,
+      unit: 'ml',
+      isValidUnit: true
+    })
+    expect(normalizeUnitAndQuantity(2, 'łyżka')).toEqual({
+      quantity: 30,
+      unit: 'ml',
+      isValidUnit: true
+    })
+    expect(normalizeUnitAndQuantity(3, 'łyżeczka')).toEqual({
+      quantity: 15,
+      unit: 'ml',
       isValidUnit: true
     })
   })

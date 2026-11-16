@@ -4,6 +4,7 @@ import type { Database } from '@/types/supabase'
 import type { PantryItem, PantryItemWithDetails } from '@/types/pantry'
 import { convertQuantity } from '@/lib/calculations/pantryCalculations'
 import { calculateIngredientMacros, sumMacroNutrients, resolveEffectiveIngredientMacros } from '@/lib/calculations/macroCalculations'
+import { translate } from '@/i18n'
 
 type ShoppingListItemRow = Database['public']['Tables']['shopping_list_items']['Row']
 type PantryEntry = PantryItem | PantryItemWithDetails
@@ -526,7 +527,7 @@ export function generateDraftItemsFromMealPlan(
     : { byProduct: new Map<string, PantryEntry>(), byParent: new Map<string, PantryEntry[]>() }
 
   const multiplier = getEffectiveMultiplier(planItem)
-  const mealName = planItem.meal.name || planItem.custom_name || 'Posiłek'
+  const mealName = planItem.meal.name || planItem.custom_name || translate('calendar.defaultMealName')
   const sourceLabel = dayLabel ? `${dayLabel} · ${mealName}` : mealName
 
   const draftPayloads: AddToDraftPayload[] = []
