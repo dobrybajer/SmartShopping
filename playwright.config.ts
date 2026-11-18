@@ -35,6 +35,17 @@ export default defineConfig({
       },
     },
     {
+      name: 'tablet-e2e',
+      testIgnore: /visual-audit\.spec\.ts/,
+      use: {
+        ...devices['Desktop Edge'],
+        channel: 'msedge',
+        viewport: { width: 768, height: 1024 },
+        hasTouch: true,
+        ...(hasAuthState ? { storageState: AUTH_FILE } : {}),
+      },
+    },
+    {
       name: 'mobile-pwa-e2e',
       testIgnore: /visual-audit\.spec\.ts/,
       use: {

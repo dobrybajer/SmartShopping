@@ -54,7 +54,10 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   const { t } = useTranslation()
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('tab') === 'settings'
+  })
   const [isHouseholdsDialogOpen, setIsHouseholdsDialogOpen] = useState(false)
   const [isLayoutMenuOpen, setIsLayoutMenuOpen] = useState(false)
 

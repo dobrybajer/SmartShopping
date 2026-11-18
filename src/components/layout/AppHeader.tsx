@@ -36,7 +36,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const handleLayoutModeChange = onLayoutModeChange ?? deviceLayout.setLayoutMode
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return new URLSearchParams(window.location.search).get('tab') === 'settings'
+  })
   const [isHouseholdsDialogOpen, setIsHouseholdsDialogOpen] = useState(false)
 
   const menuRef = useRef<HTMLDivElement>(null)

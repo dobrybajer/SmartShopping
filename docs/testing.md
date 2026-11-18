@@ -62,10 +62,16 @@ Aby można było **wielokrotnie uruchamiać pojedynczy moduł Playwright** (np. 
 
 Każdy przypadek testowy w Części II jest opisany ustandaryzowanym zestawem metadanych:
 
-#### Adnotacje Wykonawcze (Możliwość Automatyzacji)
-- **`[Playwright: E2E]`** — w pełni automatyzowalny test End-to-End działający przeciwko aplikacji webowej i żywej bazie Supabase (w kontekście `Household_Test`).
+#### Adnotacje Wykonawcze i Macierz Podziału (`Automatyczne` vs `Manualne`)
+- **`[Playwright: E2E]`** — w pełni automatyzowalny test End-to-End działający przeciwko aplikacji webowej i żywej bazie Supabase (w kontekście `Household_Test`) w 3 projektach RWD (`desktop-e2e` `1440x900`, `tablet-e2e` `768x1024`, `mobile-pwa-e2e` `360x800`) ze strażnikiem błędów runtime (`page.on('pageerror')`).
 - **`[Playwright: Mock/Route]`** — test automatyzowalny w Playwright na żywym UI, w którym warstwa sieciowa / przeglądarkowa jest kontrolowana przez `page.route()`, `context.setOffline()` lub nadpisanie odpowiedzi REST/RPC (np. symulacja błędu RLS `403`, błędu `500`, konfliktu `OCC updated_at`, uprawnień `Notification.permission`, statusu `role = 'member'`).
-- **`[Manual]`** — wymaga ręcznej weryfikacji na fizycznym urządzeniu / systemie operacyjnym (np. natywny Web Push na zablokowanym ekranie iOS/Android, instalacja PWA „Dodaj do ekranu początkowego”, fizyczna wibracja haptyczna urządzenia, realna synchronizacja WebSocket na dwóch osobnych urządzeniach/kontach Google w tym samym czasie).
+- **`[Manual]`** — wymaga ręcznej weryfikacji na fizycznym urządzeniu / systemie operacyjnym (np. natywny Web Push na zablokowanym ekranie iOS/Android, instalacja PWA „Dodaj do ekranu początkowego”, fizyczna wibracja haptyczna urządzenia, logowanie Google OAuth z 2FA).
+
+| Kategoria wykonawcza | Które testy tu należą | Zasada wykonywania |
+| :--- | :--- | :--- |
+| **1. `TYLKO MANUALNIE` (`[Manual-Only]`)** | 1. Fizyczny odbiór natywnego powiadomienia Web Push na zablokowanym ekranie iOS / Android i tapnięcie w nie (`TC-SETUP-10` krok 5).<br>2. Instalacja PWA *„Dodaj do ekranu początkowego”* i uruchomienie w trybie `standalone` na fizycznym smartfonie (`TC-SETUP-10`).<br>3. Fizyczna wibracja haptyczna urządzenia przy odhaczaniu i dodawaniu Ad-Hoc (`TC-ACT-04`, `TC-DRAFT-04`).<br>4. Realne logowanie Google OAuth (ekran zgody Google + 2FA) przy generowaniu `e2e/.auth/user.json` (`TC-SETUP-01`).<br>5. Ergonomia obsługi jedną ręką w strefie kciuka podczas realnych zakupów. | Wykonywane wyłącznie przez człowieka na fizycznym urządzeniu (silnik Taptic/Vibrator, systemowy ekran blokady OS oraz zabezpieczenia anty-botowe Google OAuth nie są dostępne w headless browserze). |
+| **2. `AUTOMATYCZNIE + JEDNORAZOWO MANUALNIE` (`[E2E + Manual Twin]`)** | Wszystkie testy ze znacznikiem `@state:BASE` (`TC-SETUP-02`, `TC-CAT-03`, `TC-PROD-01..03`, `TC-MEAL-01`, `TC-MEAL-04`, `TC-PANTRY-01`, `TC-DRAFT-01..02`, `TC-ACT-01..02`, `TC-ACT-06`, `TC-HIST-01..02`, `TC-CAL-02..03`, `TC-CAL-06`). | Playwright utrzymuje je automatycznie w `Household_Test`, a człowiek wykonuje je **jednorazowo przy Bootstrapie** `Household_Test_Manual`, aby mieć bliźniacze domostwo do wizualnego porównywania UI. |
+| **3. `TYLKO AUTOMATYCZNIE` (`[Automated-Only]`)** | Wszystkie testy `@state:TEMP`, `@type:negative`, `@type:security` oraz `[Playwright: Mock/Route]` (walidacje limitów znaków, anulowanie `ConfirmDeleteDialog`, symulacje błędów `403`/`409`/`500`, paginacja 31+ list w historii, wstrzyknięcia PostgREST, macierz 6 motywów × 3 rozdzielczości, synchronizacja 2 kart `pageA ↔ pageB`). | Wykonywane wyłącznie przez Playwright (`npx playwright test`) — nie należy powtarzać ich ręcznie przy każdym wydaniu. |
 
 #### Tagi Klasyfikacji i Filtrowania (`--grep`)
 - **Moduły:** `@module:setup-household`, `@module:categories-empty-states`, `@module:products`, `@module:cookbook`, `@module:pantry`, `@module:draft`, `@module:active-lists`, `@module:history`, `@module:calendar-templates`, `@module:cross-cutting`.
@@ -138,7 +144,7 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 2. `[BASE] Ryż basmati`: `0.4 cup` (`0.4 * 250g = 100 g`) → `350.0 kcal | B: 7.5g | W: 77.0g | T: 0.8g`
 3. `[BASE] Oliwa z oliwek Extra Virgin`: `1 tbsp` (`15 ml`) → `132.6 kcal | B: 0.0g | W: 0.0g | T: 15.0g`
 4. `[BASE] Awokado` (referencyjny wariant: `[BASE] Awokado Hass`): `0.5 pcs` → `110.0 kcal | B: 1.4g | W: 5.9g | T: 10.25g`
-5. `[BASE] Sól morska` (`is_pantry_item = true`): `2 pinch` (`2 g`) → `0.0 kcal | B: 0.0g | W: 0.0g | T: 0.0g`
+5. `[BASE] Sól morska` (zapas dynamiczny w `pantry_items` w Module 05 zgodnie z `ADR-008`): `2 pinch` (`2 g`) → `0.0 kcal | B: 0.0g | W: 0.0g | T: 0.0g`
 - **Suma porcji bazowej (1.0x):** **`812.6 kcal` (w UI `813 kcal`)** | **`B: 54.9 g`** | **`W: 82.9 g`** | **`T: 29.05 g` (`29.1 g`)**.
 - **Po przełączeniu referencji awokado na `[BASE] Awokado Fuerte` (`160 kcal/pcs`):** `0.5 pcs = 80.0 kcal` → suma **`782.6 kcal` (w UI `783 kcal`)**.
 
@@ -244,18 +250,16 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 
 ---
 
-#### `TC-SETUP-06` — Uprawnienia ról `Owner` vs `Member` w gospodarstwie (Odmowa dostępu RLS)
+#### `TC-SETUP-06` — Uprawnienia ról `Owner` vs `Member` w gospodarstwie (Odmowa usunięcia RLS)
 - **Adnotacja:** `[Playwright: Mock/Route]` + `[Manual]` *(na dwóch kontach Google)*
 - **Tagi:** `@module:setup-household` `@type:negative` `@type:security` `@state:READONLY`
-- **Warunki wstępne:** Symulacja (lub realne zalogowanie) użytkownika o roli `role = 'member'` w tabeli `household_members` (w Playwright przez przechwycenie zapytania/stanu roli lub odpowiedź `403 Forbidden` / RLS error z PostgREST przy próbie `DELETE /rest/v1/households`).
+- **Warunki wstępne:** Symulacja (lub realne zalogowanie) użytkownika o roli `role = 'member'` w tabeli `household_members` (w Playwright przez przechwycenie odpowiedzi `403 Forbidden` / RLS error `42501` z PostgREST przy próbie `DELETE /rest/v1/households`).
 - **Kroki:**
-  1. Jako użytkownik z rolą `'member'` otwórz `HouseholdsDialog`.
-  2. Zweryfikuj widoczność akcji przy gospodarstwie i członkach.
-  3. Spróbuj wywołać usunięcie gospodarstwa (w teście bezpieczeństwa RLS wyślij bezpośrednie żądanie `DELETE` na rekord `households` lub symuluj odpowiedź odmowy `403` / `PGRST` dla `deleteHousehold`).
-  4. Kliknij opcję **„Opuść Gospodarstwo”** (`leaveHouseholdButton`) na symulowanym/tymczasowym udziale.
+  1. Otwórz `HouseholdsDialog` i kliknij ikonę kosza przy gospodarstwie, aby otworzyć `DeleteHouseholdDialog`.
+  2. Odczytaj wygenerowaną frazę potwierdzającą w `[data-testid="expected-confirmation-phrase"]` i wpisz ją w `[data-testid="delete-confirmation-input"]`.
+  3. Kliknij przycisk **„Usuń Gospodarstwo”** przy aktywnej blokadzie RLS dla roli `'member'` (`403 Forbidden` / `code: '42501'`).
 - **Oczekiwany rezultat:**
-  - **Jak NIE powinna się zachować:** Zwykły członek (`member`) **NIE MOŻE** usunąć gospodarstwa ani usunąć właściciela (`owner`) — baza odrzuca takie wywołanie na poziomie polityki `is_household_owner` (0 zmodyfikowanych wierszy / błąd uprawnień), a UI prezentuje komunikat błędu zamiast fałszywego sukcesu.
-  - **Jak POWINNA się zachować:** Członek może samodzielnie opuścić gospodarstwo (usunięcie własnego wiersza w `household_members`).
+  - **Jak NIE powinna się zachować:** Zwykły członek (`member`) **NIE MOŻE** usunąć gospodarstwa ani usunąć właściciela (`owner`) — baza odrzuca takie wywołanie na poziomie polityki `is_household_owner` (0 zmodyfikowanych wierszy / błąd uprawnień `42501`), a UI prezentuje komunikat błędu (`Nie udało się usunąć gospodarstwa`) zamiast fałszywego sukcesu i zachowuje domostwo na liście.
 
 ---
 
@@ -317,11 +321,12 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
      - `[Playwright: Mock/Route]`: Zasymuluj `Notification.permission = 'denied'` i otwórz `NotificationSettings` w ustawieniach konta.
      - `[Playwright: Mock/Route]`: Zasymuluj User-Agent iOS Safari poza trybem standalone (`isIosSafariNonPwa = true`).
   3. **Wysyłka `TEST_NOTIFICATION` i logika „Powiadamiaj mnie” (`smartshopping_notify_self`):**
-     - `[Playwright: Mock/Route]`: Zasymuluj `Notification.permission = 'granted'`, zarejestrowany `PushSubscription` i przechwyć wywołanie `POST /functions/v1/send-push-notification`:
-       - **Wariant A (`notifySelf = false`):** Odznacz checkbox **„Powiadamiaj mnie”**, kliknij **„Wyślij testowe powiadomienie”** → sprawdź w payloadzie żądania `includeSender: false` oraz odpowiedź `sentCount: 0` (gdy w domostwie jest tylko 1 urządzenie nadawcy).
-       - **Wariant B (`notifySelf = true`):** Zaznacz **„Powiadamiaj mnie”**, kliknij **„Wyślij testowe powiadomienie”** → sprawdź w payloadzie `includeSender: true`, tytuł z `NOTIFICATION_REGISTRY.TEST_NOTIFICATION` (`🔔 Test powiadomień Web Push`) oraz `tag: "test-notification"`, `url: "/?tab=settings"`.
+     - `[Playwright: Mock/Route]`: Zasymuluj `Notification.permission = 'granted'`, aktywną rejestrację Service Workera z `pushManager.getSubscription()` i przechwyć wywołanie `POST /functions/v1/send-push-notification`:
+       - **Wariant A (`notifySelf = false`):** Odznacz checkbox **„Powiadamiaj mnie”** (`#notify-self-checkbox`), kliknij przycisk **„Wyślij testowe powiadomienie”** → sprawdź w przechwyconym payloadzie żądania `includeSender: false` oraz odpowiedź `sentCount: 0` (gdy w domostwie jest tylko 1 urządzenie nadawcy).
+       - **Wariant B (`notifySelf = true`):** Zaznacz checkbox **„Powiadamiaj mnie”** (`#notify-self-checkbox`), kliknij **„Wyślij testowe powiadomienie”** → sprawdź w payloadzie `includeSender: true`, tytuł z `NOTIFICATION_REGISTRY.TEST_NOTIFICATION` (`🔔 Test powiadomień Web Push`) oraz `tag: "test-notification"`, `url: "/?tab=settings"`.
+       - **Propagacja domenowa `notifySelf`:** Przy zaznaczonym „Powiadamiaj mnie” (`smartshopping_notify_self = 'true'`) wszystkie powiadomienia domenowe (`LIST_ITEM_ADDED`, `LIST_COMPLETED`, `LIST_CLEARED_OR_ARCHIVED`, `HOUSEHOLD_MEMBER_JOINED`) również przekazują `includeSender: true` do Edge Function, umożliwiając testowanie powiadomień jednoosobowo na własnym urządzeniu.
   4. **Wyłączenie subskrypcji i błąd sieciowy:** Kliknij **„Wyłącz powiadomienia push”** (`unsubscribe`) i sprawdź usunięcie wpisu z `push_subscriptions`; następnie zasymuluj błąd HTTP `500` Edge Function przy próbie wysyłki testowej.
-  5. `[Manual — iOS/Android]`: Zainstaluj aplikację jako PWA na ekranie początkowym, włącz powiadomienia, zaznacz „Powiadamiaj mnie” i kliknij „Wyślij testowe powiadomienie”, sprawdzając fizyczne pojawienie się powiadomienia OS na zablokowanym ekranie oraz kliknięcie go (przekierowanie na właściwy `url`).
+  5. `[Manual-Only — iOS/Android]`: Zainstaluj aplikację jako PWA na ekranie początkowym, włącz powiadomienia, zaznacz „Powiadamiaj mnie” i kliknij „Wyślij testowe powiadomienie”, sprawdzając fizyczne pojawienie się powiadomienia OS na zablokowanym ekranie oraz kliknięcie go (przekierowanie Deep-Link na właściwy `url`).
 - **Oczekiwany rezultat:**
   - **Gdy `denied`:** Wyświetla się czerwony badge *„Zablokowane w przeglądarce”* (`notifications.statusDenied`) oraz wskazówka odblokowania przy kłódce; przycisk włączania jest `disabled` (brak wyjątku `DOMException`).
   - **Gdy `isIosSafariNonPwa`:** Wyświetla się podpowiedź `notifications.iosPwaHint` o dodaniu aplikacji do ekranu początkowego.
@@ -348,13 +353,16 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 - **Warunki wstępne:** Zalogowany użytkownik w kontekście `Household_Test`.
 - **Kroki:**
   1. **Edycja nazwy wyświetlanej (`AccountDetailsDialog`):** Zmień pole `Nazwa Wyświetlana` na `Tester SmartShopping`, zapisz i sprawdź komunikat sukcesu (`updateNameSuccess`) oraz odświeżenie inicjałów w `AppHeader` / `DesktopSidebar` (następnie przywróć pierwotną nazwę). Zweryfikuj, że pole `Adres Email Konta Google` jest `disabled` (`tylko do odczytu`), a `Konto utworzone` wyświetla sformatowaną datę.
-  2. **Ręczne nadpisanie trybu Layoutu (`HIGH-10`):**
-     - `[Desktop >=1024px]`: W stopce `DesktopSidebar` kliknij selektor `Widok:` i przełącz z `Automatyczny` na `Mobilny PWA`, zweryfikuj pojawienie się `BottomNavigation` i `AppHeader`, a następnie wróć do `Automatyczny` przez menu profilowe w `AppHeader`.
+  2. **Ręczne nadpisanie trybu Layoutu (`HIGH-10`) i skrót klawiaturowy `Ctrl+Alt+L`:**
+     - `[Desktop >=1024px]`: W stopce `DesktopSidebar` kliknij selektor `Widok:` i przełącz z `Automatyczny` na `Mobilny PWA`, zweryfikuj pojawienie się `BottomNavigation` i `AppHeader`, a następnie wróć do `Automatyczny` przez menu profilowe w `AppHeader`. Przetestuj także skrót klawiaturowy **`Ctrl + Alt + L`** przełączający błyskawicznie między trybem Desktop a Mobile PWA.
      - `[Mobile PWA 360px]`: W menu `AppHeader` przełącz na `Desktop`, zweryfikuj `DesktopSidebar` i wróć do `Automatyczny`.
   3. **Globalne menu `+ Dodaj` i wskaźnik statusu w `DesktopHeader` (`[Desktop >=1024px]`):**
-     - Rozwiń przycisk `+ Dodaj` w prawym górnym rogu `DesktopHeader` i sprawdź dostępność wszystkich 4 skrótów: *Dodaj Przepis*, *Dodaj Produkt*, *Dodaj Pozycję Ad-Hoc*, *Importuj przepis (`Ctrl+Alt+P`)*.
+     - Rozwiń przycisk `+ Dodaj` w prawym górnym rogu `DesktopHeader` i sprawdź dostępność wszystkich 4 skrótów: *Dodaj Przepis*, *Dodaj Produkt*, *Dodaj Pozycję Ad-Hoc*, *Importuj przepis (`Ctrl+Alt+P`)* (oraz otwarcie formularza z poziomu nagłówka i odświeżenie widoku przez `CustomEvent`).
      - Zweryfikuj zielony wskaźnik **`Na żywo`** (`realtime`), a po zasymulowaniu offline sprawdź przejście na pomarańczowy wskaźnik **`Offline (N)`** / **`Sync (N)`** z licznikiem kolejki.
-  4. **Trwałość zakładki i liczniki badge (`99+`):** Przełącz na zakładkę `Spiżarnia`, odśwież stronę (`F5`) i sprawdź czy aplikacja zapamiętała ostatnią zakładkę w `smartshopping_active_tab`; sprawdź też wyświetlanie liczników na ikonach Koszyka i Aktywnej Listy (oraz format `99+` przy >99 pozycjach).
+  4. **Trwałość zakładki, Deep-Linking URL (`/?tab=...`) i liczniki badge (`99+`):**
+     - Przełącz na zakładkę `Spiżarnia`, odśwież stronę (`F5`) i sprawdź czy aplikacja zapamiętała ostatnią zakładkę w `smartshopping_active_tab`.
+     - Przetestuj wejście przez Deep-Link URL wygenerowany przez powiadomienie Push: `/?tab=history` (otwiera zakładkę Historia), `/?tab=active&listId=<id>` (otwiera Aktywną Listę i wybiera wskazaną listę) oraz `/?tab=settings` (otwiera modal `AccountDetailsDialog`).
+     - Sprawdź wyświetlanie liczników na ikonach Koszyka i Aktywnej Listy (oraz format `99+` przy >99 pozycjach).
   5. **Wylogowanie (`signOut`):** *(W izolowanym kontekście testowym bez niszczenia `e2e/.auth/user.json`)* Kliknij **„Wyloguj się”** → sprawdź powrót do ekranu `LoginScreen`.
 - **Oczekiwany rezultat:**
   - Nazwa wyświetlana zapisuje się w `users.name`, e-mail pozostaje niemodyfikowalny (`readOnly`).
@@ -618,17 +626,16 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
     2. `[BASE] Ryż basmati` → ilość `0.4`, miara kuchenna `cup` (*szklanka 250 g* → podgląd `= 100 g`)
     3. `[BASE] Oliwa z oliwek Extra Virgin` → ilość `1`, miara kuchenna `tbsp` (*łyżka 15 ml* → podgląd `= 15 ml`)
     4. `[BASE] Awokado` (produkt ogólny!) → ilość `0.5` `pcs`, wariant referencyjny makro: **`[BASE] Awokado Hass`**
-    5. `[BASE] Sól morska` → ilość `2`, miara kuchenna `pinch` (*szczypta 1 g* → podgląd `= 2 g`), zaznaczony checkbox **„Produkt spiżarniowy (na stanie)”** (`is_pantry_item = true`).
+    5. `[BASE] Sól morska` → ilość `2`, miara kuchenna `pinch` (*szczypta 1 g* → podgląd `= 2 g`). *(Zgodnie z `ADR-008` w formularzu `AddMealSheet` usunięto statyczny checkbox „Produkt spiżarniowy (na stanie)” — pokrycie spiżarniowe jest wyliczane dynamicznie z tabeli `pantry_items` w Module 05).*
 - **Kroki:**
-  1. Kliknij **„Dodaj Przepis”** (`AddMealSheet`).
+  1. Kliknij **„Dodaj Przepis”** (`AddMealSheet`) i upewnij się, że przestarzały checkbox „Produkt spiżarniowy (na stanie)” nie występuje w formularzu (`ADR-008`).
   2. Wypełnij kategorię, nazwę, opis, tagi (dodając przez `Enter`), kroki i komentarze.
-  3. Dla każdego z 5 składników użyj `ProductAutocomplete` (sprawdź prezentację 2-poziomową z wcięciami `↳`), wpisz ilość i wybierz odpowiednią miarę kuchenną.
+  3. Dla każdego z 5 składników użyj `ProductAutocomplete` (sprawdź prezentację 2-poziomową z wcięciami `↳`), wybierz odpowiednią miarę kuchenną i wpisz ilość.
   4. Dla składnika `[BASE] Awokado` sprawdź widoczność selektora wariantu referencyjnego i wybierz `[BASE] Awokado Hass`.
   5. Zapisz przepis i otwórz jego kartę szczegółów (`MealDetailsSheet`).
 - **Oczekiwany rezultat:**
   - **Przelicznik jednostek:** Po zapisie w `meal_ingredients` zapisane są ilości w jednostkach bazowych (`100 g` ryżu, `15 ml` oliwy, `2 g` soli).
   - **Matematyka Makro (1.0x):** Na karcie i w szczegółach widnieje **`813 kcal`** (`812.6 kcal`), **`B: 54.9 g`**, **`W: 82.9 g`**, **`T: 29.1 g` (`29.05 g`)**.
-  - **Składnik spiżarniowy:** Przy `[BASE] Sól morska` widoczne jest oznaczenie `is_pantry_item`.
 
 ---
 
@@ -862,12 +869,12 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 
 ---
 
-#### `TC-DRAFT-01` — Dodanie składników przepisu do Koszyka Roboczego (`[BASE]`)
+#### `TC-DRAFT-01` — Dodanie składników przepisu do Koszyka Roboczego (z `MealDetailsSheet` oraz szybki przycisk na karcie `CookbookMealCard`) (`[BASE]`)
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:draft` `@type:happy-path` `@state:BASE`
 - **Warunki wstępne:** Pusty Koszyk Roboczy w `Household_Test`, stany Spiżarni jak po Module 05.
 - **Kroki:**
-  1. W zakładce **Przepisy** otwórz `[BASE] Kurczak Teriyaki z ryżem i awokado` i kliknij **„Dodaj Składniki do Koszyka”** (`1.0x`).
+  1. W zakładce **Przepisy** otwórz `[BASE] Kurczak Teriyaki z ryżem i awokado` i kliknij **„Dodaj Składniki do Koszyka”** (`1.0x`), a także przetestuj szybki przycisk dodania do koszyka bezpośrednio na karcie przepisu (`CookbookMealCard` / `CookbookMealActions`) bez otwierania szczegółów.
   2. Przejdź do zakładki **Koszyk** (`Draft`).
 - **Oczekiwany rezultat:**
   - Toast potwierdzenia dodania przepisu.
@@ -889,7 +896,7 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 
 ---
 
-#### `TC-DRAFT-03` — Interaktywny Modal Decyzyjny Spiżarni (`PantryConfirmModal`) w Koszyku
+#### `TC-DRAFT-03` — Interaktywny Modal Decyzyjny Spiżarni (`PantryConfirmModal`) w Koszyku i blokada niezgodnych jednostek
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:draft` `@type:happy-path` `@type:corner-case` `@state:TEMP`
 - **Warunki wstępne:** W Koszyku znajdują się pozycje ze stanem w Spiżarni: `[BASE] Oliwa z oliwek Extra Virgin` (w spiżarni `500 ml`) oraz `[BASE] Ryż basmati` (potrzebne `200 g`, w spiżarni `50 g`!).
@@ -897,26 +904,27 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
   1. Kliknij ikonę `Warehouse` przy `[BASE] Oliwa z oliwek Extra Virgin` → sprawdź wyświetloną datę zakupu oraz przycisk **„Mam całość”** (`haveAll`). Kliknij **„Mam całość”**.
   2. Kliknij ikonę `Warehouse` przy `[BASE] Ryż basmati` → sprawdź obliczenie brakującej różnicy (`remainingToBuy: 150 g`) i kliknij **„Mam częściowo”** (`havePartial`).
   3. *(Test „Nie mam produktu” na danych `[TEMP]`)*: Dodaj do Spiżarni i Koszyka tymczasowy produkt `[TEMP] Masło testowe` (`1 pcs`), kliknij ikonę `Warehouse` w Koszyku i wybierz **„Nie mam produktu”** (`dontHave`), po czym usuń `[TEMP] Masło testowe` z Koszyka.
+  4. *(Corner Case niezgodnych jednostek `areUnitsCompatible = false`)*: Jeśli jednostka zapasu w Spiżarni różni się typem od jednostki w Koszyku (np. `pcs` vs `g`), przycisk „Mam częściowo” (`isPartial = false`) jest ukryty, aby uniemożliwić błędne odjęcie sztuk od gramów.
 - **Oczekiwany rezultat:**
   - **„Mam całość” (Oliwa):** Oliwa zostaje natychmiast usunięta z Koszyka Roboczego (`removedFromCart` Toast), a jej `last_verified_at` w Spiżarni zostaje zaktualizowane.
-  - **„Mam częściowo” (Ryż):** Ilość w Koszyku zostaje pomniejszona o stan spiżarni (z `200 g` zostaje `150 g` do kupienia!), a wpis ryżu w Spiżarni zostaje wyzerowany/usunięty (przed testami Modułu 07 możesz przywrócić `50 g` ryżu w Spiżarni lub zaktualizować bazę pod `TC-ACT-06`).
+  - **„Mam częściowo” (Ryż):** Ilość w Koszyku zostaje pomniejszona o stan spiżarni (z `200 g` zostaje `150 g` do kupienia!), a `last_verified_at` w Spiżarni zostaje zaktualizowane (przed testami Modułu 07 możesz przywrócić `50 g` ryżu w Spiżarni lub zaktualizować bazę pod `TC-ACT-06`).
   - **„Nie mam produktu”:** Produkt znika ze Spiżarni, ikona `Warehouse` w Koszyku gaśnie, ale pozycja pozostaje w Koszyku do kupienia.
 
 ---
 
-#### `TC-DRAFT-04` — Pozycje Ad-Hoc, edycja ułamkowa inline, zmiana kategorii i `SwipeToDismiss`
+#### `TC-DRAFT-04` — Pozycje Ad-Hoc, auto-dopasowanie do katalogu, edycja ułamkowa inline, zmiana kategorii i `SwipeToDismiss`
 - **Adnotacja:** `[Playwright: E2E]`
-- **Tagi:** `@module:draft` `@type:happy-path` `@type:rwd` `@state:BASE`
+- **Tagi:** `@module:draft` `@type:happy-path` `@type:corner-case` `@type:rwd` `@state:BASE`
 - **Kroki:**
   1. Kliknij **„Dodaj Ad-hoc”** (`AddAdHocSheet`).
-  2. Dodaj **`Ręczniki papierowe`** (`1 pcs`, kategoria `[BASE] EKO Chemia i Dom`) bez zapisywania w katalogu, oraz wypróbuj opcję „Zapisz i Dodaj” dla `[TEMP] Woda gazowana` (`6 pcs`).
-  3. Na pozycji `[BASE] Awokado` kliknij liczbę ilości, zmień ją inline z klawiatury na **`1.5`** (`inputMode="decimal"`) i zatwierdź `Enter`.
+  2. Dodaj **`Ręczniki papierowe`** (`1 pcs`, kategoria `[BASE] EKO Chemia i Dom`) wybierając w modalu **„Tylko do koszyka”** (bez zapisywania w katalogu), wypróbuj opcję **„Zapisz w bazie i dodaj”** dla `[TEMP] Woda gazowana` (`6 pcs`), oraz sprawdź wpisanie z klawiatury nazwy istniejącego w katalogu produktu (np. `[base] sól morska` — formularz automatycznie dopasowuje istniejące `product_id` case-insensitive i dodaje do koszyka bez wyświetlania pytania o zapis do bazy).
+  3. Na pozycji `[BASE] Awokado` kliknij liczbę ilości, zmień ją inline z klawiatury na **`1.5`** (`inputMode="decimal"`) i zatwierdź `Enter` (sprawdź też sanitizację znaków ujemnych `-` oraz ignorowanie `0`).
   4. Zmień kategorię wybranej pozycji bezpośrednio w Koszyku.
   5. Usuń `[TEMP] Woda gazowana`:
      - `[Desktop >=1024px]`: kliknij ikonę kosza przy pozycji → potwierdź w `ConfirmDeleteDialog`.
      - `[Mobile PWA 360px]`: wykonaj gest przesunięcia palcem w lewo (`SwipeToDismiss`) na wierszu `[TEMP]` lub zmniejsz ilość poniżej `1` przyciskiem `-` (co wywoła `ConfirmDeleteDialog`).
 - **Oczekiwany rezultat:**
-  - Edycja ułamkowa `1.5` zapisuje się bez zaokrąglenia do pełnych liczb całkowitych.
+  - Edycja ułamkowa `1.5` zapisuje się bez zaokrąglenia do pełnych liczb całkowitych, a wartości `<= 0` są odrzucane.
   - Zarówno przycisk kosza, jak i zmniejszenie ilości do `0` zabezpieczone są modalem potwierdzenia usunięcia (`ConfirmDeleteDialog`).
 
 ---
@@ -973,49 +981,53 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 
 ---
 
-#### `TC-ACT-03` — Sortowanie według własnego układu alejek (`ADR-006`) i nadpisanie kategorii
+#### `TC-ACT-03` — Sortowanie według własnego układu alejek (`ADR-006`) oraz wyszukiwarka i pasek postępu na Desktopie
 - **Adnotacja:** `[Playwright: E2E]`
-- **Tagi:** `@module:active-lists` `@type:happy-path` `@state:READONLY`
-- **Warunki wstępne:** Lista `[BASE] Zakupy Spożywcze Tydzień` zawiera produkty z kategorii `[BASE] Suplementy i Odżywki` (ustawionej na pozycji 1 w Module 02), `Owoce i Warzywa` oraz `Mięso i Ryby`.
+- **Tagi:** `@module:active-lists` `@type:happy-path` `@type:rwd` `@state:BASE`
+- **Warunki wstępne:** Lista `[BASE] Zakupy Spożywcze Tydzień` zawiera produkty z kategorii `[BASE] Suplementy i Odżywki` (ustawionej na pozycji 1 w Module 02), `Owoce i Warzywa`, `Mięso i Ryby` oraz `Spiżarnia i Sypkie`.
 - **Kroki:**
   1. Otwórz widok `[BASE] Zakupy Spożywcze Tydzień` i zweryfikuj kolejność sekcji (alejek) od góry strony.
-  2. Zmień kategorię wybranej pozycji lub dodaj szybki artykuł (`AddQuickItem`) do wybranej alejki.
+  2. `[Desktop >=1024px]`: W nagłówku karty listy sprawdź pasek postępu (`coveredCount / totalCount (progressPercent%)`) oraz wpisz frazę w polu wyszukiwania `Szukaj produktu...` (np. `"Oliwa"`, a następnie nieistniejącą frazę `"XYZ"`), po czym wyczyść filtr.
 - **Oczekiwany rezultat:**
-  - Sekcja **`[BASE] Suplementy i Odżywki`** renderuje się jako **pierwsza alejka na samej górze listy** (zgodnie z `custom_sort_order` z `TC-CAT-04`), przed sekcjami globalnymi.
+  - Sekcja **`1. [BASE] Suplementy i Odżywki`** renderuje się jako **pierwsza alejka na samej górze listy** (zgodnie z `custom_sort_order` z `TC-CAT-04`), przed sekcjami globalnymi.
+  - Na Desktopie pole wyszukiwania natychmiast filtruje widoczne sekcje i pozycje na aktywnej liście bez przeładowania strony.
 
 ---
 
-#### `TC-ACT-04` — Zakupy w sklepie: Optimistic UI, Haptics, `in_pantry` i wyzwalacz `LIST_COMPLETED`
-- **Adnotacja:** `[Playwright: E2E]` + `[Manual]` (wibracja fizyczna)
+#### `TC-ACT-04` — Zakupy w sklepie: Optimistic UI, Haptics, edycja/usuwanie pozycji, `PantryConfirmModal` (`in_pantry` / `havePartial`) i wyzwalacz `LIST_COMPLETED`
+- **Adnotacja:** `[Playwright: E2E]` + `[Manual-Only]` (wibracja fizyczna)
 - **Tagi:** `@module:active-lists` `@type:happy-path` `@type:corner-case` `@state:TEMP`
-- **Warunki wstępne:** Lista `[BASE] Dom i Chemia` (lub tymczasowa lista `[TEMP] Test Sklepowy` z min. 3 pozycjami).
+- **Warunki wstępne:** Tymczasowa lista `[TEMP] Lista PantryCheck` (lub `[BASE] Dom i Chemia`).
 - **Kroki:**
-  1. Kliknij checkbox przy pierwszej pozycji na liście:
+  1. Kliknij checkbox przy pozycji na liście:
      - Sprawdź natychmiastową zmianę wizualną (`line-through text-muted-foreground`),
-     - Sprawdź, że pozycja **NIE przeskakuje** w dół listy ani między alejkami (stabilność listy pod palcem!).
+     - Sprawdź, że pozycja **NIE przeskakuje** w dół listy ani między alejkami (stabilność listy pod palcem!),
      - `[Mobile PWA]`: zweryfikuj wywołanie `navigator.vibrate(50)`.
-  2. Przy drugiej pozycji kliknij ikonę `Warehouse` (obecną np. przy `[BASE] Baterie AA Alkaliczne`) → w `PantryConfirmModal` wybierz **„Mam całość”** (`in_pantry = true`).
-  3. **Cofnięcie statusu „W spiżarni” (`restoreToBuy`):** Ponownie kliknij ikonę `Warehouse` przy tej samej pozycji oznaczonej jako „W spiżarni” → wybierz przycisk **„Przywróć do kupienia”** (`restoreToBuy`) → sprawdź powrót pozycji do aktywnego stanu (`in_pantry = false`) i zwiększenie licznika pozostałych zakupów, a następnie ponownie oznacz ją jako „Mam całość”, aby dokończyć scenariusz z pkt 4.
-  4. Odhacz wszystkie pozostałe pozycje na liście, sprawdzając licznik postępu (`activeList.itemsLeft`) przy odhaczaniu **ostatniej brakującej pozycji** (gdy na liście jest przynajmniej jedna pozycja z `in_pantry = true`, ale 0 z `is_checked = false && in_pantry = false`).
-  5. Przetestuj „Odznacz wszystkie” (`uncheckAll`) lub odznacz pozycje na liście `[BASE] Dom i Chemia`, przywracając jej stan bazowy.
+  2. Kliknij ikonę `Warehouse` przy pozycji posiadającej zapas w Spiżarni → w `PantryConfirmModal` (`context="active"`) wybierz **„Mam całość”** (`in_pantry = true`).
+  3. **Cofnięcie statusu „W spiżarni” (`restoreToBuy`) oraz opcje „Mam częściowo” / „Nie mam produktu”:** Ponownie kliknij wiersz oznaczony odznaką „W spiżarni” → w `PantryConfirmModal` wybierz **„Przywróć do kupienia”** (`restoreToBuy`) → sprawdź powrót pozycji do aktywnego stanu (`in_pantry = false`) i zwiększenie licznika pozostałych zakupów. Przetestuj także wybór **„Mam częściowo”** (`havePartial` zmniejsza `total_quantity` na aktywnej liście o stan ze spiżarni) oraz **„Nie mam produktu”** (`dontHave`).
+  4. **Edycja ilości inline oraz usuwanie pojedynczej pozycji z Aktywnej Listy (`ConfirmDeleteDialog`):**
+     - Kliknij wartość ilości na nieodhaczonej pozycji, wpisz `999` i naciśnij `Escape` (anulowanie edycji bez zmiany ilości), następnie wpisz `50` i naciśnij `Enter` (zapis nowej ilości; upewnij się też, że dla pozycji z `is_checked = true` lub `in_pantry = true` edycja ilości i stepery `-`/`+` są `disabled`).
+     - Zmniejsz ilość pozycji przyciskiem `-` do `0` (`newQty <= 0`) → otwiera się `ConfirmDeleteDialog` → kliknij **„Anuluj”** (pozycja zostaje na liście), a dla pozycji tymczasowej kliknij **„Usuń”**.
+  5. Odhacz wszystkie pozostałe pozycje na liście, sprawdzając licznik postępu przy odhaczaniu **ostatniej brakującej pozycji** (gdy na liście wszystkie pozycje mają `is_checked = true` lub `in_pantry = true`).
 - **Oczekiwany rezultat:**
   - Pozycja oznaczona jako `in_pantry = true` wyświetla specjalny styl i etykietę „W spiżarni” oraz odejmuje się z licznika pozycji pozostałych do kupienia; akcja **„Przywróć do kupienia”** natychmiast przywraca ją na zakupy (`restoredToList` Toast).
-  - Odhaczenie ostatniego brakującego produktu (gdy reszta jest `is_checked = true` lub `in_pantry = true`) obniża licznik do `0`, wyświetla baner **„Wszystkie produkty zebrane!”** i wyzwala powiadomienie **`LIST_COMPLETED`** (sprawdzane przez wywołanie `notificationService.notify('LIST_COMPLETED', ...)`).
+  - Zmniejszenie ilości poniżej minimum wywołuje `ConfirmDeleteDialog` (ochrona przed przypadkowym skasowaniem pozycji w sklepie).
+  - Odhaczenie ostatniego brakującego produktu obniża licznik niekupionych do `0`, wyświetla baner **„Wszystkie produkty zebrane!”** i wyzwala powiadomienie **`LIST_COMPLETED`** (`notificationService.notify('LIST_COMPLETED', ...)`).
 
 ---
 
 #### `TC-ACT-05` — Kolejka Offline (`offlineMutationQueue`) i Konflikt Współbieżności (`OCC updated_at`)
 - **Adnotacja:** `[Playwright: Mock/Route]`
-- **Tagi:** `@module:active-lists` `@type:corner-case` `@type:negative` `@state:READONLY`
-- **Warunki wstępne:** Otwarta Aktywna Lista `[BASE] Zakupy Spożywcze Tydzień` w trybie online.
+- **Tagi:** `@module:active-lists` `@type:corner-case` `@type:negative` `@state:TEMP`
+- **Warunki wstępne:** Otwarta Aktywna Lista w trybie online.
 - **Kroki:**
   1. **Tryb Offline w sklepie (piwnica / brak zasięgu):** Wywołaj `await context.setOffline(true)` w Playwright (lub wyłącz Wi-Fi/LTE manualnie).
-  2. Odhacz 2 pozycje na aktywnej liście i zmień ilość jednej z nich steperem (`+`).
+  2. Odhacz pozycję na aktywnej liście i zmień ilość steperem (`+`).
   3. Zweryfikuj zawartość `localStorage` pod kluczem kolejki `offlineMutationQueue` oraz stan UI.
   4. Przywróć sieć (`await context.setOffline(false)`) i odczekaj na automatyczny flush kolejki.
-  5. **Konflikt OCC (`shoppingItemConflict.ts`):** Zasymuluj zdarzenie Realtime z innego urządzenia ze starszym lub nowszym `updated_at`, w którym partner kupił pozycję (`is_checked = true`), podczas gdy lokalne opóźnione żądanie próbuje zapisać `is_checked = false`.
+  5. **Konflikt OCC (`shoppingItemConflict.ts` / HTTP `409`):** Zasymuluj konflikt `409` lub zdarzenie Realtime z innego urządzenia ze starszym/nowszym `updated_at`, w którym partner kupił pozycję (`is_checked = true`), podczas gdy lokalne opóźnione żądanie próbuje zapisać `is_checked = false`.
 - **Oczekiwany rezultat:**
-  - **Podczas Offline:** Odhaczone pozycje **NIE robią rollbacku** (zostają przekreślone!), w UI widać status/Toast `toasts.networkOffline`, a mutacje czekają w kolejce w `localStorage`.
+  - **Podczas Offline:** Odhaczone pozycje **NIE robią rollbacku** (zostają przekreślone!), w UI widać status `Offline`, a mutacje czekają w kolejce w `localStorage`.
   - **Po powrocie sieci:** Kolejka synchronizuje się z Supabase i opróżnia.
   - **Konflikt OCC:** Pozycja raz oznaczona jako kupiona (`is_checked = true`) przez któregokolwiek domownika **nigdy** nie jest samoczynnie odznaczana przez opóźnioną odpowiedź ze starszego stanu (`resolveShoppingItemConflict`).
 
@@ -1024,53 +1036,67 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 #### `TC-ACT-06` — Archiwizacja Aktywnej Listy (`archive_shopping_list`) — 3 Niezmienniki Domenowe (`[BASE]`)
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:active-lists` `@type:happy-path` `@type:corner-case` `@state:BASE`
-- **Warunki wstępne:** Utwórz z Koszyka dedykowaną listę do zamknięcia np. **`[BASE] Zakupy Weekendowe`** (zamiast niszczyć główną `[BASE] Zakupy Spożywcze Tydzień`, dzięki czemu zawsze masz aktywną listę bazową w zakładce!) zawierającą dokładnie **3 pozycje**:
-  1. `[BASE] Ryż basmati` — ilość: `500 g`, ustaw jako **kupione** (`is_checked = true`, `in_pantry = false`),
+- **Warunki wstępne:** Utwórz z Koszyka dedykowaną listę do zamknięcia **`[BASE] Zakupy Weekendowe`** (zamiast niszczyć główną `[BASE] Zakupy Spożywcze Tydzień`, dzięki czemu zawsze masz aktywną listę bazową w zakładce!) zawierającą **3 pozycje**:
+  1. `[BASE] Sól morska` (`100 g`) lub `[BASE] Ryż basmati` (`500 g`) — ustaw jako **kupione** (`is_checked = true`, `in_pantry = false`),
   2. `[BASE] Oliwa z oliwek Extra Virgin` — ilość: `100 ml`, ustaw jako **posiadane w spiżarni** (`is_checked = false`, `in_pantry = true` przez `PantryConfirmModal`),
-  3. `[BASE] Pierś z kurczaka` — ilość: `300 g`, nadpisz kategorię np. na `[BASE] Suplementy i Odżywki` (lub zostaw niestandardową), powiązane opcjonalnie z `meal_plan_item_id`, zostaw jako **niekupione** (`is_checked = false`, `in_pantry = false`).
+  3. `[BASE] Pierś z kurczaka` — ilość: `300 g`, zostaw jako **niekupione** (`is_checked = false`, `in_pantry = false`).
 - **Kroki:**
-  1. Zapisz aktualną ilość `[BASE] Ryż basmati` i `[BASE] Oliwa z oliwek Extra Virgin` w Spiżarni przed archiwizacją.
-  2. Kliknij **„Zakończ i Zarchiwizuj”** (`finishShopping`), potwierdzając opcję zwrotu niekupionych artykułów do koszyka.
+  1. Zapisz aktualny stan zapasów w Spiżarni przed archiwizacją.
+  2. Kliknij **„Zakończ i Zarchiwizuj”** (`handleArchiveList` — wykonuje atomowe RPC `archive_shopping_list` bezpośrednio i automatycznie zwraca niekupione pozycje do Koszyka Roboczego).
   3. Sprawdź kolejno: **Spiżarnię**, **Koszyk Roboczy** oraz **Historię**.
-  4. *(Weryfikacja Push `LIST_CLEARED_OR_ARCHIVED`)*: Przechwyć wywołanie `POST /functions/v1/send-push-notification` podczas archiwizacji listy (wariant `archived`) oraz w `TC-ACT-07` / przy czyszczeniu aktywnej listy (wariant `cleared`).
+  4. *(Weryfikacja Push `LIST_CLEARED_OR_ARCHIVED`)*: Przechwyć wywołanie `POST /functions/v1/send-push-notification` podczas archiwizacji listy (wariant `archived`) oraz przy usuwaniu/czyszczeniu aktywnej listy (wariant `cleared`).
 - **Oczekiwany rezultat (Weryfikacja 3 niezmienników domenowych):**
-  1. **Auto-zasilanie Spiżarni:** `[BASE] Ryż basmati` (`is_checked = true, in_pantry = false`) automatycznie powiększył stan w Spiżarni o `+500 g` i ustawił `last_purchased_at` na dzisiaj!
-  2. **Brak dublowania `in_pantry`:** `[BASE] Oliwa z oliwek Extra Virgin` (`in_pantry = true`) **NIE zwiększyła** stanu w Spiżarni (zostało dokładnie `500 ml`).
-  3. **Zwrot niekupionych do Koszyka:** `[BASE] Pierś z kurczaka` (`300 g`) wróciła do Koszyka Roboczego przez `addMultipleToDraft`, **zachowując przypisaną na liście kategorię** oraz `meal_plan_item_id`!
-  4. Lista `[BASE] Zakupy Weekendowe` zniknęła z Aktywnych List i pojawiła się w **Historii** ze statusem `archived` i wypełnionym `completed_at`.
+  1. **Auto-zasilanie Spiżarni:** Kupiona pozycja (`is_checked = true, in_pantry = false`) automatycznie powiększa stan w Spiżarni i ustawia `last_purchased_at` na dzisiaj!
+  2. **Brak dublowania `in_pantry`:** `[BASE] Oliwa z oliwek Extra Virgin` (`in_pantry = true`) **NIE zwiększa** stanu w Spiżarni (zostaje dokładnie `500 ml`).
+  3. **Zwrot niekupionych do Koszyka:** `[BASE] Pierś z kurczaka` (`300 g`) wraca automatycznie do Koszyka Roboczego przez `addMultipleToDraft`, **zachowując przypisaną na liście kategorię** oraz `meal_plan_item_id`!
+  4. Lista `[BASE] Zakupy Weekendowe` znika z Aktywnych List i pojawia się w **Historii** ze statusem `archived` i wypełnionym `completed_at`.
   5. **Powiadomienie Push (`LIST_CLEARED_OR_ARCHIVED`):** Wyzwalane z tytułem `📦 Zaktualizowano listę`, odpowiednim komunikatem `bodyArchived` (lub `bodyCleared`), `tag: "list-{listId}"` i `url: "/?tab=history"`.
 
 ---
 
-#### `TC-ACT-07` — Tworzenie pustej listy, zmiana nazwy, usuwanie listy `[TEMP]` i walidacja nazwy
+#### `TC-ACT-07` — Tworzenie pustej listy, zmiana nazwy, ustawienie jako Domyślna, usuwanie listy `[TEMP]` i walidacja nazwy
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:active-lists` `@type:happy-path` `@type:negative` `@state:TEMP`
 - **Kroki:**
-  1. Kliknij **„Nowa Lista”** (`CreateActiveListDialog`) → spróbuj zatwierdzić pustą nazwę (lub >150 znaków) → następnie utwórz pustą listę `[TEMP] Pusta Lista`.
-  2. Zweryfikuj stan pusty `activeList.emptyTitle` i przycisk `goToDraft`.
-  3. Zmień nazwę listy przez `RenameActiveListDialog` na `[TEMP] Lista Zmieniona`.
+  1. Kliknij **„Nowa Lista”** (`CreateActiveListDialog`) → spróbuj zatwierdzić pustą nazwę (lub >150 znaków) → następnie utwórz pustą listę `[TEMP] Lista Robocza`.
+  2. Zweryfikuj stan pusty `activeList.emptyTitle`.
+  3. Zmień nazwę listy przez `RenameActiveListDialog` na `[TEMP] Lista Robocza Zmieniona`.
   4. Kliknij **„Usuń Listę”** → w `ConfirmDeleteDialog` najpierw kliknij „Anuluj”, a następnie potwierdź „Usuń”.
 - **Oczekiwany rezultat:** Walidacja blokuje puste nazwy; lista `[TEMP]` zostaje trwale usunięta z `shopping_lists`, a widok automatycznie przełącza się na domyślną `[BASE] Zakupy Spożywcze Tydzień`.
 
 ---
 
-### Moduł 08: Historia Zakupów i Retencja Archiwum (`@module:history`)
-
-**Cel modułu:** Weryfikacja sortowania historii malejąco po dacie zakończenia, śledzenia `original_name` po zmianie nazwy, przywracania pozycji do Koszyka z zachowaniem nadpisanych kategorii oraz paginacji powyżej 30 wpisów.
+#### `TC-ACT-08` — Synchronizacja Realtime WebSockets między 2 kartami (`pageA ↔ pageB`) i odporność na echo lokalnych mutacji (`trackLocalItemMutation`)
+- **Adnotacja:** `[Playwright: E2E]`
+- **Tagi:** `@module:active-lists` `@type:happy-path` `@type:corner-case` `@state:TEMP`
+- **Warunki wstępne:** Utworzona lista `[TEMP] Lista Realtime` z pozycją `[BASE] Sól morska` (`100 g`).
+- **Kroki:**
+  1. Otwórz w tym samym kontekście sesji drugą kartę przeglądarki (`const pageB = await context.newPage()`) na adresie `/?tab=active` i wybierz listę `[TEMP] Lista Realtime`.
+  2. Na Karcie A (`page`) kliknij szybko dwukrotnie przycisk zwiększania ilości (`+` `+`) i sprawdź, że `localMutationTracker` (`trackLocalItemMutation`) chroni UI przed cofnięciem licznika przez opóźnione echo pierwszego żądania.
+  3. Odhacz pozycję na Karcie A (`is_checked = true`), zamknij Kartę B i usuń listę `[TEMP] Lista Realtime`.
+- **Oczekiwany rezultat:** Obie karty widzą spójny stan listy w ramach gospodarstwa, a szybkie serie kliknięć stepera nie powodują migotania ani cofania wartości.
 
 ---
 
-#### `TC-HIST-01` — Przegląd Historii i kolejność sortowania po `completed_at`
+### Moduł 08: Historia Zakupów i Retencja Archiwum (`@module:history`)
+
+**Cel modułu:** Weryfikacja sortowania historii malejąco po dacie zakończenia, 3 wariantów odznaki `HistoryStatusBadge`, śledzenia `original_name` po zmianie nazwy, przywracania pozycji do Koszyka z zachowaniem nadpisanych kategorii, odporności na usunięty produkt z katalogu (`product = null`) oraz paginacji powyżej 30 wpisów.
+
+---
+
+#### `TC-HIST-01` — Przegląd Historii, kolejność sortowania po `completed_at` i 3 stany `HistoryStatusBadge`
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:history` `@type:happy-path` `@state:BASE`
 - **Warunki wstępne:** W Historii znajduje się co najmniej lista `[BASE] Zakupy Weekendowe` z `TC-ACT-06`.
 - **Kroki:**
   1. Przejdź do zakładki **Historia** (`HistoryView` / `DesktopHistoryView`).
-  2. Sprawdź kolejność list, prezentowane daty oraz wskaźnik `itemsBoughtRatio` (np. `1 z 3 artykułów kupionych`).
-  3. Kliknij pole wyszukiwania `history.searchPlaceholder` i wpisz `Weekendowe`, a potem wyczyść filtr.
+  2. Sprawdź kolejność zarchiwizowanych list, sformatowaną datę i godzinę zakończenia (`completed_at`) oraz odznakę statusu realizacji `<HistoryStatusBadge />`.
 - **Oczekiwany rezultat:**
   - Najnowsza zarchiwizowana lista znajduje się na samej górze (sortowanie malejąco po `completed_at`).
-  - Wyszukiwanie filtruje karty natychmiast po nazwie i oryginalnej nazwie.
+  - Odznaka `<HistoryStatusBadge />` prezentuje właściwy z 3 stanów (`calculateHistoryListStatus`):
+    - **100% kupionych (`checked === total && total > 0`)**: zielona odznaka **`Zrealizowano`**,
+    - **Częściowo kupione (`0 < checked < total`)**: żółto-pomarańczowa odznaka **`Zrealizowano (X/Y)`**,
+    - **0 kupionych (`checked === 0`)**: czerwona odznaka **`Niezrealizowano`**.
 
 ---
 
@@ -1079,12 +1105,12 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 - **Tagi:** `@module:history` `@type:happy-path` `@type:corner-case` `@state:BASE`
 - **Warunki wstępne:** Zarchiwizowana lista `[BASE] Zakupy Weekendowe` (nazwa niezmieniana od momentu zamknięcia).
 - **Kroki:**
-  1. Otwórz szczegóły listy `[BASE] Zakupy Weekendowe` (`HistoryListDetailsSheet`).
+  1. Otwórz szczegóły listy `[BASE] Zakupy Weekendowe` (`HistoryListDetailsSheet` na Mobile / prawy panel split-pane w `DesktopHistoryView` na Desktopie).
   2. Przed edycją sprawdź metadane:
      - Widoczne są **obie daty**: `Zakończono` (`completed_at`) oraz `Utworzono` (`created_at`).
      - Pod tytułem **NIE** wyświetla się linijka „Oryginalna nazwa” (ponieważ `name === original_name`).
   3. Kliknij ikonę edycji nazwy, zmień nazwę na **`[BASE] Archiwum: Weekendowe zakupy spożywcze`** i zatwierdź `Enter`.
-  4. Zamknij szczegóły i sprawdź kartę tej listy na głównym widoku **Historia**.
+  4. Sprawdź kartę tej listy na głównym widoku **Historia**.
 - **Oczekiwany rezultat:**
   - Zarówno w szczegółach, jak i na karcie w głównej liście Historii pod nowym tytułem pojawia się linijka z oryginalną nazwą z momentu archiwizacji (`[BASE] Zakupy Weekendowe`) zapisana drobną czcionką (`text-xs text-muted-foreground font-mono`).
   - Próba zapisu samej spacji jako nazwy jest blokowana/ignorowana.
@@ -1098,34 +1124,33 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 - **Kroki:**
   1. Sprawdź pasek przycisków na dole szczegółów (zarówno `[Desktop >=1024px]`, jak i `[Mobile PWA 360px]`): przyciski **„Dodaj do koszyka”** oraz czerwony **„Usuń listę”** muszą dzielić szerokość po 50% (`grid-cols-2` / `w-1/2`).
   2. Kliknij pojedynczy przycisk `+` przy jednej pozycji albo kliknij **„Dodaj do koszyka”** (wszystkie pozycje).
-  3. Przejdź do **Koszyka Roboczego** i sprawdź kategorię przywróconej pozycji `[BASE] Pierś z kurczaka` (czy zachowała kategorię wybraną na liście, a nie domyślną z katalogu).
-  4. *(Sprzątanie)*: Usuń przywrócone duplikaty z Koszyka jeśli nie są potrzebne pod Moduł 09.
+  3. Przejdź do **Koszyka Roboczego** i sprawdź przywróconą pozycję (czy zachowała kategorię wybraną na liście, a nie domyślną z katalogu), po czym wyczyść Koszyk Roboczy.
 - **Oczekiwany rezultat:**
-  - Przywrócone pozycje trafiają do Koszyka z zachowaniem przypisanej na liście kategorii (`shopping_list_items_archive.category_id`), a pasek akcji na dole jest idealnie symetryczny 50/50.
+  - Przywrócone pozycje trafiają do Koszyka z zachowaniem przypisanej na liście kategorii, a pasek akcji na dole jest idealnie symetryczny 50/50.
 
 ---
 
-#### `TC-HIST-04` — Paginacja historii powyżej 30 wpisów (`MED-14`) i usuwanie wpisu z Historii
+#### `TC-HIST-04` — Paginacja historii powyżej 30 wpisów (`MED-14`), odporność na usunięty produkt (`product: null`) i usuwanie wpisu z Historii
 - **Adnotacja:** `[Playwright: Mock/Route]` + `[Playwright: E2E]`
 - **Tagi:** `@module:history` `@type:corner-case` `@type:negative` `@state:TEMP`
 - **Kroki:**
-  1. `[Playwright: Mock/Route]`: Zamockuj odpowiedź `getHistoryLists` zwracającą pełne `30` zarchiwizowanych list (strona 1) + dodatkowe `5` list (strona 2 po `offset = 30`). Sprawdź pojawienie się przycisku **„Pokaż starsze listy”** (`history.loadMore`) i jego działanie po kliknięciu.
-  2. `[Playwright: E2E]`: W szczegółach tymczasowej zarchiwizowanej listy kliknij czerwony przycisk **„Usuń listę”** → w `ConfirmDeleteDialog` kliknij „Anuluj”, a następnie potwierdź „Usuń”.
+  1. `[Playwright: Mock/Route]`: Zamockuj odpowiedź `shopping_lists?status=eq.archived` zwracającą `31` zarchiwizowanych list (w tym listy ze statusem pełnym, częściowym i niezrealizowanym oraz pozycję z `product: null, ad_hoc_name: '[TEMP] Produkt Usunięty Z Katalogu'` po `ON DELETE SET NULL`). Sprawdź pojawienie się przycisku **„Pokaż starsze listy”** (`history.loadMore`) oraz poprawne wyrenderowanie szczegółów pozycji z `product: null` bez błędu runtime.
+  2. `[Playwright: E2E]`: W szczegółach zarchiwizowanej listy kliknij czerwony przycisk **„Usuń listę”** → w `ConfirmDeleteDialog` kliknij „Anuluj” (lista pozostaje), lub na liście `[TEMP]` potwierdź „Usuń”.
 - **Oczekiwany rezultat:**
-  - Przy `>= 30` wynikach pojawia się przycisk ładowania kolejnych stron; po doładowaniu łączna lista rośnie do `35` elementów.
-  - Usunięcie listy wymaga potwierdzenia w `ConfirmDeleteDialog` i trwale usuwa wpis z Historii.
+  - Przy `> 30` wynikach pojawia się przycisk ładowania kolejnych stron; pozycje po usuniętych produktach katalogowych bezpiecznie wyświetlają `ad_hoc_name` / fallback.
+  - Szybkie przełączanie między kartami w `DesktopHistoryView` jest chronione przez `latestDetailRequestRef` przed wyścigiem zapytań, a usunięcie listy wymaga potwierdzenia w `ConfirmDeleteDialog`.
 
 ---
 
 ### Moduł 09: Kalendarz Posiłków, Pipeline Statusów i Szablony Tygodniowe ADR-009 (`@module:calendar-templates`)
 
-**Cel modułu:** Finał ścieżki użytkownika — planowanie posiłków w 3 perspektywach czasowych (Miesiąc / Tydzień / Dzień), weryfikacja kumulatywnej rezerwacji Spiżarni i cyklu statusów (`Zaplanowane → W koszyku → Na liście → Kupione`), obsługa alarmu brakujących składników (`⚠️` `UncertaintyWarningModal`), blokada historycznych dat oraz tworzenie i aplikowanie **presaved Szablonów Tygodniowych** ze skalowaniem porcji `0.5x–4x`.
+**Cel modułu:** Finał ścieżki użytkownika — planowanie posiłków w 3 perspektywach czasowych (Miesiąc / Tydzień / Dzień), weryfikacja kumulatywnej rezerwacji Spiżarni, skalowania przez `target_kcal` (`getEffectiveMultiplier`) i cyklu statusów (`Zaplanowane → W koszyku → Na liście → Kupione`), obsługa alarmu brakujących składników (`⚠️` `UncertaintyWarningModal`), blokada historycznych dat oraz tworzenie i aplikowanie **presaved Szablonów Tygodniowych** ze skalowaniem porcji `0.5x–4x`.
 
 ---
 
 #### `TC-CAL-01` — Nawigacja po 3 perspektywach Kalendarza i tryb Pn–Pt vs Pn–Nd
 - **Adnotacja:** `[Playwright: E2E]`
-- **Tagi:** `@module:calendar-templates` `@type:happy-path` `@type:rwd` `@state:READONLY`
+- **Tagi:** `@module:calendar-templates` `@type:happy-path` `@type:rwd` `@state:BASE`
 - **Warunki wstępne:** Zakładka **Kalendarz** w `Household_Test`.
 - **Kroki:**
   1. Przełączaj segmenty widoku: **Miesiąc** (`MonthCalendarGrid`) → **Tydzień** (`WeekCalendarView`) → **Dzień** (`DayCalendarView`).
@@ -1148,27 +1173,28 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
   3. Na **Poniedziałek** dodaj również szybkie danie **Ad-Hoc** (`is_ad_hoc = true`): nazwa **`[BASE] Kolacja na mieście (Pizza)`**, pora: **`Kolacja`**, `target_kcal = 950`.
   4. Na karcie śniadania `[BASE] Szejk Białkowy Po Treningu` kliknij ikonę **„Kopiuj na jutro”** (`duplicateNextDay`), aby skopiować je na **Wtorek**.
   5. Zaplanuj `[BASE] Omlet z płatkami owsianymi` na **Środę**, **Czwartek** i **Piątek**, oraz `[BASE] Kurczak Teriyaki z ryżem i awokado` na **Wtorek** i **Środę** (potrzebne do testu kumulatywnego zapasu awokado w `TC-CAL-03` i szablonu w `TC-CAL-06`).
-  6. **Edycja, gotowanie z karty dnia i usuwanie posiłku `[TEMP]`:** W **Widoku Dnia** sprawdź pigułki składników na karcie `DayMealPlanCard` (składniki obecne w Spiżarni lub z `is_pantry_item` podświetlone na zielono z ikoną `Warehouse`), kliknij akcję **„Ugotowano”** bezpośrednio z karty dnia (`CookMealDeductModal`), następnie edytuj tymczasowy posiłek (`AddCalendarMealDialog` w trybie edycji) i usuń go przez `ConfirmDeleteDialog`.
+  6. **Edycja, gotowanie z karty dnia i usuwanie posiłku `[TEMP]`:** W **Widoku Dnia** sprawdź pigułki składników na karcie `DayMealPlanCard` (składniki obecne w Spiżarni podświetlone na zielono z ikoną `Warehouse`), kliknij akcję **„Ugotowano”** bezpośrednio z karty dnia (`CookMealDeductModal`), następnie edytuj tymczasowy posiłek (`AddCalendarMealDialog` w trybie edycji) i usuń go przez `ConfirmDeleteDialog`.
 - **Oczekiwany rezultat:**
   - W **Widoku Dnia** posiłki są zgrupowane w czytelne sekcje poranne/popołudniowe (`Śniadanie`, `Obiad`, `Kolacja`) z odznakami kategorii.
   - Pasek `CalendarMacroBar` poprawnie sumuje kalorie i B/W/T ze wszystkich posiłków dnia (zarówno z przepisów z bazy, jak i z wpisów Ad-Hoc `950 kcal`).
-  - Przycisk „Kopiuj na jutro” tworzy identyczny wpis w dniu następnym (`+1 dzień`), a akcja **„Ugotowano”** z kalendarza zdejmuje ze Spiżarni ilości przeskalowane według porcji zaplanowanego posiłku.
+  - Przycisk „Kopiuj na jutro” tworzy identyczny wpis w dniu następnym (`+1 dzień`), a akcja **„Ugotowano”** z kalendarza zdejmuje ze Spiżarni ilości przeskalowane według porcji/kalorii zaplanowanego posiłku.
 
 ---
 
-#### `TC-CAL-03` — Pipeline Statusów i Kumulatywna Rezerwacja Spiżarni (`MED-16`)
+#### `TC-CAL-03` — Pipeline Statusów, Skalowanie `target_kcal` (`getEffectiveMultiplier`) i Kumulatywna Rezerwacja Spiżarni (`MED-16`)
 - **Adnotacja:** `[Playwright: E2E]`
-- **Tagi:** `@module:calendar-templates` `@type:happy-path` `@type:corner-case` `@state:BASE`
+- **Tagi:** `@module:calendar-templates` `@type:happy-path` `@type:corner-case` `@state:TEMP`
 - **Warunki wstępne:**
-  - W Spiżarni znajdują się łącznie `3 pcs` `[BASE] Awokado` (`2` Hass + `1` Fuerte), `500 ml` oliwy, `200 g` soli (brak kurczaka!).
-  - W zaplanowanym tygodniu znajduje się `[BASE] Kurczak Teriyaki z ryżem i awokado` (wymagający `0.5 pcs` awokado i `200 g` kurczaka na każde wystąpienie) lub zaplanuj `4` wystąpienia po `1 pcs` awokado.
+  - W Spiżarni znajdują się łącznie `3 pcs` `[BASE] Awokado` (`2` Hass + `1` Fuerte), `500 ml` oliwy, `200 g` soli.
+  - W zaplanowanym tygodniu znajduje się `[BASE] Kurczak Teriyaki z ryżem i awokado` (wymagający `0.5 pcs` awokado i `200 g` kurczaka na każde wystąpienie).
 - **Kroki:**
-  1. Sprawdź początkowe statusy zaplanowanych posiłków w Kalendarzu (**`Zaplanowane`** — brakuje kurczaka/mleka na liście i w spiżarni).
-  2. **Wszystkie 3 poziomy transferu do Koszyka (`Meal` / `Day` / `Week`):**
+  1. Sprawdź początkowe statusy zaplanowanych posiłków w Kalendarzu (**`Zaplanowane`** — gdy brakuje składnika na liście i w spiżarni).
+  2. **Wszystkie 3 poziomy transferu do Koszyka (`Meal` / `Day` / `Week`) oraz skalowanie przez `target_kcal`:**
      - Przetestuj pojedynczy transfer na karcie posiłku (**„Dodaj do koszyka”** — Toast `transferredToDraftSuccess`),
      - Przetestuj transfer całego dnia w Widoku Dnia (**„Wyślij dzień do koszyka”** — Toast `dayTransferredToDraftSuccess`),
      - Przetestuj zbiorczy transfer w Widoku Tygodnia (**„Tydzień do koszyka”** — `transferWeekToDraft` → jeden Toast `weekTransferredToDraftSuccess`).
-     - *(Corner Case 100% w Spiżarni)*: Dla posiłku, którego wszystkie składniki mają pokrycie w Spiżarni lub są `is_pantry_item`, kliknij „Dodaj do koszyka” → sprawdź komunikat `noIngredientsToTransfer` i brak pustych wpisów w Koszyku.
+     - *(Corner Case `target_kcal !== baseKcal`)*: Gdy zaplanowany posiłek ma ustawione `target_kcal = 1625` (czyli `2.0x` bazowych `812.6 kcal`), `getEffectiveMultiplier` mnoży ilości składników eksportowanych do Koszyka przez `target_kcal / baseKcal` (`2.0x`).
+     - *(Corner Case 100% w Spiżarni)*: Dla posiłku, którego wszystkie składniki mają pokrycie w Spiżarni, kliknij „Dodaj do koszyka” → sprawdź komunikat `noIngredientsToTransfer` i brak pustych wpisów w Koszyku.
   3. Sprawdź zawartość **Koszyka Roboczego** i statusy w **Kalendarzu** (powinny zmienić się na **`W koszyku`**!).
   4. Przenieś wygenerowane pozycje z Koszyka na **Aktywną Listę** (np. `[BASE] Zakupy Spożywcze Tydzień`) → sprawdź status w Kalendarzu (**`Na liście`**).
   5. Odhacz wszystkie składniki jednego z posiłków na Aktywnej Liście → sprawdź status tego posiłku w Kalendarzu (**`Kupione`**).

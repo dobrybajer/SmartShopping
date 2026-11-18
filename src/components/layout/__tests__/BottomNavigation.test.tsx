@@ -26,4 +26,17 @@ describe('BottomNavigation Accessibility & Ergonomics (NORM-03 & HIGH-10)', () =
     fireEvent.click(draftBtn)
     expect(onTabChange).toHaveBeenCalledWith('draft')
   })
+
+  it('formats badges above 99 as 99+ to prevent horizontal truncation on 360px screens', () => {
+    render(
+      <BottomNavigation
+        activeTab="cookbook"
+        onTabChange={vi.fn()}
+        draftCount={120}
+        activeCount={100}
+      />
+    )
+
+    expect(screen.getAllByText('99+')).toHaveLength(2)
+  })
 })

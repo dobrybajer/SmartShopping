@@ -13,7 +13,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     await navigateToTab(page, 'calendar')
   })
 
-  test('TC-CAL-01: Switch Month / Week / Day views and toggle Workweek (Pn-Pt) vs Full Week (Pn-Nd) @module:calendar @type:happy-path @state:BASE', async ({
+  test('TC-CAL-01: Switch Month / Week / Day views and toggle Workweek (Pn-Pt) vs Full Week (Pn-Nd) @module:calendar-templates @type:happy-path @state:BASE', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Miesiąc|Month)$/i }).first().click()
@@ -32,7 +32,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     await expect(page.getByRole('button', { name: /Dodaj posiłek|Add meal/i }).first()).toBeVisible()
   })
 
-  test('TC-CAL-02: Plan [BASE] meal on next Monday + ad-hoc quick meal + duplicate next day + delete [TEMP] @module:calendar @type:happy-path @state:BASE', async ({
+  test('TC-CAL-02: Plan [BASE] meal on next Monday + ad-hoc quick meal + duplicate next day + delete [TEMP] @module:calendar-templates @type:happy-path @state:BASE', async ({
     page,
   }) => {
     const nextMonday = getNextMondayDate(1)
@@ -147,7 +147,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     }
   })
 
-  test('TC-CAL-03: 3-level calendar-to-draft transfers (meal, day, week) + cumulative pantry reservation @module:calendar @type:happy-path @state:TEMP', async ({
+  test('TC-CAL-03: 3-level calendar-to-draft transfers (meal, day, week) + cumulative pantry reservation @module:calendar-templates @type:happy-path @state:TEMP', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
@@ -170,7 +170,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     }
   })
 
-  test('TC-CAL-04: UncertaintyWarningModal lists low-confidence / expired pantry ingredient & allows restore @module:calendar @type:corner-case @state:TEMP', async ({
+  test('TC-CAL-04: UncertaintyWarningModal lists low-confidence / expired pantry ingredient & allows restore @module:calendar-templates @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
@@ -193,7 +193,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     }
   })
 
-  test('TC-CAL-05: Past-date Read-Only Archive mode blocks adding/editing meals @module:calendar @type:negative @state:BASE', async ({
+  test('TC-CAL-05: Past-date Read-Only Archive mode blocks adding/editing meals @module:calendar-templates @type:negative @state:BASE', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
@@ -209,7 +209,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     }
   })
 
-  test('TC-CAL-06: Save canonical [BASE] Weekly Templates (Pn-Pt & Pn-Nd) @module:calendar @type:happy-path @state:BASE', async ({
+  test('TC-CAL-06: Save canonical [BASE] Weekly Templates (Pn-Pt & Pn-Nd) @module:calendar-templates @type:happy-path @state:BASE', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
@@ -246,7 +246,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     await closeTopDialog(page)
   })
 
-  test('TC-CAL-07: Apply template with 1.5x portion scaling to future week, test empty-week save guard & clean [TEMP] @module:calendar @type:corner-case @state:TEMP', async ({
+  test('TC-CAL-07: Apply template with 1.5x portion scaling to future week, test empty-week save guard & clean [TEMP] @module:calendar-templates @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()

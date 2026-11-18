@@ -86,9 +86,30 @@ export const AppLayoutRouter: React.FC = () => {
   )
   const { t } = useTranslation()
   const [activeTab, setActiveTabState] = useState<TabType>(() => {
+    const validTabs: TabType[] = [
+      'cookbook',
+      'calendar',
+      'products',
+      'draft',
+      'active',
+      'history',
+      'pantry'
+    ]
     try {
+      if (typeof window !== 'undefined' && window.location.search) {
+        const params = new URLSearchParams(window.location.search)
+        const listId = params.get('listId')
+        if (listId) {
+          useShoppingStore.getState().setSelectedActiveListId(listId)
+        }
+        const tabParam = params.get('tab') as TabType | null
+        if (tabParam && validTabs.includes(tabParam)) {
+          localStorage.setItem('smartshopping_active_tab', tabParam)
+          return tabParam
+        }
+      }
       const saved = localStorage.getItem('smartshopping_active_tab') as TabType
-      if (saved && ['cookbook', 'calendar', 'products', 'draft', 'active', 'history', 'pantry'].includes(saved)) {
+      if (saved && validTabs.includes(saved)) {
         return saved
       }
     } catch {

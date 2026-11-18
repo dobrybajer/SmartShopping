@@ -15,8 +15,16 @@ export const test = base.extend<HouseholdTestOptions & { ensureTestHousehold: vo
 
   ensureTestHousehold: [
     async ({ page, skipHouseholdGuard }, use) => {
+      const runtimeErrors: string[] = []
+      const onPageError = (err: Error) => {
+        runtimeErrors.push(err.message || String(err))
+      }
+      page.on('pageerror', onPageError)
+
       if (skipHouseholdGuard) {
         await use()
+        page.off('pageerror', onPageError)
+        expect(runtimeErrors, 'Uncaught runtime pageerror detected').toEqual([])
         return
       }
 
@@ -26,6 +34,8 @@ export const test = base.extend<HouseholdTestOptions & { ensureTestHousehold: vo
       await switchOrCreateTestHousehold(page, TEST_HOUSEHOLD_NAME)
 
       await use()
+      page.off('pageerror', onPageError)
+      expect(runtimeErrors, 'Uncaught runtime pageerror detected').toEqual([])
     },
     { auto: true },
   ],

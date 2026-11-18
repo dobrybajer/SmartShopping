@@ -44,19 +44,36 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
       const dialog = page.getByRole('dialog').last()
       await expect(dialog).toBeVisible()
 
+      // Verify legacy static "Produkt spiżarniowy (na stanie)" checkbox is absent per ADR-008
+      await expect(dialog.getByText(/Produkt spiżarniowy \(na stanie\)/i)).toHaveCount(0)
+
+      // Select meal category "Obiad" / "Lunch" if present
+      const lunchCatBtn = dialog.getByRole('button', { name: /^(Obiad|Lunch)$/i }).first()
+      if ((await lunchCatBtn.count()) > 0) {
+        await lunchCatBtn.click()
+      }
+
       await dialog.locator('input[placeholder*="Jajecznica" i]').fill(CANONICAL_MEAL_NAME)
 
-      // Add Tag "Obiad" & "Białko" if tag input exists
+      // Add Tags "WOD" & "Wysokobiałkowe"
       const tagInput = dialog.locator('input[placeholder*="tag" i]').first()
       if ((await tagInput.count()) > 0) {
-        await tagInput.fill('Obiad')
+        await tagInput.fill('WOD')
         await tagInput.press('Enter')
-        await tagInput.fill('Białko')
+        await tagInput.fill('Wysokobiałkowe')
         await tagInput.press('Enter')
       }
 
-      const addIng = async (productName: string, qty: string) => {
+      const addIng = async (productName: string, qty: string, kitchenUnit?: string) => {
         await selectFromAutocomplete(dialog, productName)
+        if (kitchenUnit) {
+          const unitSelect = dialog
+            .locator('select[aria-label*="Miara kuchenna" i], select[aria-label*="Kitchen unit" i]')
+            .first()
+          if ((await unitSelect.count()) > 0) {
+            await unitSelect.selectOption(kitchenUnit)
+          }
+        }
         await dialog.locator('input[type="number"]').first().fill(qty)
         // Click the inline "+" add ingredient button next to quantity input
         await dialog
@@ -66,10 +83,12 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
           .click()
       }
 
-      await addIng('[BASE] Pierś z kurczaka', '200')
-      await addIng('[BASE] Ryż basmati', '80')
-      await addIng('[BASE] Oliwa z oliwek Extra Virgin', '10')
-      await addIng('[BASE] Awokado', '1')
+      // 5 canonical ingredients per Section 1.5C -> 812.6 kcal (813 kcal)
+      await addIng('[BASE] Pierś z kurczaka', '200', 'g')
+      await addIng('[BASE] Ryż basmati', '0.4', 'cup')
+      await addIng('[BASE] Oliwa z oliwek Extra Virgin', '1', 'tbsp')
+      await addIng('[BASE] Awokado', '0.5')
+      await addIng('[BASE] Sól morska', '2', 'pinch')
 
       // Select reference child [BASE] Awokado Hass for general product [BASE] Awokado
       const refSelect = dialog.locator('select').filter({ hasText: /Awokado Hass/i }).first()

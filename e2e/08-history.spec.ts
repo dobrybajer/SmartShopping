@@ -120,7 +120,7 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
     await expect(page.locator('main').getByText('[BASE] Sól morska')).toHaveCount(0)
   })
 
-  test('TC-HIST-04: Bounded pagination (>30 archived lists mock) & delete [TEMP] archive guard @module:history @type:corner-case @state:TEMP', async ({
+  test('TC-HIST-04: Bounded pagination (>30 archived lists mock), 3 HistoryStatusBadge states, deleted product fallback & delete [TEMP] archive guard @module:history @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     const mockLists = Array.from({ length: 31 }, (_, i) => ({
@@ -133,7 +133,27 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
       created_at: new Date(Date.now() - i * 86400000).toISOString(),
       updated_at: new Date(Date.now() - i * 86400000).toISOString(),
       household_id: '00000000-0000-4000-8000-000000000099',
-      items: [],
+      items:
+        i === 0
+          ? [
+              {
+                id: 'item-del-1',
+                product_id: null,
+                product: null,
+                ad_hoc_name: '[TEMP] Produkt Usunięty Z Katalogu',
+                total_quantity: 2,
+                is_checked: true,
+                in_pantry: false,
+                added_ad_hoc: false,
+                category_id: null,
+              },
+            ]
+          : i === 1
+            ? [
+                { id: 'item-p-1', is_checked: true },
+                { id: 'item-p-2', is_checked: false },
+              ]
+            : [{ id: `item-n-${i}`, is_checked: false }],
     }))
 
     await page.route('**/rest/v1/shopping_lists*', async (route) => {
@@ -170,6 +190,9 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
     const detailContainer = isMobileViewport(page)
       ? page.getByRole('dialog').last()
       : page.locator('main').first()
+    await expect(
+      detailContainer.getByText('[TEMP] Produkt Usunięty Z Katalogu').first()
+    ).toBeVisible({ timeout: 10_000 })
     await expect(
       detailContainer.getByRole('button', { name: /Usuń listę|Delete list/i }).first()
     ).toBeVisible({ timeout: 10_000 })

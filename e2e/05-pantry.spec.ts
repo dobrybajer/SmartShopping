@@ -48,18 +48,25 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
   test('TC-PANTRY-01: Seed [BASE] pantry items with expired, expiringSoon and fresh states @module:pantry @type:happy-path @state:BASE', async ({
     page,
   }) => {
-    const yesterday = addLocalDays(-1)
     const tomorrow = addLocalDays(1)
+    const in5Days = addLocalDays(5)
+    const in90Days = addLocalDays(90)
+    const in180Days = addLocalDays(180)
 
-    await addOrEnsurePantryItem(page, '[BASE] Awokado Hass', '2', yesterday)
+    await addOrEnsurePantryItem(page, '[BASE] Oliwa z oliwek Extra Virgin', '500', in180Days)
+    await addOrEnsurePantryItem(page, '[BASE] Sól morska', '200')
+    await addOrEnsurePantryItem(page, '[BASE] Awokado Hass', '2', tomorrow)
+    await addOrEnsurePantryItem(page, '[BASE] Awokado Fuerte', '1', in5Days)
+    await addOrEnsurePantryItem(page, '[BASE] Ryż basmati', '50', in90Days)
+    await addOrEnsurePantryItem(page, '[BASE] Baterie AA Alkaliczne', '4')
     await addOrEnsurePantryItem(page, '[BASE] Pierś z kurczaka', '400', tomorrow)
-    await addOrEnsurePantryItem(page, '[BASE] Ryż basmati', '1000')
-    await addOrEnsurePantryItem(page, '[BASE] Sól morska', '500')
 
-    await expect(page.getByText('[BASE] Awokado Hass').first()).toBeVisible()
-    await expect(page.getByText('[BASE] Pierś z kurczaka').first()).toBeVisible()
-    await expect(page.getByText('[BASE] Ryż basmati').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Oliwa z oliwek Extra Virgin').first()).toBeVisible()
     await expect(page.getByText('[BASE] Sól morska').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Awokado Hass').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Awokado Fuerte').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Ryż basmati').first()).toBeVisible()
+    await expect(page.getByText('[BASE] Baterie AA Alkaliczne').first()).toBeVisible()
   })
 
   test('TC-PANTRY-02: Sort by expiry date vs aisle, inline qty adjustment & clear date @module:pantry @type:happy-path @state:TEMP', async ({

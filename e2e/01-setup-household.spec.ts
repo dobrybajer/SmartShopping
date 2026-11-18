@@ -408,6 +408,36 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     })
     const dialog = await openAccountDetailsDialog(page)
     await expect(dialog.getByText(/Zablokowane w przeglądarce|Blocked in browser/i)).toBeVisible()
+    await closeTopDialog(page)
+
+    // Symulacja stanu 'granted' + aktywnej subskrypcji Push do pełnego testu UI notifySelf i TEST_NOTIFICATION
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'Notification', {
+        writable: true,
+        value: { permission: 'granted', requestPermission: async () => 'granted' },
+      })
+      if ('serviceWorker' in navigator) {
+        const mockSub = {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/mock-e2e-endpoint',
+          unsubscribe: async () => true,
+          toJSON: () => ({
+            endpoint: 'https://fcm.googleapis.com/fcm/send/mock-e2e-endpoint',
+            keys: { p256dh: 'mockP256dhKey', auth: 'mockAuthKey' },
+          }),
+        }
+        Object.defineProperty(navigator.serviceWorker, 'getRegistration', {
+          configurable: true,
+          value: async () => ({
+            active: { state: 'activated' },
+            pushManager: {
+              getSubscription: async () => mockSub,
+              subscribe: async () => mockSub,
+            },
+          }),
+        })
+      }
+      localStorage.setItem('smartshopping_notify_self', 'false')
+    })
 
     // Przechwycenie wywołania Edge Function send-push-notification
     const capturedPayloads: Array<Record<string, unknown>> = []
@@ -421,12 +451,35 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
       })
     })
 
-    await page.evaluate(() => {
-      localStorage.setItem('smartshopping_notify_self', 'true')
+    const dialogGranted = await openAccountDetailsDialog(page)
+    const sendTestBtn = dialogGranted.getByRole('button', {
+      name: /Wyślij testowe powiadomienie|Send test notification/i,
     })
+    await expect(sendTestBtn).toBeVisible({ timeout: 5_000 })
+
+    // Wariant A: notifySelf = false -> sentCount: 0 -> komunikat noDevices
+    const notifySelfCheckbox = dialogGranted.locator('#notify-self-checkbox')
+    if ((await notifySelfCheckbox.getAttribute('aria-checked')) === 'true') {
+      await notifySelfCheckbox.click()
+    }
+    await sendTestBtn.click()
+    expect(capturedPayloads.length).toBeGreaterThanOrEqual(1)
+    expect(capturedPayloads[capturedPayloads.length - 1].includeSender).toBe(false)
+
+    // Wariant B: Zaznaczenie "Powiadamiaj mnie" (notifySelf = true) -> wysyłka do siebie
+    await notifySelfCheckbox.click()
+    await expect(notifySelfCheckbox).toHaveAttribute('aria-checked', 'true')
     expect(await page.evaluate(() => localStorage.getItem('smartshopping_notify_self'))).toBe(
       'true'
     )
+    await sendTestBtn.click()
+    const lastPayload = capturedPayloads[capturedPayloads.length - 1]
+    expect(lastPayload.includeSender).toBe(true)
+    expect(lastPayload.tag).toBe('test-notification')
+    expect(lastPayload.url).toBe('/?tab=settings')
+    await expect(dialogGranted.getByText(/Wysłano|Sent/i).first()).toBeVisible({ timeout: 5_000 })
+
+    await closeTopDialog(page)
     await page.unroute('**/functions/v1/send-push-notification')
   })
 
@@ -483,7 +536,7 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
       await page.getByRole('button', { name: /Automatyczny|Automatic/i }).click()
       await expect(page.locator('aside')).toBeVisible()
 
-      // 3. Globalne menu + Dodaj w DesktopHeader & status Na żywo
+      // 3. Globalne menu + Dodaj w DesktopHeader & status Na żywo + skrót Ctrl+Alt+L
       const header = page.locator('header')
       await expect(header.getByText(/Na żywo|Realtime/i)).toBeVisible()
       await header.getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
@@ -492,13 +545,32 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
       await expect(header.getByText(/Dodaj Pozycję Ad-Hoc/i)).toBeVisible()
       await expect(header.getByText(/Importuj przepis/i)).toBeVisible()
       await header.getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
+
+      // Skrót klawiaturowy Ctrl+Alt+L przełącza layout Desktop <-> Mobile PWA
+      await page.keyboard.press('Control+Alt+KeyL')
+      await expect(page.locator('nav[aria-label]').last()).toBeVisible()
+      await page.keyboard.press('Control+Alt+KeyL')
+      await expect(page.locator('aside')).toBeVisible()
+      await page.evaluate(() => localStorage.setItem('smartshopping_layout_preference', 'auto'))
     }
 
-    // 4. Trwałość aktywnej zakładki po odświeżeniu
+    // 4. Trwałość aktywnej zakładki po odświeżeniu oraz Deep-Linking (?tab=history, ?tab=settings)
     await navigateToTab(page, 'pantry')
     await page.reload()
     const activeTab = await page.evaluate(() => localStorage.getItem('smartshopping_active_tab'))
     expect(activeTab).toBe('pantry')
+
+    await page.goto('/?tab=history')
+    await expect(page.locator('h1')).toContainText(/Historia|History/i)
+    expect(await page.evaluate(() => localStorage.getItem('smartshopping_active_tab'))).toBe(
+      'history'
+    )
+
+    await page.goto('/?tab=settings')
+    await expect(page.getByRole('dialog').last()).toBeVisible({ timeout: 5_000 })
+    await closeTopDialog(page)
+
+    await page.goto('/')
     await navigateToTab(page, 'cookbook')
   })
 })
