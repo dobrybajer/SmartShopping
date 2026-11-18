@@ -16,8 +16,8 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-01: Switch Month / Week / Day views and toggle Workweek (Pn-Pt) vs Full Week (Pn-Nd) @module:calendar @type:happy-path @state:BASE', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Miesiąc|Month/i }).first().click()
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Miesiąc|Month)$/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
 
     const workweekBtn = page.getByRole('button', { name: /Roboczy \(Pn-Pt\)|Workweek/i }).first()
     const fullWeekBtn = page.getByRole('button', { name: /Pełny \(Pn-Nd\)|Full Week/i }).first()
@@ -28,7 +28,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
       await workweekBtn.click()
     }
 
-    await page.getByRole('button', { name: /Dzień|Day/i }).first().click()
+    await page.getByRole('button', { name: /^(Dzień|Day)$/i }).first().click()
     await expect(page.getByRole('button', { name: /Dodaj posiłek|Add meal/i }).first()).toBeVisible()
   })
 
@@ -38,7 +38,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     const nextMonday = getNextMondayDate(1)
 
     // Switch to Week view and advance to next week so Monday is visible
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
     await page.locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]').first().click()
 
     // Check if [BASE] meal already planned in that week (idempotent [BASE])
@@ -67,9 +67,39 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
 
     await expect(page.getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
 
-    // Switch to Day view for [TEMP] ad-hoc quick meal + Duplicate next day + Delete cleanup
-    await page.getByRole('button', { name: /Dzień|Day/i }).first().click()
+    // Switch directly into nextMonday Day view by clicking the Monday header (short on Desktop, full weekday on Mobile)
+    await page.getByText(/^(PON\.|MON\.)|^poniedziałek|^monday/i).first().click()
+    await expect(page.locator('main').getByText(CANONICAL_MEAL_NAME).first()).toBeVisible({
+      timeout: 10_000,
+    })
     const tempMealName = `[TEMP] Szybki Lunch ${isMobileViewport(page) ? 'M' : 'D'}`
+
+    const cleanupTempCards = async () => {
+      for (let i = 0; i < 10; i++) {
+        const countBefore = await page.locator('main').getByText(tempMealName).count()
+        if (countBefore === 0) break
+        const staleCard = page
+          .locator('main div')
+          .filter({ hasText: tempMealName })
+          .filter({
+            has: page.locator(
+              '[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]'
+            ),
+          })
+          .last()
+        await staleCard
+          .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+          .first()
+          .click()
+        await confirmDeleteDialog(page, 'confirm')
+        await expect(page.locator('main').getByText(tempMealName)).toHaveCount(countBefore - 1, {
+          timeout: 10_000,
+        })
+      }
+    }
+
+    // Clean any leftover [TEMP] card from prior aborted runs first
+    await cleanupTempCards()
 
     await page.getByRole('button', { name: /Dodaj posiłek|Add meal/i }).first().click()
     const adhocDialog = page.getByRole('dialog').last()
@@ -84,14 +114,34 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
       await adhocDialog.getByRole('button', { name: /Zapisz w kalendarzu|Save to calendar/i }).click()
       await expect(adhocDialog).toBeHidden({ timeout: 10000 })
 
-      // Locate card -> Delete [TEMP] via ConfirmDeleteDialog
-      const tempCard = page.locator('div, article').filter({ hasText: tempMealName }).last()
+      // Verify created, test "Kopiuj na jutro" -> verify on Tuesday & clean both days via ConfirmDeleteDialog
+      await expect(page.locator('main').getByText(tempMealName).first()).toBeVisible()
+      const tempCard = page
+        .locator('main div')
+        .filter({ hasText: tempMealName })
+        .filter({
+          has: page.locator(
+            '[title="Kopiuj na jutro"], [title="Duplicate next day"], [aria-label="Kopiuj na jutro"], [aria-label="Duplicate next day"]'
+          ),
+        })
+        .last()
       await tempCard
-        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .locator(
+          '[title="Kopiuj na jutro"], [title="Duplicate next day"], [aria-label="Kopiuj na jutro"], [aria-label="Duplicate next day"]'
+        )
         .first()
         .click()
-      await confirmDeleteDialog(page, 'confirm')
-      await expect(page.getByText(tempMealName)).toHaveCount(0)
+
+      // Switch to Tuesday ("Następny dzień"), assert duplicated meal exists, clean Tuesday then Monday
+      await page.locator('[aria-label*="Następny dzień" i], [title*="Następny dzień" i]').first().click()
+      await expect(page.locator('main').getByText(tempMealName).first()).toBeVisible({
+        timeout: 10_000,
+      })
+      await cleanupTempCards()
+      await page.locator('[aria-label*="Poprzedni dzień" i], [title*="Poprzedni dzień" i]').first().click()
+
+      await cleanupTempCards()
+      await expect(page.locator('main').getByText(tempMealName)).toHaveCount(0)
     } else {
       await closeTopDialog(page)
     }
@@ -100,7 +150,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-03: 3-level calendar-to-draft transfers (meal, day, week) + cumulative pantry reservation @module:calendar @type:happy-path @state:TEMP', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
     await page.locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]').first().click()
 
     const weekTransferBtn = page
@@ -123,7 +173,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-04: UncertaintyWarningModal lists low-confidence / expired pantry ingredient & allows restore @module:calendar @type:corner-case @state:TEMP', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
     await page.locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]').first().click()
 
     // In [BASE] setup, "[BASE] Awokado Hass" had expiry yesterday (-1 day), or card renders warning button
@@ -146,10 +196,10 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-05: Past-date Read-Only Archive mode blocks adding/editing meals @module:calendar @type:negative @state:BASE', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
     // Navigate 1 week into the past
     await page.locator('[aria-label*="Poprzedni tydzień" i], [title*="Poprzedni tydzień" i]').first().click()
-    await page.getByRole('button', { name: /Dzień|Day/i }).first().click()
+    await page.getByRole('button', { name: /^(Dzień|Day)$/i }).first().click()
 
     // If the selected day is strictly before today, archive notice appears and Add/Delete controls are disabled/hidden
     const archiveNotice = page.getByText(/Archiwum \(Tylko do odczytu\)|Read-only Archive/i).first()
@@ -162,7 +212,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-06: Save canonical [BASE] Weekly Templates (Pn-Pt & Pn-Nd) @module:calendar @type:happy-path @state:BASE', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
     await page.locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]').first().click()
 
     await page.getByRole('button', { name: /Szablony|Templates/i }).first().click()
@@ -199,7 +249,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
   test('TC-CAL-07: Apply template with 1.5x portion scaling to future week, test empty-week save guard & clean [TEMP] @module:calendar @type:corner-case @state:TEMP', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: /Tydzień|Week/i }).first().click()
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
 
     // Advance 4 weeks ahead into an empty future week
     const nextWeekBtn = page
@@ -218,7 +268,11 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     await expect(saveBtn).toBeDisabled()
 
     // Apply [BASE] workweek template with 1.5x multiplier if present
-    const tplRow = modal.locator('div, li').filter({ hasText: BASE_TEMPLATES.workweek }).last()
+    const tplRow = modal
+      .locator('div, li')
+      .filter({ hasText: BASE_TEMPLATES.workweek })
+      .filter({ has: modal.getByRole('button', { name: /Zastosuj|Apply/i }) })
+      .last()
     if ((await tplRow.count()) > 0) {
       const scaleInput = tplRow.locator('input[type="number"]').first()
       if ((await scaleInput.count()) > 0) {
@@ -229,13 +283,29 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
 
       // Verify scaled meal landed in future week, then clean up planned card(s)
       await expect(page.getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
-      while ((await page.getByText(CANONICAL_MEAL_NAME).count()) > 0) {
-        const card = page.locator('div, article').filter({ hasText: CANONICAL_MEAL_NAME }).first()
+      await page.getByText(/^(PON\.|MON\.)/i).first().click()
+      await expect(page.locator('main').getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
+      await expect(page.locator('main').getByText(/1\.5/).first()).toBeVisible()
+      while ((await page.locator('main').getByText(CANONICAL_MEAL_NAME).count()) > 0) {
+        const countBefore = await page.locator('main').getByText(CANONICAL_MEAL_NAME).count()
+        const card = page
+          .locator('main div')
+          .filter({ hasText: CANONICAL_MEAL_NAME })
+          .filter({
+            has: page.locator(
+              '[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]'
+            ),
+          })
+          .last()
         await card
           .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
           .first()
           .click()
         await confirmDeleteDialog(page, 'confirm')
+        await expect(page.locator('main').getByText(CANONICAL_MEAL_NAME)).toHaveCount(
+          countBefore - 1,
+          { timeout: 10_000 }
+        )
       }
     } else {
       await closeTopDialog(page)

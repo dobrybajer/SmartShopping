@@ -144,7 +144,10 @@ export const HouseholdListSection: React.FC<HouseholdListSectionProps> = ({
                       onChange={(e) => setEditingHouseholdName(e.target.value)}
                       autoFocus
                       onKeyDown={(e) => {
-                        if (e.key === 'Escape') onCancelEditing()
+                        if (e.key === 'Escape') {
+                          e.stopPropagation()
+                          onCancelEditing()
+                        }
                       }}
                       className="h-8 text-xs bg-background border-primary px-2.5 py-1 flex-1 min-w-0"
                     />

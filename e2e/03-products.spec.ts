@@ -86,17 +86,22 @@ test.describe('Module 03 — Products Catalog & Nutritional Hierarchy', () => {
     await expect(dialog).toBeVisible()
 
     // Empty name cannot submit
-    const submitBtn = dialog.getByRole('button', { name: /Zapisz Produkt|Save Product/i })
+    const submitBtn = dialog.getByRole('button', {
+      name: /Dodaj Produkt|Zapisz Produkt|Add Product|Save Product/i,
+    })
     await expect(submitBtn).toBeDisabled()
 
-    // Fill valid name + negative kcal
-    await dialog.locator('input[placeholder*="Jogurt grecki" i]').fill('[TEMP] Nieprawidłowy Produkt')
+    // Fill valid name + attempt negative kcal -> ProductMacroFields guards non-negative (>= 0, min="0")
+    const nameInput = dialog.locator('input[placeholder*="Jogurt grecki" i]')
+    await nameInput.fill('[TEMP] Nieprawidłowy Produkt')
     const numericInputs = dialog.locator('input[type="number"]')
+    await expect(numericInputs.nth(0)).toHaveAttribute('min', '0')
     await numericInputs.nth(0).fill('-150')
+    await expect(numericInputs.nth(0)).not.toHaveValue('-150')
 
-    await submitBtn.click()
-    // Dialog must remain open (HTML5 min="0" or form validation blocks submit) or show validation toast
-    await expect(dialog).toBeVisible()
+    // Clearing name keeps submit disabled without mutating DB
+    await nameInput.fill('   ')
+    await expect(submitBtn).toBeDisabled()
     await closeTopDialog(page)
   })
 
@@ -122,15 +127,17 @@ test.describe('Module 03 — Products Catalog & Nutritional Hierarchy', () => {
     await searchInput.fill('[BASE] Awokado')
     await page.waitForTimeout(300)
 
-    const parentRow = page
+    const deleteSelector = page.locator(
+      '[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]'
+    )
+    const parentCard = page
       .locator('div, article, li')
-      .filter({ hasText: /^\[BASE\] Awokado$/ })
-      .first()
-    await expect(parentRow).toBeVisible()
+      .filter({ has: page.locator('h4', { hasText: /^\[BASE\] Awokado$/ }) })
+      .filter({ has: deleteSelector })
+      .last()
+    await expect(parentCard).toBeVisible()
 
-    const deleteBtn = page
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
+    const deleteBtn = parentCard.locator(deleteSelector).first()
     await deleteBtn.click()
 
     await expect(

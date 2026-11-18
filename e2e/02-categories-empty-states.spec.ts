@@ -91,7 +91,8 @@ test.describe('Moduł 02: Puste Stany i Alejki Sklepowe @module:categories-empty
 
     // Edycja
     await tempRow.getByRole('button', { name: /Edytuj kategorię|Edit category/i }).click()
-    const inlineInput = tempRow.locator('input')
+    const inlineInput = manager.locator('div.group input').first()
+    await expect(inlineInput).toBeVisible()
     await inlineInput.fill(tempCatRenamed)
     await inlineInput.press('Enter')
     const renamedRow = manager.locator('div[draggable]', { hasText: tempCatRenamed }).first()
@@ -121,8 +122,22 @@ test.describe('Moduł 02: Puste Stany i Alejki Sklepowe @module:categories-empty
     page,
   }) => {
     const manager = await openCategoryManager(page)
+    await expect(manager.getByText(BASE_CATEGORIES.supplements).first()).toBeVisible({ timeout: 10_000 })
     const input = manager.getByPlaceholder(/Nazwa kategorii|Category name/i)
     const addBtn = manager.getByRole('button', { name: /Dodaj kategorię|Add Category/i })
+
+    // Cleanup ewentualnego niższoliterowego duplikatu z wcześniejszego przerwanego biegu
+    const lowercaseDupRow = manager
+      .locator('div.group')
+      .filter({ hasText: `[base] suplementy i odżywki` })
+    while ((await lowercaseDupRow.count()) > 0) {
+      const before = await lowercaseDupRow.count()
+      const rowText = (await lowercaseDupRow.first().innerText()).trim()
+      if (!rowText.includes('[base]')) break
+      await lowercaseDupRow.first().getByRole('button', { name: /Usuń kategorię|Delete category/i }).click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(lowercaseDupRow).toHaveCount(before - 1, { timeout: 10_000 })
+    }
 
     // Same spacje -> przycisk disabled
     await input.fill('   ')
@@ -148,8 +163,8 @@ test.describe('Moduł 02: Puste Stany i Alejki Sklepowe @module:categories-empty
     page,
   }) => {
     const manager = await openCategoryManager(page)
-    await expect(manager.getByText('Owoce i Warzywa')).toBeVisible()
-    await expect(manager.getByText(BASE_CATEGORIES.supplements)).toBeVisible()
+    await expect(manager.getByText('Owoce i Warzywa').first()).toBeVisible()
+    await expect(manager.getByText(BASE_CATEGORIES.supplements).first()).toBeVisible()
     await closeAllDialogs(page)
 
     // Przełączenie na EN (jeśli widoczny pill switcher w DesktopHeader lub przez AccountDialog)
@@ -157,8 +172,8 @@ test.describe('Moduł 02: Puste Stany i Alejki Sklepowe @module:categories-empty
     if (await enBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
       await enBtn.click()
       const managerEn = await openCategoryManager(page)
-      await expect(managerEn.getByText('Fruits & Vegetables')).toBeVisible()
-      await expect(managerEn.getByText(BASE_CATEGORIES.supplements)).toBeVisible()
+      await expect(managerEn.getByText('Fruits & Vegetables').first()).toBeVisible()
+      await expect(managerEn.getByText(BASE_CATEGORIES.supplements).first()).toBeVisible()
       await expect(managerEn.getByText(`categories.${BASE_CATEGORIES.supplements}`)).toHaveCount(0)
       await closeAllDialogs(page)
       await page.getByRole('button', { name: /^PL$/i }).first().click()

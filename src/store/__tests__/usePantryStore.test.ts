@@ -59,6 +59,7 @@ describe('usePantryStore', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    usePantryStore.getState().setActiveHousehold(null)
     usePantryStore.setState({
       pantryItems: [],
       pantryMapByProductId: {},

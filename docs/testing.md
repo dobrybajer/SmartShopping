@@ -301,7 +301,7 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
   1. Zmień wartość w `LanguageSwitcher` (`variant="segmented"`) z **`Polski`** na **`English`**.
   2. Zamknij modal i zweryfikuj etykiety nawigacji:
      - `[Desktop >=1024px]`: `DesktopSidebar` (`Recipes`, `Draft`, `Active List`, `History`, `Pantry`, `Calendar`, `Products`).
-     - `[Mobile PWA 360px]`: `BottomNavigation` (skrócone etykiety i dostępność bez zawijania/obcinania tekstu).
+     - `[Mobile PWA 360px]`: `BottomNavigation` (`Cookbook`, `Calendar`, `Products`, `Draft`, `List` z `aria-label="Active List"`, `History`, `Pantry` — bez zawijania/obcinania tekstu).
   3. Odśwież stronę (`F5`), sprawdź czy język `EN` przetrwał restart, a następnie przełącz z powrotem na **`Polski` (`pl`)** jako stan bazowy dla kolejnych testów.
 - **Oczekiwany rezultat:** Cały interfejs tłumaczy się synchronicznie w pamięci, zapisuje w `localStorage` (klucz języka dla trybu offline) oraz synchronizuje z `users.language` w Supabase.
 
@@ -921,14 +921,14 @@ Przepis **`[BASE] Kurczak Teriyaki z ryżem i awokado`** (kategoria: `Obiad`, ta
 
 ---
 
-#### `TC-DRAFT-05` — Zaznaczanie selektywne i Czyszczenie całego Koszyka (`ConfirmDeleteDialog`)
+#### `TC-DRAFT-05` — Zaznaczanie selektywne, `ConfirmDeleteDialog` pozycji i Czyszczenie całego Koszyka
 - **Adnotacja:** `[Playwright: E2E]`
 - **Tagi:** `@module:draft` `@type:happy-path` `@type:negative` `@state:TEMP`
 - **Kroki:**
   1. Użyj przycisków **„Odznacz wszystkie”** / **„Zaznacz wszystkie”** i zweryfikuj licznik `{selected} z {total} zaznaczonych` oraz stan przycisku **„Przenieś do Listy Zakupów”** (gdy `0` zaznaczonych → przycisk zablokowany).
-  2. Kliknij **„Wyczyść Koszyk”** → w `ConfirmDeleteDialog` kliknij **„Anuluj”** (pozycje muszą pozostać).
-  3. *(Test czyszczenia)*: Gdy chcemy przetestować pełne wyczyszczenie na tymczasowym koszyku, zatwierdź usunięcie → sprawdź ekran pustego stanu (`draft.emptyTitle`) → a następnie dodaj z powrotem `[BASE] Kurczak Teriyaki z ryżem i awokado` + `[BASE] Odżywka białkowa WPI` (`100g`) + `Ręczniki papierowe` (`1 pcs`) do Koszyka, aby przygotować wsad pod Moduł 07.
-- **Oczekiwany rezultat:** Anulowanie zachowuje koszyk; potwierdzenie czyści `draftItems` i wyświetla Toast `toasts.draftCleared`; przy `0` zaznaczonych pozycji transfer do listy jest niemożliwy.
+  2. Usuń pojedynczą pozycję (ikona kosza na Desktopie / gest `SwipeToDismiss` na Mobile PWA) → w `ConfirmDeleteDialog` kliknij **„Anuluj”** (pozycja pozostaje na liście i na Mobile wraca na ekran bez utknięcia poza krawędzią).
+  3. Kliknij **„Wyczyść Koszyk”** (bezpośrednie wyczyszczenie `clearDraft()` tymczasowego stanu) → sprawdź ekran pustego stanu (`draft.emptyTitle`) → opcjonalnie dodaj z powrotem wsad testowy do Koszyka.
+- **Oczekiwany rezultat:** Anulowanie `ConfirmDeleteDialog` zachowuje pozycję; **„Wyczyść Koszyk”** czyści `draftItems` i wyświetla ekran pustego koszyka (`draft.emptyTitle`); przy `0` zaznaczonych pozycji transfer do listy jest niemożliwy.
 
 ---
 

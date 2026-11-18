@@ -5,9 +5,23 @@ import { useShallow } from 'zustand/react/shallow'
 import {
   validateCategoryName,
   resolveCategoriesWithSettings,
-  DEFAULT_PRODUCT_CATEGORIES
+  DEFAULT_PRODUCT_CATEGORIES,
+  type CategoryValidationError
 } from '@/lib/calculations/categorySorting'
 import type { ResolvedCategory } from '@/types/category'
+
+const CATEGORY_VALIDATION_I18N_KEY: Record<
+  CategoryValidationError,
+  | 'categoryManager.validation.empty'
+  | 'categoryManager.validation.tooShort'
+  | 'categoryManager.validation.tooLong'
+  | 'categoryManager.validation.duplicate'
+> = {
+  empty: 'categoryManager.validation.empty',
+  too_short: 'categoryManager.validation.tooShort',
+  too_long: 'categoryManager.validation.tooLong',
+  duplicate: 'categoryManager.validation.duplicate'
+}
 
 const triggerHaptic = () => {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -137,7 +151,7 @@ export function useCategoryManagerController(householdId: string) {
 
     const validation = validateCategoryName(newCategoryName, categories)
     if (!validation.valid && validation.error) {
-      setAddError(t(`categoryManager.validation.${validation.error}` as Parameters<typeof t>[0]))
+      setAddError(t(CATEGORY_VALIDATION_I18N_KEY[validation.error]))
       return
     }
 
@@ -170,7 +184,7 @@ export function useCategoryManagerController(householdId: string) {
     setEditError(null)
     const validation = validateCategoryName(editingName, categories, categoryId)
     if (!validation.valid && validation.error) {
-      setEditError(t(`categoryManager.validation.${validation.error}` as Parameters<typeof t>[0]))
+      setEditError(t(CATEGORY_VALIDATION_I18N_KEY[validation.error]))
       return
     }
 

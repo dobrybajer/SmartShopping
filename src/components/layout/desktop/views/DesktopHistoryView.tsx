@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useTranslation } from '@/i18n'
 import { HISTORY_PAGE_SIZE, shoppingListService } from '@/services/shoppingListService'
 import type { ActiveListWithDetails, HistoryShoppingList } from '@/services/shoppingListService'
@@ -110,10 +110,14 @@ export const DesktopHistoryView: React.FC = () => {
     loadHistoryLists(true)
   }, [loadHistoryLists])
 
+  const latestDetailRequestRef = useRef(0)
+
   const loadDetails = useCallback(
     async (listId: string) => {
+      const reqId = ++latestDetailRequestRef.current
       setLoadingDetails(true)
       const data = await shoppingListService.getListWithDetails(listId)
+      if (latestDetailRequestRef.current !== reqId) return
       setListDetails(data)
       setEditedName(data?.name || '')
       setIsEditingName(false)

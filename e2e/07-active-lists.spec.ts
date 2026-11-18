@@ -16,15 +16,21 @@ async function ensureActiveListExists(
   listName: string
 ): Promise<void> {
   await navigateToTab(page, 'active')
+  await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
   if ((await page.getByRole('button', { name: listName }).count()) > 0) {
     return
   }
 
-  await page.getByRole('button', { name: /Nowa Lista|New List/i }).first().click()
+  await page
+    .getByRole('button', {
+      name: /Nowa Lista|Utwórz Listę Zakupów|New List|Create Shopping List/i,
+    })
+    .first()
+    .click()
   const dialog = page.getByRole('dialog').last()
   await expect(dialog).toBeVisible()
   await dialog.locator('input').first().fill(listName)
-  await dialog.getByRole('button', { name: /Utwórz|Zapisz|Create|Save/i }).last().click()
+  await dialog.locator('button[type="submit"]').first().click()
   await expect(dialog).toBeHidden({ timeout: 10000 })
   await expect(page.getByRole('button', { name: listName }).first()).toBeVisible()
 }
@@ -61,22 +67,13 @@ async function transferDraftToList(
   const dialog = page.getByRole('dialog').last()
   await expect(dialog).toBeVisible()
 
-  const listBtn = dialog.getByRole('button', { name: targetListName }).first()
-  if ((await listBtn.count()) > 0) {
-    await listBtn.click()
-  } else {
-    const selectEl = dialog.locator('select').first()
-    if ((await selectEl.count()) > 0) {
-      const optVal = await selectEl
-        .locator('option', { hasText: targetListName })
-        .first()
-        .getAttribute('value')
-      if (optVal) await selectEl.selectOption(optVal)
-    }
-  }
+  // Wait for async getActiveListsSummary() to populate the radio list before selecting
+  const listLabel = dialog.locator('label', { hasText: targetListName }).first()
+  await expect(listLabel).toBeVisible({ timeout: 10_000 })
+  await listLabel.click()
 
-  await dialog.getByRole('button', { name: /Przenieś|Transfer|Zapisz|Save/i }).last().click()
-  await expect(dialog).toBeHidden({ timeout: 10000 })
+  await dialog.locator('button[type="submit"]').first().click()
+  await expect(dialog).toBeHidden({ timeout: 10_000 })
 }
 
 test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive', () => {
@@ -104,6 +101,9 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
     }
     await navigateToTab(page, 'active')
     await page.getByRole('button', { name: BASE_ACTIVE_LISTS.groceries }).first().click()
+    await expect(
+      page.getByRole('heading', { name: BASE_ACTIVE_LISTS.groceries }).first()
+    ).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('[BASE] Oliwa z oliwek Extra Virgin').first()).toBeVisible()
   })
 
@@ -119,6 +119,25 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
     })
 
     const tempList = `[TEMP] Lista Merge ${isMobileViewport(page) ? 'M' : 'D'}`
+    // Clear any leftover items in Draft Cart from earlier tests
+    await navigateToTab(page, 'draft')
+    const clearDraftBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
+    if (await clearDraftBtn.isVisible().catch(() => false)) {
+      await clearDraftBtn.click()
+    }
+
+    // Ensure a clean list slate if prior aborted run left items in [TEMP] Lista Merge
+    await navigateToTab(page, 'active')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    while ((await page.getByRole('button', { name: tempList }).count()) > 0) {
+      await page.getByRole('button', { name: tempList }).first().click()
+      await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({ timeout: 10_000 })
+      await openListOptionsIfMobile(page)
+      await page.getByRole('button', { name: /Usuń Listę|Delete List/i }).first().click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+      await page.waitForTimeout(300)
+    }
     await ensureActiveListExists(page, tempList)
 
     // Add 500 ml via Draft -> Active list
@@ -127,10 +146,16 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
 
     await navigateToTab(page, 'active')
     await page.getByRole('button', { name: tempList }).first().click()
+    await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({ timeout: 10_000 })
 
     // Tick item as bought (is_checked = true)
-    const row = page.locator('div, li').filter({ hasText: tempProd }).last()
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.locator('button, [role="checkbox"]') })
+      .last()
     await row.locator('button, [role="checkbox"]').first().click()
+    await expect(row.locator('.line-through').first()).toBeVisible({ timeout: 10_000 })
 
     // Spy on send-push-notification when merging another 250 ml from Draft
     const pushRequests: string[] = []
@@ -148,11 +173,18 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
 
     await navigateToTab(page, 'active')
     await page.getByRole('button', { name: tempList }).first().click()
+    await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({ timeout: 10_000 })
 
-    // Should merge into 750 ml and reset unchecked!
-    const mergedRow = page.locator('div, li').filter({ hasText: tempProd }).last()
+    // Should merge into 750 ml and reset unchecked, while notifying household members via LIST_ITEM_ADDED!
+    const mergedRow = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
+      .last()
     await expect(mergedRow.getByText(/750\s*ml/)).toBeVisible()
     await expect(mergedRow.locator('.line-through')).toHaveCount(0)
+    expect(pushRequests.length).toBeGreaterThanOrEqual(1)
+    await page.unroute('**/functions/v1/send-push-notification')
 
     // Cleanup [TEMP] list and product
     await openListOptionsIfMobile(page)
@@ -177,55 +209,156 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
 
     await navigateToTab(page, 'active')
     await page.getByRole('button', { name: BASE_ACTIVE_LISTS.groceries }).first().click()
+    await expect(
+      page.getByRole('heading', { name: BASE_ACTIVE_LISTS.groceries }).first()
+    ).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('[BASE] Oliwa z oliwek Extra Virgin').first()).toBeVisible()
   })
 
   test('TC-ACT-04: Pantry confirm (in_pantry), restoreToBuy & finishing all items triggers LIST_COMPLETED @module:active-lists @type:happy-path @state:TEMP', async ({
     page,
   }) => {
-    const tempList = `[TEMP] Lista PantryCheck ${isMobileViewport(page) ? 'M' : 'D'}`
+    const suffix = isMobileViewport(page) ? 'M' : 'D'
+    const tempList = `[TEMP] Lista PantryCheck ${suffix}`
+    const tempProd = `[TEMP] Kurczak PantryCheck ${suffix}`
+
+    // Create dedicated [TEMP] product & stock it in Pantry so we don't collide with duplicate [BASE] rows
+    await navigateToTab(page, 'products')
+    await ensureProductExists(page, {
+      name: tempProd,
+      unit: 'g',
+      categoryLabel: 'Mięso i Ryby',
+      macros: { kcal: 110, protein: 22, carbs: 0, fat: 2 },
+    })
+    await navigateToTab(page, 'pantry')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    if ((await page.getByText(tempProd).count()) === 0) {
+      await page.getByRole('button', { name: /Dodaj do Spiżarni|Add to Pantry/i }).first().click()
+      const pantryAddDialog = page.getByRole('dialog').last()
+      await expect(pantryAddDialog).toBeVisible()
+      await selectFromAutocomplete(pantryAddDialog, tempProd)
+      await pantryAddDialog.locator('input[type="number"]').first().fill('300')
+      await pantryAddDialog.getByRole('button', { name: /Dodaj|Zapisz|Save|Add/i }).last().click()
+      await expect(pantryAddDialog).toBeHidden({ timeout: 10_000 })
+      await expect(page.getByText(tempProd).first()).toBeVisible()
+    }
+
+    // Clear any leftover items in Draft Cart and stale [TEMP] Lista PantryCheck
+    await navigateToTab(page, 'draft')
+    const clearDraftBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
+    if (await clearDraftBtn.isVisible().catch(() => false)) {
+      await clearDraftBtn.click()
+    }
+    await navigateToTab(page, 'active')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    while ((await page.getByRole('button', { name: tempList }).count()) > 0) {
+      await page.getByRole('button', { name: tempList }).first().click()
+      await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({ timeout: 10_000 })
+      await openListOptionsIfMobile(page)
+      await page.getByRole('button', { name: /Usuń Listę|Delete List/i }).first().click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+      await page.waitForTimeout(300)
+    }
     await ensureActiveListExists(page, tempList)
 
-    // [BASE] Pierś z kurczaka is already in Pantry (from Module 05)
-    await addAdHocItemToDraft(page, '[BASE] Pierś z kurczaka', '200')
+    await addAdHocItemToDraft(page, tempProd, '200')
     await transferDraftToList(page, tempList)
 
     await navigateToTab(page, 'active')
     await page.getByRole('button', { name: tempList }).first().click()
+    await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({ timeout: 10_000 })
 
-    const row = page.locator('div, li').filter({ hasText: '[BASE] Pierś z kurczaka' }).last()
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.locator('button[aria-label*="spiżarni" i]') })
+      .last()
     await row.locator('button[aria-label*="spiżarni" i]').first().click()
     const pantryModal = page.getByRole('dialog').last()
     await pantryModal.getByRole('button', { name: /Mam całość|Have all/i }).click()
     await expect(pantryModal).toBeHidden({ timeout: 10000 })
 
-    // Verify in_pantry satisfies the item and shows "Przywróć" or restore via modal
-    await row.locator('button[aria-label*="spiżarni" i], button').first().click()
+    // When in_pantry = true, badge shows "W spiżarni" and clicking the row re-opens PantryConfirmModal
+    const inPantryRow = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ hasText: /W spiżarni|In pantry/i })
+      .filter({ has: page.locator('button[role="checkbox"], [role="checkbox"]') })
+      .last()
+    await inPantryRow.getByText(/W spiżarni|In pantry/i).first().click()
     const maybeModal = page.getByRole('dialog').last()
-    if (await maybeModal.isVisible()) {
-      const restoreBtn = maybeModal.getByRole('button', {
-        name: /Przywróć do kupienia|Restore to buy/i,
-      })
-      if ((await restoreBtn.count()) > 0) {
-        await restoreBtn.click()
-      } else {
-        await closeTopDialog(page)
-      }
+    await expect(maybeModal).toBeVisible({ timeout: 5_000 })
+    const restoreBtn = maybeModal.getByRole('button', {
+      name: /Przywróć do kupienia|Restore to buy/i,
+    })
+    if ((await restoreBtn.count()) > 0) {
+      await restoreBtn.click()
+      await expect(maybeModal).toBeHidden({ timeout: 5_000 })
+    } else {
+      await closeTopDialog(page)
     }
 
-    // Intercept push notifications when ticking final item
+    // Intercept push notifications when ticking final item (LIST_COMPLETED)
+    const completedPushRequests: string[] = []
     await page.route('**/functions/v1/send-push-notification', async (route) => {
+      completedPushRequests.push(route.request().postData() || '')
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ sent: 0 }),
       })
     })
+    const activeRow = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.locator('button[role="checkbox"], [role="checkbox"]') })
+      .last()
+    const checkbox = activeRow.locator('button[role="checkbox"], [role="checkbox"]').first()
+    if ((await checkbox.getAttribute('aria-checked')) !== 'true' && (await checkbox.isEnabled().catch(() => false))) {
+      await checkbox.click()
+      await expect(activeRow.locator('.line-through').first()).toBeVisible({ timeout: 10_000 })
+    }
+    await page.unroute('**/functions/v1/send-push-notification')
 
-    // Cleanup [TEMP] list
+    // Cleanup [TEMP] list, pantry item, and product
     await openListOptionsIfMobile(page)
     await page.getByRole('button', { name: /Usuń Listę|Delete List/i }).first().click()
     await confirmDeleteDialog(page, 'confirm')
+
+    await navigateToTab(page, 'pantry')
+    const pantryCleanupRow = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]') })
+      .last()
+    if ((await pantryCleanupRow.count()) > 0) {
+      await pantryCleanupRow
+        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .first()
+        .click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(page.getByText(tempProd)).toHaveCount(0, { timeout: 10_000 })
+    }
+
+    await navigateToTab(page, 'products')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempProd)
+    await page.waitForTimeout(250)
+    const prodHeadings = page.locator('h4', { hasText: tempProd })
+    if ((await prodHeadings.count()) > 0) {
+      const prodCard = page
+        .locator('div, article, li')
+        .filter({ has: prodHeadings.first() })
+        .filter({ has: page.locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]') })
+        .last()
+      await prodCard
+        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .first()
+        .click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(prodHeadings).toHaveCount(0, { timeout: 10_000 })
+    }
   })
 
   test('TC-ACT-05: Offline mutation queue preserves optimistic check & OCC stale conflict handles gracefully @module:active-lists @type:corner-case @state:TEMP', async ({
@@ -242,7 +375,11 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
 
     // Go offline and toggle item checked -> must stay checked optimistically without reverting
     await context.setOffline(true)
-    const row = page.locator('div, li').filter({ hasText: '[BASE] Sól morska' }).last()
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: '[BASE] Sól morska' })
+      .filter({ has: page.locator('button, [role="checkbox"]') })
+      .last()
     await row.locator('button, [role="checkbox"]').first().click()
     await expect(row.locator('.line-through').first()).toBeVisible()
 
@@ -277,6 +414,7 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
   }) => {
     // Check History first to make [BASE] archival idempotent
     await navigateToTab(page, 'history')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
     const alreadyArchived =
       (await page.getByText(BASE_ACTIVE_LISTS.weekendArchiveRenamed).count()) > 0 ||
       (await page.getByText(BASE_ACTIVE_LISTS.weekendArchive).count()) > 0
@@ -287,32 +425,39 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
       await transferDraftToList(page, BASE_ACTIVE_LISTS.weekendArchive)
 
       await navigateToTab(page, 'active')
+      await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
       await page.getByRole('button', { name: BASE_ACTIVE_LISTS.weekendArchive }).first().click()
 
       // Check item bought before archiving
-      const row = page.locator('div, li').filter({ hasText: '[BASE] Sól morska' }).last()
+      const row = page
+        .locator('div, li')
+        .filter({ hasText: '[BASE] Sól morska' })
+        .filter({ has: page.locator('button, [role="checkbox"]') })
+        .last()
       await row.locator('button, [role="checkbox"]').first().click()
 
+      // Clicking "Zakończ i Zarchiwizuj" executes archiveActiveList directly (without ConfirmDialog)
       await openListOptionsIfMobile(page)
       await page
         .getByRole('button', { name: /Zakończ i Zarchiwizuj|Zakończ Zakupy|Finish & Archive/i })
         .first()
         .click()
-
-      const archiveDialog = page.getByRole('dialog').last()
-      await expect(archiveDialog).toBeVisible()
-      await archiveDialog
-        .getByRole('button', { name: /Zakończ|Archiwizuj|Potwierdź|Confirm|Archive/i })
-        .last()
-        .click()
-      await expect(archiveDialog).toBeHidden({ timeout: 15000 })
+      await expect(
+        page.getByText(/zarchiwizowana|archived/i).first()
+      ).toBeVisible({ timeout: 15_000 })
     }
 
     await navigateToTab(page, 'history')
-    const hasEither =
-      (await page.getByText(BASE_ACTIVE_LISTS.weekendArchiveRenamed).count()) > 0 ||
-      (await page.getByText(BASE_ACTIVE_LISTS.weekendArchive).count()) > 0
-    expect(hasEither).toBe(true)
+    await expect(
+      page
+        .locator('main')
+        .getByText(
+          new RegExp(
+            `${BASE_ACTIVE_LISTS.weekendArchiveRenamed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|${BASE_ACTIVE_LISTS.weekendArchive.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
+          )
+        )
+        .first()
+    ).toBeVisible({ timeout: 10_000 })
   })
 
   test('TC-ACT-07: Rename list, Set as Default, empty-list archive guard & Delete [TEMP] list @module:active-lists @type:corner-case @state:TEMP', async ({
@@ -323,6 +468,9 @@ test.describe('Module 07 — Active Shopping Lists, Offline Queue, OCC & Archive
 
     await ensureActiveListExists(page, tempList)
     await page.getByRole('button', { name: tempList }).first().click()
+    await expect(page.getByRole('heading', { name: tempList }).first()).toBeVisible({
+      timeout: 10_000,
+    })
 
     // Rename list
     await openListOptionsIfMobile(page)

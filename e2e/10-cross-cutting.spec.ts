@@ -38,8 +38,10 @@ test.describe('Module 10 — Cross-Cutting Localization, 6-Theme RWD & Security/
 
       // Check English category slug translation on Products tab ("Dairy & Eggs" / "Produce")
       await navigateToTab(page, 'products')
-      const productsText = (await page.locator('main').first().textContent()) || ''
-      expect(productsText).toMatch(/Dairy|Produce|Bakery|Fruits/i)
+      await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+      await expect(page.locator('main').first()).toContainText(/Dairy|Produce|Bakery|Fruits/i, {
+        timeout: 10_000,
+      })
     } finally {
       await ensurePolishLanguage(page)
     }
@@ -103,7 +105,7 @@ test.describe('Module 10 — Cross-Cutting Localization, 6-Theme RWD & Security/
   }) => {
     // 1) PostgREST .or() injection payload in Products search bar does not crash or leak syntax error
     await navigateToTab(page, 'products')
-    const searchInput = page.locator('input[placeholder*="Szukaj produktu" i]').first()
+    const searchInput = page.locator('input[placeholder*="Szukaj" i], input[placeholder*="Search" i]').first()
     await searchInput.fill(',id.neq.00000000-0000-0000-0000-000000000000),id.eq.1')
     await page.waitForTimeout(400)
     await expect(page.getByText(/PGRST|syntax error|unexpected/i)).toHaveCount(0)

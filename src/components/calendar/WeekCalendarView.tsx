@@ -249,6 +249,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
             onClick={() => setIsTemplatesOpen(true)}
             className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium cursor-pointer"
             title={t('calendar.templates.openButtonTitle')}
+            aria-label={t('calendar.templates.openButtonTitle')}
           >
             <LayoutTemplate className="w-3.5 h-3.5 text-primary" />
             <span className="hidden md:inline">{t('calendar.templates.openButton')}</span>
@@ -265,6 +266,7 @@ export const WeekCalendarView: React.FC<WeekCalendarViewProps> = ({
             onClick={handleTransferEntireWeek}
             className="h-9 rounded-xl border-border text-xs gap-1.5 text-foreground hover:bg-muted font-medium cursor-pointer"
             title={t('calendar.transferWeekToDraftTitle')}
+            aria-label={t('calendar.transferWeekToDraftTitle')}
           >
             <ShoppingCart className="w-3.5 h-3.5 text-sky-400" />
             <span className="hidden md:inline">{t('calendar.transferWeekToDraft')}</span>

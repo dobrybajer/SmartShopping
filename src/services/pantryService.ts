@@ -63,7 +63,10 @@ export const pantryService = {
         return null
       }
 
-      const { data: existing, error: findErr } = await existingQuery.maybeSingle()
+      const { data: existingList, error: findErr } = await existingQuery
+        .order('created_at', { ascending: true })
+        .limit(1)
+      const existing = existingList?.[0] ?? null
 
       if (findErr) {
         console.error('[pantryService.addOrIncrementItem] Find error:', findErr)

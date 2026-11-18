@@ -4,6 +4,7 @@ import {
   addLocalDays,
   closeTopDialog,
   confirmDeleteDialog,
+  deletePantryRow,
   ensureProductExists,
   isMobileViewport,
   navigateToTab,
@@ -94,10 +95,7 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await expect(row.getByText(/201\s*g|250\s*g|300\s*g/)).toBeVisible()
 
     // Cleanup [TEMP] pantry item and product
-    await row
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
+    await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'confirm')
     await expect(page.getByText(tempProd)).toHaveCount(0)
 
@@ -123,7 +121,7 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
 
     // "[BASE] Awokado" (general) should recognize child "[BASE] Awokado Hass" (2 szt) in pantry!
     const cookBtn = detailsDialog.getByRole('button', {
-      name: /Ugotuj i zużyj ze spiżarni|Cook & Deduct/i,
+      name: /Ugotowano \/ Zdejmij ze spiżarni|Ugotuj i zużyj ze spiżarni|Cook & Deduct/i,
     })
     await expect(cookBtn).toBeVisible()
 
@@ -150,64 +148,140 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await addOrEnsurePantryItem(page, tempProd, '100')
 
     await navigateToTab(page, 'cookbook')
-    await page.getByRole('button', { name: /Dodaj Przepis|Add Recipe/i }).first().click()
-    const mealDialog = page.getByRole('dialog').last()
-    await mealDialog.locator('input[placeholder*="Jajecznica" i]').fill(tempMeal)
-    await selectFromAutocomplete(mealDialog, tempProd)
-    await mealDialog.locator('input[type="number"]').first().fill('100')
-    await mealDialog.locator('button').filter({ has: page.locator('svg.lucide-plus') }).last().click()
-    await mealDialog.getByRole('button', { name: /Zapisz Przepis|Save Recipe/i }).click()
-    await expect(mealDialog).toBeHidden({ timeout: 10000 })
+    const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    await searchInput.fill(tempMeal)
+    await page.waitForTimeout(250)
+    if ((await page.getByText(tempMeal).count()) === 0) {
+      await searchInput.fill('')
+      await page.getByRole('button', { name: /Dodaj Przepis|Add Recipe/i }).first().click()
+      const mealDialog = page.getByRole('dialog').last()
+      await mealDialog.locator('input[placeholder*="Jajecznica" i]').fill(tempMeal)
+      await selectFromAutocomplete(mealDialog, tempProd)
+      await mealDialog.locator('input[type="number"]').first().fill('100')
+      await mealDialog.locator('button').filter({ has: page.locator('svg.lucide-plus') }).last().click()
+      await mealDialog
+        .getByRole('button', { name: /Utwórz Przepis|Zapisz Przepis|Create Recipe|Save Recipe/i })
+        .click()
+      await expect(mealDialog).toBeHidden({ timeout: 10000 })
+      await searchInput.fill(tempMeal)
+    }
 
     // Open MealDetailsSheet -> click "Ugotuj i zużyj ze spiżarni"
-    const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
-    await searchInput.fill(tempMeal)
     await page.getByText(tempMeal).first().click()
 
     const detailsDialog = page.getByRole('dialog').last()
+    const detailsDialogId = await detailsDialog.getAttribute('id')
+    const exactDetailsDialog = detailsDialogId ? page.locator(`[id="${detailsDialogId}"]`) : detailsDialog
     await detailsDialog
-      .getByRole('button', { name: /Ugotuj i zużyj ze spiżarni|Cook & Deduct/i })
+      .getByRole('button', {
+        name: /Ugotowano \/ Zdejmij ze spiżarni|Ugotuj i zużyj ze spiżarni|Cook & Deduct/i,
+      })
       .click()
 
     const cookModal = page.getByRole('dialog').last()
     await expect(cookModal).toBeVisible()
     await expect(cookModal.getByText(tempProd)).toBeVisible()
+    const cookModalId = await cookModal.getAttribute('id')
+    const exactCookModal = cookModalId ? page.locator(`[id="${cookModalId}"]`) : cookModal
 
     // Confirm deduction -> depletes 100g -> 0g and removes from pantry
-    await cookModal.getByRole('button', { name: /Zatwierdź|Confirm/i }).first().click()
-    await expect(cookModal).toBeHidden({ timeout: 10000 })
+    await cookModal
+      .getByRole('button', { name: /Zdejmij ze spiżarni|Deduct from pantry|Zatwierdź|Confirm/i })
+      .first()
+      .click()
+    await expect(exactCookModal).toBeHidden({ timeout: 10000 })
 
     // Close details modal if still open
-    if ((await detailsDialog.isVisible()) === true) {
+    if (await exactDetailsDialog.isVisible().catch(() => false)) {
       await closeTopDialog(page)
     }
 
     await navigateToTab(page, 'pantry')
     await expect(page.getByText(tempProd)).toHaveCount(0)
 
-    // Cleanup [TEMP] recipe and product
+    // Cleanup all [TEMP] copies of recipe and product
     await navigateToTab(page, 'cookbook')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
     await searchInput.fill(tempMeal)
-    await page
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
-    await confirmDeleteDialog(page, 'confirm')
+    await page.waitForTimeout(250)
+    const mealHeadings = page.locator('h4', { hasText: tempMeal })
+    while ((await mealHeadings.count()) > 0) {
+      const before = await mealHeadings.count()
+      const mealCard = page
+        .locator('div, article, li')
+        .filter({ has: mealHeadings.first() })
+        .filter({ has: page.locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]') })
+        .last()
+      await mealCard
+        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .first()
+        .click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(mealHeadings).toHaveCount(before - 1, { timeout: 10_000 })
+    }
 
     await navigateToTab(page, 'products')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
     await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempProd)
-    await page
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
-    await confirmDeleteDialog(page, 'confirm')
+    await page.waitForTimeout(250)
+    const prodHeadings = page.locator('h4', { hasText: tempProd })
+    while ((await prodHeadings.count()) > 0) {
+      const before = await prodHeadings.count()
+      const prodCard = page
+        .locator('div, article, li')
+        .filter({ has: prodHeadings.first() })
+        .filter({ has: page.locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]') })
+        .last()
+      await prodCard
+        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .first()
+        .click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(prodHeadings).toHaveCount(before - 1, { timeout: 10_000 })
+    }
   })
 
   test('TC-PANTRY-05: Duplicate pantry addition merges quantity into existing row @module:pantry @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     const tempProd = `[TEMP] Ryż Merge ${isMobileViewport(page) ? 'M' : 'D'}`
+
+    // Self-clean any leftover [TEMP] pantry rows & duplicate products from earlier aborted runs
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    const stalePantryMatches = page.getByText(tempProd)
+    while ((await stalePantryMatches.count()) > 0) {
+      const before = await stalePantryMatches.count()
+      const staleRow = page
+        .locator('div, li')
+        .filter({ hasText: tempProd })
+        .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
+        .last()
+      await deletePantryRow(page, staleRow)
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(stalePantryMatches).toHaveCount(before - 1, { timeout: 10_000 })
+    }
+
     await navigateToTab(page, 'products')
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    const prodSearch = page.locator('input[placeholder*="Szukaj produktu" i]').first()
+    await prodSearch.fill(tempProd)
+    await page.waitForTimeout(250)
+    const prodHeadings = page.locator('h4', { hasText: tempProd })
+    while ((await prodHeadings.count()) > 0) {
+      const before = await prodHeadings.count()
+      const prodCard = page
+        .locator('div, article, li')
+        .filter({ has: prodHeadings.first() })
+        .filter({ has: page.locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]') })
+        .last()
+      await prodCard
+        .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+        .first()
+        .click()
+      await confirmDeleteDialog(page, 'confirm')
+      await expect(prodHeadings).toHaveCount(before - 1, { timeout: 10_000 })
+    }
     await ensureProductExists(page, {
       name: tempProd,
       unit: 'g',
@@ -226,14 +300,15 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await expect(dialog).toBeHidden({ timeout: 10000 })
 
     await expect(page.getByText(tempProd)).toHaveCount(1)
-    const row = page.locator('div, li').filter({ hasText: tempProd }).last()
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
+      .last()
     await expect(row.getByText(/200\s*g/)).toBeVisible()
 
     // Cleanup
-    await row
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
+    await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'confirm')
 
     await navigateToTab(page, 'products')
@@ -259,18 +334,18 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await navigateToTab(page, 'pantry')
     await addOrEnsurePantryItem(page, tempProd, '300')
 
-    const row = page.locator('div, li').filter({ hasText: tempProd }).last()
-    await row
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
+    const row = page
+      .locator('div, li')
+      .filter({ hasText: tempProd })
+      .filter({
+        has: page.getByRole('button', { name: /Zwiększ|Increase/i }),
+      })
+      .last()
+    await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'cancel')
     await expect(page.getByText(tempProd).first()).toBeVisible()
 
-    await row
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
+    await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'confirm')
     await expect(page.getByText(tempProd)).toHaveCount(0)
 

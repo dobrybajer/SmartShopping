@@ -74,6 +74,34 @@ export interface MealPlanStoreState {
   setupRealtimeSubscription: (householdId: string) => () => void
 }
 
+const DELETED_ECHO_TTL_MS = 5000
+const recentlyDeletedMealPlanIds = new Map<string, number>()
+
+function markMealPlansDeleted(ids: string[]) {
+  const expiresAt = Date.now() + DELETED_ECHO_TTL_MS
+  for (const id of ids) {
+    recentlyDeletedMealPlanIds.set(id, expiresAt)
+  }
+}
+
+function unmarkMealPlansDeleted(ids: string[]) {
+  for (const id of ids) {
+    recentlyDeletedMealPlanIds.delete(id)
+  }
+}
+
+function filterOutRecentlyDeletedMealPlans(items: MealPlanItem[]): MealPlanItem[] {
+  if (recentlyDeletedMealPlanIds.size === 0) return items
+  const now = Date.now()
+  for (const [id, expiresAt] of recentlyDeletedMealPlanIds.entries()) {
+    if (expiresAt <= now) {
+      recentlyDeletedMealPlanIds.delete(id)
+    }
+  }
+  if (recentlyDeletedMealPlanIds.size === 0) return items
+  return items.filter((item) => !recentlyDeletedMealPlanIds.has(item.id))
+}
+
 function getTodayString(): string {
   const today = new Date()
   const year = today.getFullYear()
@@ -116,6 +144,9 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   selectedDate: getTodayString(),
 
   setActiveHouseholdId: (householdId) => {
+    if (!householdId || get().activeHouseholdId !== householdId) {
+      recentlyDeletedMealPlanIds.clear()
+    }
     set({
       activeHouseholdId: householdId,
       weeklyTemplates: loadStoredWeeklyTemplates(householdId)
@@ -154,8 +185,9 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
         fetchTemplatesWithCache(householdId, cachedTemplates),
         refreshCalendarPipelineItems(householdId)
       ])
+      if (get().activeHouseholdId !== householdId) return
       set({
-        mealPlans: items,
+        mealPlans: filterOutRecentlyDeletedMealPlans(items),
         weeklyTemplates: syncedTemplates,
         loadedWindow: {
           householdId,
@@ -240,12 +272,14 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
 
   deleteMealPlan: async (id) => {
     const previousPlans = get().mealPlans
+    markMealPlansDeleted([id])
     set({
       mealPlans: previousPlans.filter((p) => p.id !== id)
     })
 
     const success = await mealPlanService.deleteMealPlan(id)
     if (!success) {
+      unmarkMealPlansDeleted([id])
       set({ mealPlans: previousPlans })
       toast.error(translate('toasts.errorOccurred'))
       return false
@@ -262,7 +296,10 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       return null
     }
 
-    set({ mealPlans: [...get().mealPlans, duplicated] })
+    const currentPlans = get().mealPlans
+    if (!currentPlans.some((p) => p.id === duplicated.id)) {
+      set({ mealPlans: [...currentPlans, duplicated] })
+    }
     toast.success(translate('calendar.mealDuplicatedToast'))
     return duplicated
   },
@@ -462,7 +499,11 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       fetchTemplatesWithCache(hhId, cachedTemplates),
       refreshCalendarPipelineItems(hhId)
     ])
-    set({ mealPlans: items, weeklyTemplates: syncedTemplates })
+    if (get().activeHouseholdId !== hhId) return
+    set({
+      mealPlans: filterOutRecentlyDeletedMealPlans(items),
+      weeklyTemplates: syncedTemplates
+    })
   },
 
   setupRealtimeSubscription: (householdId) => {

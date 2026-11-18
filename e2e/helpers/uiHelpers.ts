@@ -4,7 +4,7 @@ import { TEST_HOUSEHOLD_NAME, type ProductSeed } from '../fixtures/baseDataset'
 export type AppTab = 'cookbook' | 'calendar' | 'products' | 'draft' | 'active' | 'history' | 'pantry'
 
 const TAB_LABEL_REGEX: Record<AppTab, RegExp> = {
-  cookbook: /^(Przepisy|Recipes)\b/i,
+  cookbook: /^(Przepisy|Cookbook|Recipes)\b/i,
   calendar: /^(Kalendarz|Calendar)\b/i,
   products: /^(Produkty|Products)\b/i,
   draft: /^(Koszyk|Draft|Cart)\b/i,
@@ -106,7 +106,7 @@ export async function openHouseholdsDialog(page: Page): Promise<Locator> {
   const mobile = isMobileViewport(page)
   if (mobile) {
     await page.locator('header button[title]').first().click()
-    await page.getByRole('button', { name: /Gospodarstwa|Households/i }).click()
+    await page.getByRole('button', { name: /Gospodarstwa|Households/i }).first().click()
   } else {
     await page.locator('aside div[title]').first().click()
   }
@@ -119,10 +119,10 @@ export async function openAccountDetailsDialog(page: Page): Promise<Locator> {
   const mobile = isMobileViewport(page)
   if (mobile) {
     await page.locator('header button[title]').first().click()
-    await page.getByRole('button', { name: /Konto|Account/i }).click()
+    await page.getByRole('button', { name: /Konto|Account/i }).first().click()
   } else {
     await page.locator('aside button[title]').last().click()
-    await page.getByRole('button', { name: /Konto|Account/i }).click()
+    await page.getByRole('button', { name: /Konto|Account/i }).first().click()
   }
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -134,6 +134,8 @@ export async function openCategoryManager(page: Page): Promise<Locator> {
   await householdsDialog.getByRole('button', { name: /Konfiguruj|Configure/i }).click()
   const managerContainer = page.getByRole('dialog').last()
   await expect(managerContainer).toBeVisible()
+  await expect(managerContainer.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+  await expect(managerContainer.locator('div[draggable]').first()).toBeVisible({ timeout: 10_000 })
   return managerContainer
 }
 
@@ -200,13 +202,64 @@ export async function switchOrCreateTestHousehold(
 }
 
 export async function ensurePolishLanguage(page: Page): Promise<void> {
+  // Wait briefly for initial profile fetch so DB language preference doesn't override PL after we check
+  await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => undefined)
+  await page.waitForTimeout(350)
   const plButton = page.getByRole('button', { name: /^PL$/i }).first()
-  if (await plButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+  if (await plButton.isVisible().catch(() => false)) {
     const ariaPressed = await plButton.getAttribute('aria-pressed')
     if (ariaPressed !== 'true') {
+      const patchPl = page
+        .waitForResponse(
+          (res) => res.url().includes('/rest/v1/users') && res.request().method() === 'PATCH',
+          { timeout: 5_000 }
+        )
+        .catch(() => null)
       await plButton.click()
+      await patchPl
     }
+    return
   }
+
+  // Mobile PWA does not render the header PL/EN pill; restore via AccountDetailsDialog if in EN.
+  // Note: JSX spans inside BottomNavigation concatenate without spaces (e.g. "CookbookCalendar..."), so avoid \b.
+  const navText = (await page.locator('nav').last().textContent().catch(() => '')) || ''
+  if (/Cookbook|Calendar|Products|History|Pantry/i.test(navText)) {
+    const dialog = await openAccountDetailsDialog(page)
+    const patchPl = page
+      .waitForResponse(
+        (res) => res.url().includes('/rest/v1/users') && res.request().method() === 'PATCH',
+        { timeout: 5_000 }
+      )
+      .catch(() => null)
+    await dialog.getByRole('button', { name: /Polski/i }).click()
+    await patchPl
+    await closeTopDialog(page)
+  }
+}
+
+export async function deletePantryRow(page: Page, row: Locator): Promise<void> {
+  const trashBtn = row.locator(
+    '[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]'
+  )
+  if ((await trashBtn.count()) > 0 && (await trashBtn.first().isVisible().catch(() => false))) {
+    await trashBtn.first().click()
+    return
+  }
+
+  // Mobile uses SwipeToDismiss left-swipe gesture (>= 100px threshold)
+  await row.scrollIntoViewIfNeeded()
+  const box = await row.boundingBox()
+  if (!box) {
+    throw new Error('Cannot swipe PantryItemRow to delete: boundingBox is null')
+  }
+  const startX = box.x + Math.min(box.width * 0.5, box.width - 140)
+  const centerY = box.y + box.height * 0.5
+  await page.mouse.move(startX, centerY)
+  await page.mouse.down()
+  await page.waitForTimeout(40)
+  await page.mouse.move(startX - 150, centerY, { steps: 12 })
+  await page.mouse.up()
 }
 
 export async function confirmDeleteDialog(
@@ -215,21 +268,26 @@ export async function confirmDeleteDialog(
 ): Promise<void> {
   const dialog = page.getByRole('dialog').last()
   await expect(dialog).toBeVisible()
+  const dialogId = await dialog.getAttribute('id')
+  const exactDialog = dialogId ? page.locator(`[id="${dialogId}"]`) : dialog
   if (action === 'cancel') {
     await dialog.getByRole('button', { name: /Anuluj|Cancel/i }).click()
   } else {
     await dialog.getByRole('button', { name: /^(Usuń|Delete)$/i }).click()
   }
+  await expect(exactDialog).toBeHidden({ timeout: 10_000 })
 }
 
 export async function selectFromAutocomplete(
   container: Locator | Page,
   productName: string
 ): Promise<void> {
-  const input = container.getByPlaceholder(/Szukaj|Search/i).first()
+  const input = container
+    .getByPlaceholder(/Szukaj|Search|Płyn do naczyń|Dish soap/i)
+    .first()
   await input.click()
   await input.fill(productName)
-  const option = container.locator('ul li button', { hasText: productName }).first()
+  const option = container.locator('[role="option"]', { hasText: productName }).first()
   await expect(option).toBeVisible({ timeout: 5000 })
   await option.click()
 }
@@ -250,9 +308,10 @@ export async function ensureCustomCategoryExists(page: Page, categoryName: strin
 
 export async function ensureProductExists(page: Page, seed: ProductSeed): Promise<void> {
   await navigateToTab(page, 'products')
+  await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
   const searchInput = page.getByPlaceholder(/Szukaj produktu|Search products/i)
   await searchInput.fill(seed.name)
-  await page.waitForTimeout(250)
+  await page.waitForTimeout(300)
 
   const existingHeading = page.locator('h4', { hasText: seed.name }).first()
   if ((await existingHeading.count()) > 0) {

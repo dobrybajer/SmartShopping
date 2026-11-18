@@ -83,7 +83,9 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
         }
       }
 
-      await dialog.getByRole('button', { name: /Zapisz Przepis|Save Recipe/i }).click()
+      await dialog
+        .getByRole('button', { name: /Utwórz Przepis|Zapisz Przepis|Create Recipe|Save Recipe/i })
+        .click()
       await expect(dialog).toBeHidden({ timeout: 10000 })
     }
 
@@ -206,7 +208,7 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
     // 1) Syntax error JSON
     await importDialog.locator('textarea').fill('{ broken json ')
     await expect(
-      importDialog.getByRole('button', { name: /Zapisz \d+ przepis/i })
+      importDialog.getByRole('button', { name: /Zapisz (?:\d+ )?przepis|Save recipe/i })
     ).toBeDisabled()
 
     // 2) Unknown unit + empty recipe name
@@ -219,7 +221,7 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
       ])
     )
     await expect(
-      importDialog.getByRole('button', { name: /Zapisz \d+ przepis/i })
+      importDialog.getByRole('button', { name: /Zapisz (?:\d+ )?przepis|Save recipe/i })
     ).toBeDisabled()
 
     await importDialog.getByRole('button', { name: /Wyczyść|Clear/i }).click()
@@ -255,7 +257,9 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
       .last()
       .click()
 
-    await dialog.getByRole('button', { name: /Zapisz Przepis|Save Recipe/i }).click()
+    await dialog
+      .getByRole('button', { name: /Utwórz Przepis|Zapisz Przepis|Create Recipe|Save Recipe/i })
+      .click()
     await expect(dialog).toBeHidden({ timeout: 10000 })
 
     const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()

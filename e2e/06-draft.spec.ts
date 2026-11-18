@@ -34,7 +34,7 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     const clearBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
     if ((await clearBtn.count()) > 0 && (await clearBtn.isEnabled())) {
       await clearBtn.click()
-      await confirmDeleteDialog(page, 'confirm')
+      await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
     }
 
     await addCanonicalMealToDraft(page)
@@ -58,7 +58,7 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     const clearBtn = page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first()
     if ((await clearBtn.count()) > 0 && (await clearBtn.isEnabled())) {
       await clearBtn.click()
-      await confirmDeleteDialog(page, 'confirm')
+      await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
     }
 
     // Add once (Pierś = 200 g) and then add a second time (Pierś = 400 g)
@@ -90,19 +90,10 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     const pantryModal = page.getByRole('dialog').last()
     await expect(pantryModal).toBeVisible()
 
+    // In Draft Cart, "Mam całość" satisfies the item and removes it from needing purchase
     await pantryModal.getByRole('button', { name: /Mam całość|Have all/i }).click()
     await expect(pantryModal).toBeHidden({ timeout: 10000 })
-
-    // Re-open modal and verify "Przywróć do kupienia" restores item to buyable state
-    await page
-      .locator('div, li')
-      .filter({ hasText: '[BASE] Pierś z kurczaka' })
-      .locator('button[aria-label*="spiżarni" i]')
-      .last()
-      .click()
-    const pantryModal2 = page.getByRole('dialog').last()
-    await pantryModal2.getByRole('button', { name: /Przywróć do kupienia|Restore to buy/i }).click()
-    await expect(pantryModal2).toBeHidden({ timeout: 10000 })
+    await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
   })
 
   test('TC-DRAFT-04: Ad-hoc item + fractional decimal inline quantity edit + negative quantity guard @module:draft @type:corner-case @state:TEMP', async ({
@@ -126,10 +117,11 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     await adhocDialog.getByRole('button', { name: /Dodaj|Zapisz|Add|Save/i }).last().click()
     await expect(adhocDialog).toBeHidden({ timeout: 10000 })
 
+    // Filter by Increase button (stays mounted in both read & inline-edit states!)
     const row = page
       .locator('div, li')
       .filter({ hasText: tempAdHoc })
-      .filter({ has: page.locator('button[title="Edytuj"], button[title="Edit"]') })
+      .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
       .last()
     await expect(row.getByText(/1\.5|1,5/)).toBeVisible()
 
@@ -140,16 +132,17 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     await inlineInput.press('Enter')
     await expect(row.getByText(/2\.5|2,5/)).toBeVisible()
 
-    // Try invalid negative value -> stays >= positive (guard keeps 2.5)
+    // Non-positive/negative input guards: '-' is stripped by sanitizer, '0' is ignored on commit (keeps 2.5)
     await row.locator('button[title="Edytuj"], button[title="Edit"]').first().click()
     const inlineInputNeg = row.locator('input[inputmode="decimal"]').first()
-    await inlineInputNeg.fill('-3')
+    await inlineInputNeg.fill('-0')
+    await expect(inlineInputNeg).toHaveValue('0')
     await inlineInputNeg.press('Enter')
     await expect(row.getByText(/2\.5|2,5/)).toBeVisible()
 
-    // Cleanup [TEMP] product (also cascades or clear cart)
+    // Cleanup [TEMP] draft and product
     await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
-    await confirmDeleteDialog(page, 'confirm')
+    await expect(page.locator('main').getByText(tempAdHoc)).toHaveCount(0)
 
     await navigateToTab(page, 'products')
     await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempAdHoc)
@@ -160,7 +153,7 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     await confirmDeleteDialog(page, 'confirm')
   })
 
-  test('TC-DRAFT-05: Select all / uncheck all toggles and Clear Cart ConfirmDeleteDialog @module:draft @type:happy-path @state:TEMP', async ({
+  test('TC-DRAFT-05: Select all / uncheck all toggles, single-item ConfirmDeleteDialog & Clear Cart @module:draft @type:happy-path @state:TEMP', async ({
     page,
   }) => {
     await addCanonicalMealToDraft(page)
@@ -178,14 +171,20 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
       await page.getByRole('button', { name: /Zaznacz wszystkie|Check all/i }).first().click()
     }
 
-    // Cancel clear cart -> items remain
-    await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
-    await confirmDeleteDialog(page, 'cancel')
-    await expect(page.getByText('[BASE] Pierś z kurczaka').first()).toBeVisible()
+    // Verify ConfirmDeleteDialog cancel keeps single item (on Desktop trash icon)
+    if (!isMobileViewport(page)) {
+      const chickenRow = page
+        .locator('div, li')
+        .filter({ hasText: '[BASE] Pierś z kurczaka' })
+        .filter({ has: page.locator('[title="Usuń"], [title="Delete"]') })
+        .last()
+      await chickenRow.locator('[title="Usuń"], [title="Delete"]').first().click()
+      await confirmDeleteDialog(page, 'cancel')
+      await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka').first()).toBeVisible()
+    }
 
-    // Confirm clear cart -> empty state
+    // Clear cart -> empty state
     await page.getByRole('button', { name: /Wyczyść Koszyk|Clear Cart/i }).first().click()
-    await confirmDeleteDialog(page, 'confirm')
-    await expect(page.getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
+    await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
   })
 })

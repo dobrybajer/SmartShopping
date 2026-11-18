@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n'
@@ -22,10 +22,24 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
   const label = dismissText || t('common.delete')
   const [translateX, setTranslateX] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
+  const isSwipingRef = useRef(false)
   const startXRef = useRef(0)
   const currentXRef = useRef(0)
+  const isMountedRef = useRef(true)
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    }
+  }, [])
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+    isSwipingRef.current = true
     setIsSwiping(true)
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     startXRef.current = clientX
@@ -33,7 +47,7 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
   }
 
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isSwiping) return
+    if (!isSwipingRef.current) return
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
     const diffX = clientX - startXRef.current
 
@@ -45,7 +59,8 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
   }
 
   const handleTouchEnd = () => {
-    if (!isSwiping) return
+    if (!isSwipingRef.current) return
+    isSwipingRef.current = false
     setIsSwiping(false)
     const diffX = currentXRef.current - startXRef.current
 
@@ -58,8 +73,16 @@ export const SwipeToDismiss: React.FC<SwipeToDismissProps> = ({
         }
       }
       setTranslateX(-500)
-      setTimeout(() => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current)
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      dismissTimerRef.current = setTimeout(() => {
         onDismiss()
+        // Reset transform if component remains mounted (e.g. pending ConfirmDeleteDialog or user cancel)
+        resetTimerRef.current = setTimeout(() => {
+          if (isMountedRef.current) {
+            setTranslateX(0)
+          }
+        }, 150)
       }, 200)
     } else {
       setTranslateX(0)

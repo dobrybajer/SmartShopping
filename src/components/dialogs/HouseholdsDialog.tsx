@@ -40,6 +40,12 @@ export const HouseholdsDialog: React.FC<HouseholdsDialogProps> = ({ open, onOpen
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => {
+          if (ctrl.editingHouseholdId) {
+            e.preventDefault()
+            ctrl.cancelEditingHousehold()
+          }
+        }}
         className="max-w-lg bg-card border-border text-foreground p-6 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin"
       >
         <DialogHeader>

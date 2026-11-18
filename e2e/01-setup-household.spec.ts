@@ -29,9 +29,13 @@ test.describe('Moduł 01: Ekran logowania (niezalogowany) @module:setup-househol
 
     // Przełączenie na EN
     await page.getByRole('button', { name: /^EN$/i }).click()
-    await expect(page.getByText(/Meal Planning & Real-Time Shared Grocery Lists/i)).toBeVisible()
+    await expect(
+      page.getByText(/Meal Planning & Real-Time Household Grocery Sync/i)
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: /Sign in with Google/i })).toBeVisible()
-    await expect(page.getByText(/OLED-optimized PWA/i)).toBeVisible()
+    await expect(
+      page.getByText(/OLED-optimized, True Black progressive web application/i)
+    ).toBeVisible()
 
     // Powrót do PL
     await page.getByRole('button', { name: /^PL$/i }).click()
@@ -102,7 +106,7 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     const editInput = dialog.locator('form input[type="text"]').last()
     await expect(editInput).toBeVisible()
 
-    // Anulowanie klawiszem Escape
+    // Anulowanie klawiszem Escape (nie powinno zamknąć całego modala gospodarstw)
     await editInput.fill('Household_Esc_Cancel')
     await editInput.press('Escape')
     await expect(dialog.locator('span', { hasText: TEST_HOUSEHOLD_NAME }).first()).toBeVisible()
@@ -110,6 +114,7 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     // Zapis na nazwę edytowaną i przywrócenie
     await dialog.locator('span[title]', { hasText: TEST_HOUSEHOLD_NAME }).first().click()
     const editInput2 = dialog.locator('form input[type="text"]').last()
+    await expect(editInput2).toBeVisible()
     await editInput2.fill('Household_Test_Edited')
     await editInput2.press('Enter')
     await expect(dialog.locator('span', { hasText: 'Household_Test_Edited' }).first()).toBeVisible({
@@ -155,7 +160,7 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     const testEmail = `partner.e2e.${Date.now()}@smartshopping.local`
     const dialog = await openHouseholdsDialog(page)
 
-    const inviteInput = dialog.getByPlaceholder(/Wpisz email Google domownika|Enter household member/i)
+    const inviteInput = dialog.getByPlaceholder(/Wpisz email Google domownika|Enter (?:family|household) member/i)
     const inviteBtn = dialog.getByRole('button', { name: /Wyślij Zaproszenie|Send Invite/i })
 
     // Błędny format email (HTML5 validation)
@@ -167,7 +172,9 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     // Poprawny email
     await inviteInput.fill(testEmail)
     await inviteBtn.click()
-    await expect(dialog.getByText(testEmail)).toBeVisible({ timeout: 10_000 })
+    await expect(dialog.getByText(testEmail, { exact: true }).first()).toBeVisible({
+      timeout: 10_000,
+    })
     await expect(dialog.getByText(/Oczekuje|Pending/i).first()).toBeVisible()
 
     // Duplikat tego samego maila
@@ -195,7 +202,10 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     })
 
     const dialog = await openHouseholdsDialog(page)
-    await dialog.getByRole('button', { name: new RegExp(`Usuń gospodarstwo ${TEST_HOUSEHOLD_NAME}`, 'i') }).click()
+    await dialog
+      .getByRole('button', { name: new RegExp(`(?:Usuń gospodarstwo|Delete household) ${TEST_HOUSEHOLD_NAME}`, 'i') })
+      .first()
+      .click()
 
     const deleteDialog = page.getByRole('dialog').last()
     const phrase = (await deleteDialog.getByTestId('expected-confirmation-phrase').textContent()) || ''
@@ -217,9 +227,12 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
 
     // 1. Test ochrony na Household_Test (błędna fraza -> disabled -> Anuluj)
     await dialog
-      .getByRole('button', { name: new RegExp(`Usuń gospodarstwo ${TEST_HOUSEHOLD_NAME}`, 'i') })
+      .getByRole('button', { name: new RegExp(`(?:Usuń gospodarstwo|Delete household) ${TEST_HOUSEHOLD_NAME}`, 'i') })
+      .first()
       .click()
     const guardDialog = page.getByRole('dialog').last()
+    const guardId = await guardDialog.getAttribute('id')
+    const exactGuard = guardId ? page.locator(`[id="${guardId}"]`) : guardDialog
     const confirmDeleteBtn = guardDialog.getByRole('button', {
       name: /Usuń Gospodarstwo|Delete Household/i,
     })
@@ -227,20 +240,50 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     await guardDialog.getByTestId('delete-confirmation-input').fill(`${TEST_HOUSEHOLD_NAME} WRONG1`)
     await expect(confirmDeleteBtn).toBeDisabled()
     await guardDialog.getByRole('button', { name: /Anuluj|Cancel/i }).click()
+    await expect(exactGuard).toBeHidden({ timeout: 5_000 })
+
+    // Cleanup ewentualnego [TEMP] domostwa z wcześniejszego przerwanego biegu
+    const escapedTempName = tempName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    while (
+      (await dialog
+        .getByRole('button', { name: new RegExp(`(?:Usuń gospodarstwo|Delete household) ${escapedTempName}`, 'i') })
+        .count()) > 0
+    ) {
+      await dialog
+        .getByRole('button', { name: new RegExp(`(?:Usuń gospodarstwo|Delete household) ${escapedTempName}`, 'i') })
+        .first()
+        .click()
+      const staleDeleteDialog = page.getByRole('dialog').last()
+      const staleId = await staleDeleteDialog.getAttribute('id')
+      const exactStale = staleId ? page.locator(`[id="${staleId}"]`) : staleDeleteDialog
+      const stalePhrase =
+        (await staleDeleteDialog.getByTestId('expected-confirmation-phrase').textContent()) || ''
+      await staleDeleteDialog.getByTestId('delete-confirmation-input').fill(stalePhrase.trim())
+      await staleDeleteDialog
+        .getByRole('button', { name: /Usuń Gospodarstwo|Delete Household/i })
+        .click()
+      await expect(exactStale).toBeHidden({ timeout: 10_000 })
+    }
 
     // 2. Utworzenie i pełne usunięcie domostwa [TEMP]
     await dialog.getByPlaceholder(/Wpisz nazwę gospodarstwa|Enter household name/i).fill(tempName)
     await dialog.getByRole('button', { name: /Utwórz|Create/i }).click()
     await expect(dialog.locator('span', { hasText: tempName }).first()).toBeVisible({ timeout: 15_000 })
 
-    await dialog.getByRole('button', { name: new RegExp(`Usuń gospodarstwo ${tempName}`, 'i') }).click()
+    await dialog
+      .getByRole('button', { name: new RegExp(`(?:Usuń gospodarstwo|Delete household) ${escapedTempName}`, 'i') })
+      .first()
+      .click()
     const tempDeleteDialog = page.getByRole('dialog').last()
+    const tempDeleteId = await tempDeleteDialog.getAttribute('id')
+    const exactTempDelete = tempDeleteId ? page.locator(`[id="${tempDeleteId}"]`) : tempDeleteDialog
     const phrase =
       (await tempDeleteDialog.getByTestId('expected-confirmation-phrase').textContent()) || ''
     await tempDeleteDialog.getByTestId('delete-confirmation-input').fill(phrase.trim())
     await tempDeleteDialog
       .getByRole('button', { name: /Usuń Gospodarstwo|Delete Household/i })
       .click()
+    await expect(exactTempDelete).toBeHidden({ timeout: 10_000 })
 
     await expect(dialog.locator('span', { hasText: tempName })).toHaveCount(0, { timeout: 15_000 })
 
@@ -287,13 +330,20 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     page,
   }) => {
     const dialog = await openAccountDetailsDialog(page)
+    const patchEn = page
+      .waitForResponse(
+        (res) => res.url().includes('/rest/v1/users') && res.request().method() === 'PATCH',
+        { timeout: 8_000 }
+      )
+      .catch(() => null)
     await dialog.getByRole('button', { name: /English/i }).click()
+    await patchEn
     await closeTopDialog(page)
 
     const navContainer = isMobileViewport(page)
       ? page.locator('nav[aria-label]').last()
       : page.locator('aside nav').first()
-    await expect(navContainer).toContainText(/Recipes/i)
+    await expect(navContainer).toContainText(/Cookbook|Recipes/i)
     await expect(navContainer).toContainText(/Pantry/i)
 
     // Reload utrzymuje EN
@@ -302,11 +352,19 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
       isMobileViewport(page)
         ? page.locator('nav[aria-label]').last()
         : page.locator('aside nav').first()
-    ).toContainText(/Recipes/i)
+    ).toContainText(/Cookbook|Recipes/i)
+    await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => undefined)
 
     // Powrót do PL
     const dialog2 = await openAccountDetailsDialog(page)
+    const patchPl = page
+      .waitForResponse(
+        (res) => res.url().includes('/rest/v1/users') && res.request().method() === 'PATCH',
+        { timeout: 8_000 }
+      )
+      .catch(() => null)
     await dialog2.getByRole('button', { name: /Polski/i }).click()
+    await patchPl
     await closeTopDialog(page)
     await expect(
       isMobileViewport(page)
@@ -426,13 +484,14 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
       await expect(page.locator('aside')).toBeVisible()
 
       // 3. Globalne menu + Dodaj w DesktopHeader & status Na żywo
-      await expect(page.locator('header').getByText(/Na żywo|Realtime/i)).toBeVisible()
-      await page.locator('header').getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
-      await expect(page.getByText(/Dodaj Przepis/i)).toBeVisible()
-      await expect(page.getByText(/Dodaj Produkt/i)).toBeVisible()
-      await expect(page.getByText(/Dodaj Pozycję Ad-Hoc/i)).toBeVisible()
-      await expect(page.getByText(/Importuj przepis/i)).toBeVisible()
-      await page.locator('header').getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
+      const header = page.locator('header')
+      await expect(header.getByText(/Na żywo|Realtime/i)).toBeVisible()
+      await header.getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
+      await expect(header.getByText(/Dodaj Przepis/i)).toBeVisible()
+      await expect(header.getByText(/Dodaj Produkt/i)).toBeVisible()
+      await expect(header.getByText(/Dodaj Pozycję Ad-Hoc/i)).toBeVisible()
+      await expect(header.getByText(/Importuj przepis/i)).toBeVisible()
+      await header.getByRole('button', { name: /^Dodaj$|^Add$/i }).click()
     }
 
     // 4. Trwałość aktywnej zakładki po odświeżeniu
