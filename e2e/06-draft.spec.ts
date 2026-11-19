@@ -71,7 +71,7 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     await expect(page.getByText('[BASE] Pierś z kurczaka')).toHaveCount(1)
   })
 
-  test('TC-DRAFT-03: PantryConfirmModal in Draft marks item "Mam całość" (in_pantry) & "Przywróć do kupienia" @module:draft @type:happy-path @state:TEMP', async ({
+  test('TC-DRAFT-03: PantryConfirmModal in Draft marks item "Mam całość" (in_pantry) & "Nie mam produktu" (removeByProductOrName) @module:draft @type:happy-path @state:TEMP', async ({
     page,
   }) => {
     await navigateToTab(page, 'draft')
@@ -90,10 +90,62 @@ test.describe('Module 06 — Draft Cart, Duplicate Merging, Pantry Check & Ad-Ho
     const pantryModal = page.getByRole('dialog').last()
     await expect(pantryModal).toBeVisible()
 
-    // In Draft Cart, "Mam całość" satisfies the item and removes it from needing purchase
+    // 1) In Draft Cart, "Mam całość" satisfies the item and removes it from needing purchase
     await pantryModal.getByRole('button', { name: /Mam całość|Have all/i }).click()
     await expect(pantryModal).toBeHidden({ timeout: 10000 })
     await expect(page.locator('main').getByText('[BASE] Pierś z kurczaka')).toHaveCount(0)
+
+    // 2) Test "Nie mam produktu" (removeByProductOrName -> DELETE /rest/v1/pantry_items) on a [TEMP] stocked item
+    const tempPantryProd = `[TEMP] DraftDontHave ${isMobileViewport(page) ? 'M' : 'D'}`
+    await navigateToTab(page, 'products')
+    await ensureProductExists(page, {
+      name: tempPantryProd,
+      unit: 'g',
+      categoryLabel: 'Spiżarnia i Sypkie',
+    })
+
+    await navigateToTab(page, 'pantry')
+    if ((await page.getByText(tempPantryProd).count()) === 0) {
+      await page.getByRole('button', { name: /Dodaj do Spiżarni|Add to Pantry/i }).first().click()
+      const pDialog = page.getByRole('dialog').last()
+      await selectFromAutocomplete(pDialog, tempPantryProd)
+      await pDialog.locator('input[type="number"]').first().fill('100')
+      await pDialog.getByRole('button', { name: /Dodaj|Zapisz|Save|Add/i }).last().click()
+      await expect(pDialog).toBeHidden({ timeout: 10000 })
+    }
+
+    await navigateToTab(page, 'draft')
+    await page.getByRole('button', { name: /Dodaj Ad-hoc|Add Ad-hoc/i }).first().click()
+    const adhocDialog = page.getByRole('dialog').last()
+    await selectFromAutocomplete(adhocDialog, tempPantryProd)
+    await adhocDialog.locator('input[type="number"]').first().fill('100')
+    await adhocDialog.getByRole('button', { name: /Dodaj|Zapisz|Add|Save/i }).last().click()
+    await expect(adhocDialog).toBeHidden({ timeout: 10000 })
+
+    const tempRow = page
+      .locator('div, li')
+      .filter({ hasText: tempPantryProd })
+      .filter({ has: page.locator('button[aria-label*="spiżarni" i]') })
+      .last()
+    await tempRow.locator('button[aria-label*="spiżarni" i]').first().click()
+    const dontHaveModal = page.getByRole('dialog').last()
+    await expect(dontHaveModal).toBeVisible()
+    await dontHaveModal.getByRole('button', { name: /Nie mam produktu|Don't have/i }).click()
+    await expect(dontHaveModal).toBeHidden({ timeout: 10000 })
+
+    // Verify item remains in Draft to buy, and is deleted from Pantry
+    await expect(page.locator('main').getByText(tempPantryProd).first()).toBeVisible()
+    await navigateToTab(page, 'pantry')
+    await expect(page.getByText(tempPantryProd)).toHaveCount(0)
+
+    // Cleanup [TEMP] product
+    await navigateToTab(page, 'products')
+    await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempPantryProd)
+    await page
+      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
+      .first()
+      .click()
+    await confirmDeleteDialog(page, 'confirm')
   })
 
   test('TC-DRAFT-04: Ad-hoc item + fractional decimal inline quantity edit + negative quantity guard @module:draft @type:corner-case @state:TEMP', async ({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from '@/i18n'
 import {
@@ -31,12 +31,15 @@ export const AccountDetailsDialog: React.FC<AccountDetailsDialogProps> = ({
   const [isSaving, setIsSaving] = useState(false)
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const wasOpenRef = useRef(false)
+
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setName(userProfile?.name || user?.email?.split('@')[0] || '')
       setStatusMessage(null)
     }
-  }, [open, userProfile, user])
+    wasOpenRef.current = open
+  }, [open, userProfile?.name, user?.email])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()

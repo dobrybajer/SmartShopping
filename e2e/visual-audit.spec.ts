@@ -777,17 +777,20 @@ test.describe('SmartShopping Live Visual & UX Audit on Microsoft Edge', () => {
     console.log('[AUDIT] Desktop Sidebar & Header boundingBoxes:', JSON.stringify({ sidebarBox, headerBox }))
 
     const desktopTabs = [
-      { name: 'Przepiśnik (Cookbook)', pattern: /Przepiśnik|Cookbook/i },
-      { name: 'Kalendarz (Calendar)', pattern: /Kalendarz|Calendar/i },
-      { name: 'Produkty (Products)', pattern: /Produkty|Products/i },
-      { name: 'Koszyk (Draft)', pattern: /Koszyk|Draft/i },
-      { name: 'Lista Zakupów (Active List)', pattern: /Lista Zakupów|Active List/i },
-      { name: 'Historia (History)', pattern: /Historia|History/i },
-      { name: 'Spiżarnia (Pantry)', pattern: /Spiżarnia|Pantry/i },
+      { name: 'Przepisy (Cookbook)', pattern: /^(Przepisy|Przepiśnik|Cookbook|Recipes)$/i },
+      { name: 'Kalendarz (Calendar)', pattern: /^(Kalendarz|Calendar)$/i },
+      { name: 'Produkty (Products)', pattern: /^(Produkty|Products)$/i },
+      { name: 'Koszyk (Draft)', pattern: /^(Koszyk|Draft|Cart)$/i },
+      { name: 'Lista Zakupów (Active List)', pattern: /^(Aktywna Lista|Lista Zakupów|Active List)$/i },
+      { name: 'Historia (History)', pattern: /^(Historia|History)$/i },
+      { name: 'Spiżarnia (Pantry)', pattern: /^(Spiżarnia|Pantry)$/i },
     ]
 
     for (const tab of desktopTabs) {
-      const btn = page.locator('aside button').filter({ hasText: tab.pattern }).first()
+      const btn = page
+        .locator('aside nav button')
+        .filter({ has: page.locator('span.font-bold', { hasText: tab.pattern }) })
+        .first()
       if (await btn.isVisible()) {
         await btn.click()
         await page.waitForTimeout(350)
@@ -809,7 +812,10 @@ test.describe('SmartShopping Live Visual & UX Audit on Microsoft Edge', () => {
     }
 
     // Switch back to Cookbook on Desktop and inspect all 6 themes
-    const cookbookSidebarBtn = page.locator('aside button').filter({ hasText: /Przepiśnik|Cookbook/i }).first()
+    const cookbookSidebarBtn = page
+      .locator('aside nav button')
+      .filter({ has: page.locator('span.font-bold', { hasText: /^(Przepisy|Przepiśnik|Cookbook|Recipes)$/i }) })
+      .first()
     if (await cookbookSidebarBtn.isVisible()) {
       await cookbookSidebarBtn.click()
       await page.waitForTimeout(350)
@@ -848,6 +854,7 @@ test.describe('SmartShopping Live Visual & UX Audit on Microsoft Edge', () => {
       const results: Record<string, unknown> = {}
       for (const th of themeList) {
         document.documentElement.setAttribute('data-theme', th)
+        document.documentElement.classList.toggle('dark', th !== 'clean-light')
         const bodyStyle = getComputedStyle(document.body)
         const bodyBg = bodyStyle.backgroundColor
         const bodyFg = bodyStyle.color

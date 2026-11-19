@@ -76,6 +76,7 @@ export interface MealPlanStoreState {
 
 const DELETED_ECHO_TTL_MS = 5000
 const recentlyDeletedMealPlanIds = new Map<string, number>()
+const recentlyDeletedTemplateIds = new Map<string, number>()
 
 function markMealPlansDeleted(ids: string[]) {
   const expiresAt = Date.now() + DELETED_ECHO_TTL_MS
@@ -100,6 +101,31 @@ function filterOutRecentlyDeletedMealPlans(items: MealPlanItem[]): MealPlanItem[
   }
   if (recentlyDeletedMealPlanIds.size === 0) return items
   return items.filter((item) => !recentlyDeletedMealPlanIds.has(item.id))
+}
+
+function markTemplatesDeleted(ids: string[]) {
+  const expiresAt = Date.now() + DELETED_ECHO_TTL_MS
+  for (const id of ids) {
+    recentlyDeletedTemplateIds.set(id, expiresAt)
+  }
+}
+
+function unmarkTemplatesDeleted(ids: string[]) {
+  for (const id of ids) {
+    recentlyDeletedTemplateIds.delete(id)
+  }
+}
+
+function filterOutRecentlyDeletedTemplates(templates: WeeklyMealTemplate[]): WeeklyMealTemplate[] {
+  if (recentlyDeletedTemplateIds.size === 0) return templates
+  const now = Date.now()
+  for (const [id, expiresAt] of recentlyDeletedTemplateIds.entries()) {
+    if (expiresAt <= now) {
+      recentlyDeletedTemplateIds.delete(id)
+    }
+  }
+  if (recentlyDeletedTemplateIds.size === 0) return templates
+  return templates.filter((tpl) => !recentlyDeletedTemplateIds.has(tpl.id))
 }
 
 function getTodayString(): string {
@@ -128,9 +154,14 @@ async function fetchTemplatesWithCache(
   cachedLocal: WeeklyMealTemplate[]
 ): Promise<WeeklyMealTemplate[]> {
   if (typeof weeklyTemplateService.syncRemoteTemplates === 'function') {
-    return weeklyTemplateService.syncRemoteTemplates(householdId, cachedLocal)
+    const synced = await weeklyTemplateService.syncRemoteTemplates(householdId, cachedLocal)
+    const filtered = filterOutRecentlyDeletedTemplates(synced)
+    if (filtered.length !== synced.length) {
+      saveStoredWeeklyTemplates(householdId, filtered)
+    }
+    return filtered
   }
-  return cachedLocal
+  return filterOutRecentlyDeletedTemplates(cachedLocal)
 }
 
 export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
@@ -146,6 +177,7 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
   setActiveHouseholdId: (householdId) => {
     if (!householdId || get().activeHouseholdId !== householdId) {
       recentlyDeletedMealPlanIds.clear()
+      recentlyDeletedTemplateIds.clear()
     }
     set({
       activeHouseholdId: householdId,
@@ -186,9 +218,13 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
         refreshCalendarPipelineItems(householdId)
       ])
       if (get().activeHouseholdId !== householdId) return
+      const safeTemplates = filterOutRecentlyDeletedTemplates(syncedTemplates)
+      if (safeTemplates.length !== syncedTemplates.length) {
+        saveStoredWeeklyTemplates(householdId, safeTemplates)
+      }
       set({
         mealPlans: filterOutRecentlyDeletedMealPlans(items),
-        weeklyTemplates: syncedTemplates,
+        weeklyTemplates: safeTemplates,
         loadedWindow: {
           householdId,
           startDate: windowBounds.startDate,
@@ -416,6 +452,12 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
         .saveWeeklyTemplate(template)
         .then((saved) => {
           if (!saved || get().activeHouseholdId !== hhId) return
+          if (recentlyDeletedTemplateIds.has(template.id)) {
+            if (typeof weeklyTemplateService.deleteWeeklyTemplate === 'function') {
+              void weeklyTemplateService.deleteWeeklyTemplate(saved.id, hhId).catch(() => {})
+            }
+            return
+          }
           const current = get().weeklyTemplates.map((t) => (t.id === template.id ? saved : t))
           saveStoredWeeklyTemplates(hhId, current)
           set({ weeklyTemplates: current })
@@ -473,11 +515,28 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
 
   deleteWeeklyTemplate: (templateId) => {
     const hhId = get().activeHouseholdId
-    const updated = get().weeklyTemplates.filter((tpl) => tpl.id !== templateId)
+    const previousTemplates = get().weeklyTemplates
+    markTemplatesDeleted([templateId])
+    const updated = previousTemplates.filter((tpl) => tpl.id !== templateId)
     if (hhId) {
       saveStoredWeeklyTemplates(hhId, updated)
       if (typeof weeklyTemplateService.deleteWeeklyTemplate === 'function') {
-        void weeklyTemplateService.deleteWeeklyTemplate(templateId, hhId).catch(() => {})
+        void weeklyTemplateService
+          .deleteWeeklyTemplate(templateId, hhId)
+          .then((ok) => {
+            if (!ok) {
+              unmarkTemplatesDeleted([templateId])
+              saveStoredWeeklyTemplates(hhId, previousTemplates)
+              set({ weeklyTemplates: previousTemplates })
+              toast.error(translate('toasts.errorOccurred'))
+            }
+          })
+          .catch(() => {
+            unmarkTemplatesDeleted([templateId])
+            saveStoredWeeklyTemplates(hhId, previousTemplates)
+            set({ weeklyTemplates: previousTemplates })
+            toast.error(translate('toasts.errorOccurred'))
+          })
       }
     }
     set({ weeklyTemplates: updated })
@@ -500,9 +559,13 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
       refreshCalendarPipelineItems(hhId)
     ])
     if (get().activeHouseholdId !== hhId) return
+    const safeTemplates = filterOutRecentlyDeletedTemplates(syncedTemplates)
+    if (safeTemplates.length !== syncedTemplates.length) {
+      saveStoredWeeklyTemplates(hhId, safeTemplates)
+    }
     set({
       mealPlans: filterOutRecentlyDeletedMealPlans(items),
-      weeklyTemplates: syncedTemplates
+      weeklyTemplates: safeTemplates
     })
   },
 
@@ -535,7 +598,11 @@ export const useMealPlanStore = create<MealPlanStoreState>((set, get) => ({
         async () => {
           const synced = await fetchTemplatesWithCache(householdId, get().weeklyTemplates)
           if (get().activeHouseholdId === householdId) {
-            set({ weeklyTemplates: synced })
+            const safeTemplates = filterOutRecentlyDeletedTemplates(synced)
+            if (safeTemplates.length !== synced.length) {
+              saveStoredWeeklyTemplates(householdId, safeTemplates)
+            }
+            set({ weeklyTemplates: safeTemplates })
           }
         }
       )

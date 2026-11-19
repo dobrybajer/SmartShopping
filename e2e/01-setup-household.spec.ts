@@ -183,6 +183,18 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     await expect(
       dialog.locator('.text-destructive, [class*="destructive"]', { hasText: /Nie udało się|already|istnieje|błąd/i }).first()
     ).toBeVisible({ timeout: 10_000 })
+
+    // Zaproszenie istniejącego członka domostwa (własny email) -> gałąź users + household_members (alreadyMember)
+    const ownEmailText = await dialog.locator('span.font-mono', { hasText: '@' }).first().textContent()
+    if (ownEmailText && ownEmailText.includes('@')) {
+      await inviteInput.fill(ownEmailText.trim())
+      await inviteBtn.click()
+      await expect(
+        dialog
+          .getByText(/jest już członkiem tego gospodarstwa|należy już do tego gospodarstwa|already a member/i)
+          .first()
+      ).toBeVisible({ timeout: 10_000 })
+    }
   })
 
   test('TC-SETUP-06: Uprawnienia ról Owner vs Member (odmowa usunięcia RLS) @type:negative @type:security @state:READONLY', async ({
@@ -457,27 +469,52 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
     })
     await expect(sendTestBtn).toBeVisible({ timeout: 5_000 })
 
-    // Wariant A: notifySelf = false -> sentCount: 0 -> komunikat noDevices
+    // 1. Przełącznik "Powiadamiaj mnie" (notifySelf: false -> true) zapisuje stan w localStorage dla zdarzeń domenowych
     const notifySelfCheckbox = dialogGranted.locator('#notify-self-checkbox')
-    if ((await notifySelfCheckbox.getAttribute('aria-checked')) === 'true') {
-      await notifySelfCheckbox.click()
-    }
-    await sendTestBtn.click()
-    expect(capturedPayloads.length).toBeGreaterThanOrEqual(1)
-    expect(capturedPayloads[capturedPayloads.length - 1].includeSender).toBe(false)
-
-    // Wariant B: Zaznaczenie "Powiadamiaj mnie" (notifySelf = true) -> wysyłka do siebie
+    await expect(notifySelfCheckbox).toHaveAttribute('aria-checked', 'false')
     await notifySelfCheckbox.click()
     await expect(notifySelfCheckbox).toHaveAttribute('aria-checked', 'true')
     expect(await page.evaluate(() => localStorage.getItem('smartshopping_notify_self'))).toBe(
       'true'
     )
+
+    // 2. Kliknięcie "Wyślij testowe powiadomienie" wysyła TEST_NOTIFICATION z includeSender: true
     await sendTestBtn.click()
+    await expect.poll(() => capturedPayloads.length, { timeout: 5_000 }).toBeGreaterThanOrEqual(1)
     const lastPayload = capturedPayloads[capturedPayloads.length - 1]
     expect(lastPayload.includeSender).toBe(true)
     expect(lastPayload.tag).toBe('test-notification')
     expect(lastPayload.url).toBe('/?tab=settings')
     await expect(dialogGranted.getByText(/Wysłano|Sent/i).first()).toBeVisible({ timeout: 5_000 })
+
+    // 3. Symulacja błędu HTTP 500 Edge Function przy wysyłce testowej
+    await page.unroute('**/functions/v1/send-push-notification')
+    await page.route('**/functions/v1/send-push-notification', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Internal push error' }),
+      })
+    })
+    await sendTestBtn.click()
+    await expect(
+      dialogGranted
+        .getByText(
+          /Nie udało się|Nie znaleziono zarejestrowanych|Brak zarejestrowanych|Failed|No registered/i
+        )
+        .first()
+    ).toBeVisible({ timeout: 5_000 })
+
+    // 4. Wyłączenie subskrypcji Push (unsubscribe -> DELETE /rest/v1/push_subscriptions)
+    const disablePushBtn = dialogGranted.getByRole('button', {
+      name: /Wyłącz powiadomienia|Disable/i,
+    })
+    if (await disablePushBtn.isVisible().catch(() => false)) {
+      await disablePushBtn.click()
+      await expect(
+        dialogGranted.getByRole('button', { name: /Włącz powiadomienia|Enable/i })
+      ).toBeVisible({ timeout: 5_000 })
+    }
 
     await closeTopDialog(page)
     await page.unroute('**/functions/v1/send-push-notification')
@@ -518,11 +555,34 @@ test.describe('Moduł 01: Domostwo i Konfiguracja Konta @module:setup-household'
   test('TC-SETUP-12: Profil konta, przełącznik layoutMode, Quick-Add Header, status Live i zapamiętywanie zakładki @type:happy-path @type:rwd @state:TEMP', async ({
     page,
   }) => {
-    // 1. Sprawdzenie pól read-only w AccountDetailsDialog
+    // 1. Edycja Nazwy Wyświetlanej (PATCH /rest/v1/users) oraz sprawdzenie pól read-only w AccountDetailsDialog
     const dialog = await openAccountDetailsDialog(page)
     const emailInput = dialog.locator('input[type="email"]')
     await expect(emailInput).toBeDisabled()
     await expect(dialog.getByText(/tylko do odczytu|read-only/i)).toBeVisible()
+
+    const nameInput = dialog.locator('input[type="text"]').first()
+    const rawName = (await nameInput.inputValue()) || 'Tester'
+    const originalName = rawName.replace(/_E2E(?:_\d+)?$/, '')
+    const tempDisplayName =
+      rawName === `${originalName}_E2E` ? `${originalName}_E2E_2` : `${originalName}_E2E`
+    await nameInput.fill(tempDisplayName)
+    const submitBtn = dialog.locator('button[type="submit"]')
+    await expect(submitBtn).toBeEnabled()
+    await submitBtn.click()
+    await expect(
+      dialog.getByText(/Pomyślnie zaktualizowano nazwę|Display name updated/i).first()
+    ).toBeVisible({ timeout: 10_000 })
+    await expect(submitBtn).toBeDisabled({ timeout: 10_000 })
+
+    // Przywrócenie oryginalnej nazwy wyświetlanej
+    await nameInput.fill(originalName)
+    await expect(submitBtn).toBeEnabled()
+    await submitBtn.click()
+    await expect(
+      dialog.getByText(/Pomyślnie zaktualizowano nazwę|Display name updated/i).first()
+    ).toBeVisible({ timeout: 10_000 })
+    await expect(submitBtn).toBeDisabled({ timeout: 10_000 })
     await closeTopDialog(page)
 
     // 2. Przełącznik layoutMode (HIGH-10)

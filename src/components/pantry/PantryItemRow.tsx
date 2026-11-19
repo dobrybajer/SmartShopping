@@ -118,7 +118,7 @@ export const PantryItemRow: React.FC<PantryItemRowProps> = ({
             </span>
           )}
           {item.last_verified_at && (
-            <span className="flex items-center gap-1 font-mono text-emerald-400/90">
+            <span className="flex items-center gap-1 font-mono text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-3 h-3" />
               <span>{t('pantry.verifiedBadge')}</span>
             </span>
@@ -155,7 +155,7 @@ export const PantryItemRow: React.FC<PantryItemRowProps> = ({
                   void onUpdateExpirationDate(item.id, null)
                   setIsEditingExpiry(false)
                 }}
-                className="h-7 px-2 rounded-lg text-[10px] text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                className="h-7 px-2 rounded-lg text-[10px] text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
                 title={t('pantry.expiry.clearDate')}
                 aria-label={t('pantry.expiry.clearDate')}
               >

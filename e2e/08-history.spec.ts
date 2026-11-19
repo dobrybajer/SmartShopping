@@ -136,29 +136,68 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
       items:
         i === 0
           ? [
-              {
-                id: 'item-del-1',
-                product_id: null,
-                product: null,
-                ad_hoc_name: '[TEMP] Produkt Usunięty Z Katalogu',
-                total_quantity: 2,
-                is_checked: true,
-                in_pantry: false,
-                added_ad_hoc: false,
-                category_id: null,
-              },
-            ]
+            {
+              id: 'item-del-1',
+              product_id: null,
+              product: null,
+              ad_hoc_name: '[TEMP] Produkt Usunięty Z Katalogu',
+              total_quantity: 2,
+              is_checked: true,
+              in_pantry: false,
+              added_ad_hoc: false,
+              category_id: null,
+            },
+          ]
           : i === 1
             ? [
-                { id: 'item-p-1', is_checked: true },
-                { id: 'item-p-2', is_checked: false },
-              ]
+              { id: 'item-p-1', is_checked: true },
+              { id: 'item-p-2', is_checked: false },
+            ]
             : [{ id: `item-n-${i}`, is_checked: false }],
     }))
+
+    await page.route('**/rest/v1/shopping_list_items*', async (route) => {
+      const url = route.request().url()
+      if (
+        route.request().method() === 'GET' &&
+        url.includes('shopping_list_id=eq.00000000-0000-4000-8000-')
+      ) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: 'item-del-1',
+              shopping_list_id: '00000000-0000-4000-8000-000000000001',
+              product_id: null,
+              product: null,
+              category: null,
+              category_id: null,
+              ad_hoc_name: '[TEMP] Produkt Usunięty Z Katalogu',
+              total_quantity: 2,
+              is_checked: true,
+              in_pantry: false,
+              added_ad_hoc: true,
+            },
+          ]),
+        })
+        return
+      }
+      await route.continue()
+    })
 
     await page.route('**/rest/v1/shopping_lists*', async (route) => {
       const url = route.request().url()
       if (route.request().method() === 'GET' && url.includes('status=eq.archived')) {
+        if (url.includes('offset=30')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([mockLists[30]]),
+          })
+          return
+        }
+        // Return 31 items so shoppingListQueries detects hasMore = (data.length > 30) and renders "Pokaż starsze listy"
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -182,9 +221,12 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
     await page.reload()
     await navigateToTab(page, 'history')
     await expect(page.getByText('[TEMP] Mock Archive #1').first()).toBeVisible({ timeout: 10_000 })
-    await expect(
-      page.getByRole('button', { name: /Pokaż starsze listy|Show older lists|Load older lists/i }).first()
-    ).toBeVisible()
+    const loadMoreBtn = page
+      .getByRole('button', { name: /Pokaż starsze listy|Show older lists|Load older lists/i })
+      .first()
+    await expect(loadMoreBtn).toBeVisible()
+    await loadMoreBtn.click()
+    await expect(page.getByText('[TEMP] Mock Archive #31').first()).toBeVisible({ timeout: 10_000 })
 
     await page.getByText('[TEMP] Mock Archive #1').first().click()
     const detailContainer = isMobileViewport(page)
@@ -204,5 +246,6 @@ test.describe('Module 08 — Shopping History, Immutable Original Name & Paginat
     }
 
     await page.unroute('**/rest/v1/shopping_lists*')
+    await page.unroute('**/rest/v1/shopping_list_items*')
   })
 })

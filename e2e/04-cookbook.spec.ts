@@ -158,21 +158,31 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
     await searchInput.fill('')
   })
 
-  test('TC-MEAL-03: Kitchen unit conversion preview (łyżeczka / szklanka -> ml / g) @module:cookbook @type:corner-case @state:TEMP', async ({
+  test('TC-MEAL-03: Kitchen unit conversion preview (g, ml, pcs) @module:cookbook @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /Dodaj Przepis|Add Recipe/i }).first().click()
     const dialog = page.getByRole('dialog').last()
     await expect(dialog).toBeVisible()
 
+    // 1) 'ml' product -> 'tbsp' (2 * 15ml = 30 ml)
     await selectFromAutocomplete(dialog, '[BASE] Oliwa z oliwek Extra Virgin')
     await dialog.locator('input[type="number"]').first().fill('2')
 
-    const unitSelect = dialog.locator('select[aria-label*="Miara kuchenna" i]')
+    const unitSelect = dialog.locator('select[aria-label*="Miara kuchenna" i], select[aria-label*="Kitchen unit" i]')
     await expect(unitSelect).toBeVisible()
-    // Select tablespoon ('tbsp' = 15ml -> 2 tbsp = 30 ml) or teaspoon ('tsp' = 5ml -> 2 tsp = 10 ml)
     await unitSelect.selectOption('tbsp')
     await expect(dialog.getByText(/30\s*ml/i).first()).toBeVisible()
+
+    // 2) 'g' product -> 'cup' (0.4 * 250g = 100 g)
+    await selectFromAutocomplete(dialog, '[BASE] Ryż basmati')
+    await dialog.locator('input[type="number"]').first().fill('0.4')
+    await unitSelect.selectOption('cup')
+    await expect(dialog.getByText(/100\s*g/i).first()).toBeVisible()
+
+    // 3) 'pcs' product -> kitchen unit selector is hidden
+    await selectFromAutocomplete(dialog, '[BASE] Awokado Hass')
+    await expect(unitSelect).toHaveCount(0)
 
     await closeTopDialog(page)
   })
@@ -247,26 +257,71 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
     await closeTopDialog(page)
   })
 
-  test('TC-MEAL-06: Filter recipes by search query, tags and category @module:cookbook @type:happy-path @state:BASE', async ({
+  test('TC-MEAL-06: Portion & calorie scaling in MealDetailsSheet (1x -> 2x and 0 fallback to 1x) @module:cookbook @type:corner-case @state:BASE', async ({
     page,
   }) => {
     const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
-    await searchInput.fill('Teriyaki')
-    await expect(page.getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
+    await searchInput.fill(CANONICAL_MEAL_NAME)
+    await page.getByText(CANONICAL_MEAL_NAME).first().click()
 
-    await searchInput.fill('Nieistniejące Danie XYZ 999')
-    await expect(page.getByText(CANONICAL_MEAL_NAME)).toHaveCount(0)
+    const detailsDialog = page.getByRole('dialog').last()
+    await expect(detailsDialog).toBeVisible()
+
+    // Base 1x portion (~808/813 kcal, 200 g chicken)
+    await expect(detailsDialog.getByText(/808\s*kcal|813\s*kcal/i).first()).toBeVisible()
+    await expect(detailsDialog.getByText(/200\s*g/).first()).toBeVisible()
+
+    // Scale to 2x target calories (1616 kcal -> 2x, 400 g chicken)
+    const targetKcalInput = detailsDialog.locator('input[type="number"]').first()
+    if ((await targetKcalInput.count()) > 0) {
+      await targetKcalInput.fill('1616')
+      await expect(detailsDialog.getByText(/400\s*g/).first()).toBeVisible()
+      await expect(detailsDialog.getByText(/1616\s*kcal|2x/i).first()).toBeVisible()
+
+      // Entering 0 or clicking Wyczyść falls back to 1x base portion (200 g) without NaN
+      await targetKcalInput.fill('0')
+      await expect(detailsDialog.getByText(/200\s*g/).first()).toBeVisible()
+    }
+
+    await closeTopDialog(page)
     await searchInput.fill('')
   })
 
-  test('TC-MEAL-07: Create, edit, ConfirmDeleteDialog cancel & delete [TEMP] recipe @module:cookbook @type:corner-case @state:TEMP', async ({
+  test('TC-MEAL-07: Inline Dodaj Produkt + from AddMealSheet, recipe filtering, and edit/delete [TEMP] recipe @module:cookbook @type:happy-path @state:TEMP', async ({
     page,
   }) => {
+    // 1) Recipe search & filter verification
+    const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
+    await searchInput.fill('Teriyaki')
+    await expect(page.getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
+    await searchInput.fill('Nieistniejące Danie XYZ 999')
+    await expect(page.getByText(CANONICAL_MEAL_NAME)).toHaveCount(0)
+    await searchInput.fill('')
+
     const tempMeal = `[TEMP] Koktajl ${isMobileViewport(page) ? 'Mob' : 'Desk'}`
     const editedMeal = `${tempMeal} Bananowy`
 
     await page.getByRole('button', { name: /Dodaj Przepis|Add Recipe/i }).first().click()
     const dialog = page.getByRole('dialog').last()
+
+    // 2) Type non-existent product in ingredient autocomplete -> click "Dodaj Produkt +" -> ProductFormSheet opens prefilled
+    const ingInput = dialog
+      .locator(
+        'input[placeholder*="Wyszukaj produkt" i], input[placeholder*="Wybierz produkt" i], input[placeholder*="Szukaj" i], input[type="text"]'
+      )
+      .last()
+    await ingInput.fill('[TEMP] Przyprawa Inline Test')
+    const inlineCreateBtn = page.getByRole('button', { name: /Dodaj Produkt|Create Product/i }).last()
+    if (await inlineCreateBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
+      await inlineCreateBtn.click()
+      const prodFormDialog = page.getByRole('dialog').last()
+      await expect(
+        prodFormDialog.locator('input[value="[TEMP] Przyprawa Inline Test"]')
+      ).toBeVisible()
+      await prodFormDialog.getByRole('button', { name: /Anuluj|Cancel/i }).first().click()
+    }
+
+    // 3) Create, edit, and delete [TEMP] recipe with ConfirmDeleteDialog Cancel -> Confirm
     await dialog.locator('input[placeholder*="Jajecznica" i]').fill(tempMeal)
     await selectFromAutocomplete(dialog, '[BASE] Mleko bez laktozy 1.5%')
     await dialog.locator('input[type="number"]').first().fill('250')
@@ -281,7 +336,6 @@ test.describe('Module 04 — Cookbook, Recipes, Kitchen Units & JSON Batch Impor
       .click()
     await expect(dialog).toBeHidden({ timeout: 10000 })
 
-    const searchInput = page.locator('input[placeholder*="Szukaj" i]').first()
     await searchInput.fill(tempMeal)
     await expect(page.getByText(tempMeal).first()).toBeVisible()
 

@@ -115,7 +115,40 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await confirmDeleteDialog(page, 'confirm')
   })
 
-  test('TC-PANTRY-03: Hierarchical general ingredient detection from child pantry stock in Cookbook @module:pantry @type:happy-path @state:BASE', async ({
+  test('TC-PANTRY-03: Freshness indicator Warehouse for Food vs Non-Food & verify stock (last_verified_at) @module:pantry @type:corner-case @state:BASE', async ({
+    page,
+  }) => {
+    // 1) Verify Food ([BASE] Ryż basmati) vs Non-Food ([BASE] Baterie AA Alkaliczne) rows have Warehouse freshness badges
+    const riceRow = page
+      .locator('div, li')
+      .filter({ hasText: '[BASE] Ryż basmati' })
+      .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
+      .last()
+    await expect(riceRow).toBeVisible()
+
+    const batteryRow = page
+      .locator('div, li')
+      .filter({ hasText: '[BASE] Baterie AA Alkaliczne' })
+      .filter({ has: page.getByRole('button', { name: /Zwiększ|Increase/i }) })
+      .last()
+    await expect(batteryRow).toBeVisible()
+
+    // Click freshness / verify stock button if needs verification, or confirm verified badge is visible
+    const verifyBtn = riceRow
+      .getByRole('button', { name: /Potwierdź stan|Zweryfikowano|Verify|Verified/i })
+      .first()
+    if ((await verifyBtn.count()) > 0) {
+      await verifyBtn.click()
+    }
+    await expect(
+      riceRow.getByText(/Zaktualizowano|Zweryfikowano|Potwierdź stan|Updated|Verified|Verify/i).first()
+    ).toBeVisible()
+    await expect(
+      batteryRow.getByText(/Zaktualizowano|Zweryfikowano|Potwierdź stan|Updated|Verified|Verify/i).first()
+    ).toBeVisible()
+  })
+
+  test('TC-PANTRY-04: Hierarchical general ingredient detection from child pantry stock in Cookbook @module:pantry @type:happy-path @state:BASE', async ({
     page,
   }) => {
     await navigateToTab(page, 'cookbook')
@@ -136,7 +169,7 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     await searchInput.fill('')
   })
 
-  test('TC-PANTRY-04: CookMealDeductModal partial deduction + full depletion removes row @module:pantry @type:corner-case @state:TEMP', async ({
+  test('TC-PANTRY-05: CookMealDeductModal partial deduction + full depletion removes row @module:pantry @type:happy-path @state:TEMP', async ({
     page,
   }) => {
     // Use a temporary standalone product & recipe so [BASE] stock quantities remain exact
@@ -249,7 +282,7 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
     }
   })
 
-  test('TC-PANTRY-05: Duplicate pantry addition merges quantity into existing row @module:pantry @type:corner-case @state:TEMP', async ({
+  test('TC-PANTRY-06: Duplicate pantry addition merges quantity & ConfirmDeleteDialog Cancel/Confirm guard @module:pantry @type:corner-case @state:TEMP', async ({
     page,
   }) => {
     const tempProd = `[TEMP] Ryż Merge ${isMobileViewport(page) ? 'M' : 'D'}`
@@ -314,44 +347,12 @@ test.describe('Module 05 — Pantry, Expiry Alerts, Hierarchical Detection & Coo
       .last()
     await expect(row.getByText(/200\s*g/)).toBeVisible()
 
-    // Cleanup
-    await deletePantryRow(page, row)
-    await confirmDeleteDialog(page, 'confirm')
-
-    await navigateToTab(page, 'products')
-    await page.locator('input[placeholder*="Szukaj produktu" i]').first().fill(tempProd)
-    await page
-      .locator('[title="Usuń"], [title="Delete"], [aria-label="Usuń"], [aria-label="Delete"]')
-      .first()
-      .click()
-    await confirmDeleteDialog(page, 'confirm')
-  })
-
-  test('TC-PANTRY-06: Cancel ConfirmDeleteDialog keeps pantry item; Confirm removes it @module:pantry @type:corner-case @state:TEMP', async ({
-    page,
-  }) => {
-    const tempProd = `[TEMP] Kasza Usuń ${isMobileViewport(page) ? 'M' : 'D'}`
-    await navigateToTab(page, 'products')
-    await ensureProductExists(page, {
-      name: tempProd,
-      unit: 'g',
-      categoryLabel: 'Spiżarnia i Sypkie',
-    })
-
-    await navigateToTab(page, 'pantry')
-    await addOrEnsurePantryItem(page, tempProd, '300')
-
-    const row = page
-      .locator('div, li')
-      .filter({ hasText: tempProd })
-      .filter({
-        has: page.getByRole('button', { name: /Zwiększ|Increase/i }),
-      })
-      .last()
+    // Cancel ConfirmDeleteDialog -> stays
     await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'cancel')
     await expect(page.getByText(tempProd).first()).toBeVisible()
 
+    // Confirm ConfirmDeleteDialog -> removed
     await deletePantryRow(page, row)
     await confirmDeleteDialog(page, 'confirm')
     await expect(page.getByText(tempProd)).toHaveCount(0)

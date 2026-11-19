@@ -143,7 +143,7 @@ test.describe('Module 10 — Cross-Cutting Localization, 6-Theme RWD & Security/
       )
       expect([401, 403]).toContain(unauthEdgeResp.status())
 
-      // Edge Function call for non-member householdId -> must reject (401/403/400 if anon key needed)
+      // Edge Function call for non-member householdId -> must reject (401/403/400)
       const foreignEdgeResp = await request.post(
         `${supabaseCtx.supabaseUrl}/functions/v1/send-push-notification`,
         {
@@ -159,6 +159,50 @@ test.describe('Module 10 — Cross-Cutting Localization, 6-Theme RWD & Security/
         }
       )
       expect([400, 401, 403]).toContain(foreignEdgeResp.status())
+
+      // Edge Function call with external non-relative url -> must reject (400/401/403)
+      const externalUrlEdgeResp = await request.post(
+        `${supabaseCtx.supabaseUrl}/functions/v1/send-push-notification`,
+        {
+          headers: {
+            Authorization: `Bearer ${supabaseCtx.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          data: {
+            householdId: '00000000-0000-4000-8000-000000000999',
+            type: 'LIST_COMPLETED',
+            listName: 'External URL Injection',
+            url: 'https://evil.example/phish',
+          },
+        }
+      )
+      expect([400, 401, 403]).toContain(externalUrlEdgeResp.status())
+
+      // Cross-tenant PostgREST RLS verification via active browser Supabase session
+      const rlsForeignRows = await page.evaluate(async () => {
+        const foreignId = '99999999-9999-4999-8999-999999999999'
+        const tokenKey = Object.keys(localStorage).find(
+          (k) => k.startsWith('sb-') && k.endsWith('-auth-token')
+        )
+        if (!tokenKey) return 0
+        const parsed = JSON.parse(localStorage.getItem(tokenKey) || '{}') as {
+          access_token?: string
+        }
+        const projectRef = tokenKey.replace(/^sb-/, '').replace(/-auth-token$/, '')
+        // Probe PostgREST with user's JWT (apikey is optional or rejected with 0 rows; if anon key is in bundle, PostgREST returns [])
+        const resp = await fetch(
+          `https://${projectRef}.supabase.co/rest/v1/shopping_lists?household_id=eq.${foreignId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${parsed.access_token || ''}`,
+            },
+          }
+        )
+        if (!resp.ok) return 0
+        const data = (await resp.json()) as unknown[]
+        return Array.isArray(data) ? data.length : 0
+      })
+      expect(rlsForeignRows).toBe(0)
     }
   })
 })

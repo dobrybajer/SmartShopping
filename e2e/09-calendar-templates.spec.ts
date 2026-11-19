@@ -209,7 +209,7 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     }
   })
 
-  test('TC-CAL-06: Save canonical [BASE] Weekly Templates (Pn-Pt & Pn-Nd) @module:calendar-templates @type:happy-path @state:BASE', async ({
+  test('TC-CAL-06: Save canonical [BASE] Weekly Templates (Pn-Pt & Pn-Nd) & apply with 1.5x scaling @module:calendar-templates @type:happy-path @state:BASE', async ({
     page,
   }) => {
     await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
@@ -244,34 +244,23 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
       await expect(modal2.getByText(BASE_TEMPLATES.fullWeek).first()).toBeVisible({ timeout: 10000 })
     }
     await closeTopDialog(page)
-  })
 
-  test('TC-CAL-07: Apply template with 1.5x portion scaling to future week, test empty-week save guard & clean [TEMP] @module:calendar-templates @type:corner-case @state:TEMP', async ({
-    page,
-  }) => {
-    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
-
-    // Advance 4 weeks ahead into an empty future week
+    // Advance 3 more weeks ahead (total T+4 weeks) and apply [BASE] workweek template with 1.5x scaling
     const nextWeekBtn = page
       .locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]')
       .first()
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       await nextWeekBtn.click()
     }
 
     await page.getByRole('button', { name: /Szablony|Templates/i }).first().click()
-    const modal = page.getByRole('dialog').last()
-    await expect(modal).toBeVisible()
+    const applyModal = page.getByRole('dialog').last()
+    await expect(applyModal).toBeVisible()
 
-    // On an empty week, saving a new template shows emptyWeekHint and disables Save
-    const saveBtn = modal.getByRole('button', { name: /Zapisz szablon|Save template/i }).first()
-    await expect(saveBtn).toBeDisabled()
-
-    // Apply [BASE] workweek template with 1.5x multiplier if present
-    const tplRow = modal
+    const tplRow = applyModal
       .locator('div, li')
       .filter({ hasText: BASE_TEMPLATES.workweek })
-      .filter({ has: modal.getByRole('button', { name: /Zastosuj|Apply/i }) })
+      .filter({ has: applyModal.getByRole('button', { name: /Zastosuj|Apply/i }) })
       .last()
     if ((await tplRow.count()) > 0) {
       const scaleInput = tplRow.locator('input[type="number"]').first()
@@ -279,11 +268,11 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
         await scaleInput.fill('1.5')
       }
       await tplRow.getByRole('button', { name: /Zastosuj|Apply/i }).first().click()
-      await expect(modal).toBeHidden({ timeout: 10000 })
+      await expect(applyModal).toBeHidden({ timeout: 10000 })
 
       // Verify scaled meal landed in future week, then clean up planned card(s)
       await expect(page.getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
-      await page.getByText(/^(PON\.|MON\.)/i).first().click()
+      await page.getByText(/^(PON\.|MON\.)|^poniedziałek|^monday/i).first().click()
       await expect(page.locator('main').getByText(CANONICAL_MEAL_NAME).first()).toBeVisible()
       await expect(page.locator('main').getByText(/1\.5/).first()).toBeVisible()
       while ((await page.locator('main').getByText(CANONICAL_MEAL_NAME).count()) > 0) {
@@ -310,5 +299,87 @@ test.describe('Module 09 — Meal Calendar, Cumulative Pantry, Uncertainty & Wee
     } else {
       await closeTopDialog(page)
     }
+  })
+
+  test('TC-CAL-07: Empty-week save guard (emptyWeekHint) & delete [TEMP] template with ConfirmDeleteDialog @module:calendar-templates @type:corner-case @state:TEMP', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: /^(Tydzień|Week)$/i }).first().click()
+
+    // 1) Advance 5 weeks ahead into an empty future week -> Save button is disabled with emptyWeekHint
+    const nextWeekBtn = page
+      .locator('[aria-label*="Następny tydzień" i], [title*="Następny tydzień" i]')
+      .first()
+    for (let i = 0; i < 5; i++) {
+      await nextWeekBtn.click()
+    }
+
+    await page.getByRole('button', { name: /Szablony|Templates/i }).first().click()
+    const emptyModal = page.getByRole('dialog').last()
+    await expect(emptyModal).toBeVisible()
+
+    const saveBtn = emptyModal.getByRole('button', { name: /Zapisz szablon|Save template/i }).first()
+    await expect(saveBtn).toBeDisabled()
+    await closeTopDialog(page)
+
+    // 2) Navigate back to T+1 week (where [BASE] meal is planned), save [TEMP] template and delete it via ConfirmDeleteDialog
+    const prevWeekBtn = page
+      .locator('[aria-label*="Poprzedni tydzień" i], [title*="Poprzedni tydzień" i]')
+      .first()
+    for (let i = 0; i < 4; i++) {
+      await prevWeekBtn.click()
+    }
+
+    const tempTemplateName = `[TEMP] Szablon Do Usunięcia ${isMobileViewport(page) ? 'M' : 'D'}`
+    await expect(page.locator('.animate-spin')).toHaveCount(0, { timeout: 10_000 })
+    await page.getByRole('button', { name: /Szablony|Templates/i }).first().click()
+    const tplModal = page.getByRole('dialog').last()
+    await expect(tplModal).toBeVisible()
+
+    const countBeforeSave = await tplModal.locator('h5', { hasText: tempTemplateName }).count()
+    const nameInput = tplModal.locator('input[placeholder*="Tydzień redukcyjny" i]').first()
+    await nameInput.fill(tempTemplateName)
+    await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.url().includes('/rest/v1/weekly_meal_templates') &&
+          res.request().method() === 'POST' &&
+          res.status() < 300
+      ),
+      tplModal.getByRole('button', { name: /Zapisz szablon|Save template/i }).click(),
+    ])
+    await expect(tplModal.locator('h5', { hasText: tempTemplateName })).toHaveCount(
+      countBeforeSave + 1,
+      { timeout: 10_000 }
+    )
+
+    // Delete all [TEMP] templates matching tempTemplateName via Usuń -> ConfirmDeleteDialog (DELETE /rest/v1/weekly_meal_templates)
+    let remaining = countBeforeSave + 1
+    while (remaining > 0) {
+      const tempRow = tplModal
+        .locator('div, li')
+        .filter({ has: page.locator('h5', { hasText: tempTemplateName }) })
+        .filter({ has: page.getByRole('button', { name: /^(Usuń|Delete)$/i }) })
+        .last()
+      await tempRow
+        .getByRole('button', { name: /^(Usuń|Delete)$/i })
+        .first()
+        .click()
+      await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.url().includes('/rest/v1/weekly_meal_templates') &&
+            res.request().method() === 'DELETE' &&
+            res.status() < 300
+        ),
+        confirmDeleteDialog(page, 'confirm'),
+      ])
+      remaining -= 1
+      await expect(tplModal.locator('h5', { hasText: tempTemplateName })).toHaveCount(remaining, {
+        timeout: 10_000,
+      })
+    }
+    await expect(tplModal.locator('h5', { hasText: tempTemplateName })).toHaveCount(0)
+    await closeTopDialog(page)
   })
 })
